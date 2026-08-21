@@ -253,7 +253,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   with explicit type registration instead.
 - **Backlog ref:** WR-P601
 
-### WR-S11. [ ] `serve-mcp` CLI command + MCP config
+### WR-S11. [~] `serve-mcp` CLI command + MCP config
 
 - **Why:** WR-P602, WR-P603 — add a `serve-mcp` command to the CLI so
   agents can start the MCP server, and add an `mcp:` section to
