@@ -96,7 +96,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [ ] WR-P214 — `--quiet` / `-q` global option (suppress all output except errors; useful for scripting)
 - [ ] WR-P215 — `--no-color` global option (disable Spectre ANSI; auto-detect non-TTY)
 - [ ] WR-P216 — Exit codes documentation (`0` success, `1` input error, `2` detections found, `3` unsupported format, `4` model missing`)
-- [ ] WR-P217 — Shell completion scripts generation (→ TODO WR-S6)
+- [~] WR-P217 — Shell completion scripts generation (→ TODO WR-S6)
 
 ### HTTP API enhancements
 - [x] WR-P221 — `POST /clean/markdown` endpoint — exists; `ServeCommand.cs:148-158` already implements it. Closed.

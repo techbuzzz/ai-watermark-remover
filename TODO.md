@@ -90,7 +90,7 @@ in this list.
   extract the host setup into a static method on `Program`.
 - **Backlog ref:** WR-P311
 
-### WR-S6. [ ] Shell completion scripts
+### WR-S6. [~] Shell completion scripts
 
 - **Why:** BACKLOG P2 — operators scripting against `watermarkremover` have
   to type full option names; tab-completion is the standard expectation.
