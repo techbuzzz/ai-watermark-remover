@@ -184,7 +184,7 @@ inside Claude Code, OpenCode, MiniMax Code, Cursor, Continue, and any
 MCP-compatible host. Full specs in [BACKLOG.md → P6](./BACKLOG.md#p6--agent-integration-mcp-skills-plugins).
 Pick in order — MCP server must land before skills and plugins can use it.
 
-### WR-S10. [ ] MCP server core (`WatermarkRemover.Mcp` project)
+### WR-S10. [~] MCP server core (`WatermarkRemover.Mcp` project)
 
 - **Why:** WR-P601 — expose the full pipeline as MCP tools so any
   MCP-compatible agent can call `clean_text`, `clean_markdown`,
