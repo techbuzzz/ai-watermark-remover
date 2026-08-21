@@ -2,8 +2,7 @@
 
 Active work queue. Each item below is **tick-ready**: a Mavis `worker` tick
 can pick it up, read this file + the referenced files, and ship the work
-without needing additional user input. Items move to BACKLOG.md when they
-out-grow the current sprint, and to "Recently done" once merged.
+without needing additional user input.
 
 Status legend:
 - `[ ]`  — **ready** (a tick can pick this up)
@@ -11,72 +10,19 @@ Status legend:
 - `[x]`  — **done** (merged to `main`)
 - `[!]`  — **blocked** (waiting on external input / decision — see notes)
 
-Reference: [BACKLOG.md](./BACKLOG.md) for the long-term roadmap (P0–P5).
-See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the module map and
-extension points the tick should read first.
+Each task has a stable ID: `WR-SNN` (sprint) or `WR-PNN` (backlog).
+The same ID appears in [BACKLOG.md](./BACKLOG.md) so the tick worker can
+cross-reference status. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+for the module map and extension points.
 
 ---
 
 ## Ready for tick
 
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
-in this list unless it already covers one of the lower ones.
+in this list.
 
-### 1. [x] Configurable rate-limit via `config.yaml`
-
-- **Why:** Currently `ServeCommand.cs:58-71` hard-codes `PermitLimit = 100`
-  and `Window = TimeSpan.FromMinutes(1)`. Operators want to tune this
-  without recompiling.
-- **Scope:** `src/WatermarkRemover.CLI/Commands/ServeCommand.cs`,
-  `src/WatermarkRemover.Core/Configuration/AppConfig.cs`,
-  `src/config.yaml`, `docs/CONFIGURATION.md`
-- **Files to touch:**
-  - `AppConfig.cs` — add `Server.RateLimit { PermitLimit, WindowSeconds,
-    QueueLimit }` with `Default` values matching today's hard-coded 100/60/0
-  - `src/config.yaml` — add a `server:` section with the same keys
-  - `ServeCommand.cs` — read from `_config.Server.RateLimit` instead of
-    literals; **also** accept CLI overrides `--rate-limit <int>` and
-    `--rate-window <seconds>` for the headless case
-  - `docs/CONFIGURATION.md` — document the new section
-- **Acceptance:**
-  - `RateLimitOptions` tests in `WatermarkRemover.Core.Tests` (if it
-    exists) or extend `AppConfigTests` — assert YAML → typed config
-    binding, default fallback, and unknown-key tolerance
-  - `serve --rate-limit 5 --rate-window 10` actually limits to 5 req / 10s
-    (test with `curl` in a loop; expect 6th request to return 429)
-  - Resolution order documented: CLI > `config.yaml` > built-in default
-- **Risks:** Keep `GlobalSettings` precedence clean. Don't break the existing
-  rate limiter behavior when the new keys are absent.
-
-### 2. [x] File size limit enforcement (server-side, `max_upload_mb`)
-
-- **Why:** `ServeCommand.cs` accepts any-size multipart uploads. The web UI
-  already pre-checks 100 MB on the client (see
-  `web/src/components/widgets/file-widget.ts` and
-  `web/src/components/widgets/image-widget.ts` `MAX_BYTES`). A malicious
-  client can bypass the check.
-- **Scope:** `src/WatermarkRemover.CLI/`
-- **Files to touch:**
-  - `AppConfig.cs` — add `Server.MaxUploadMB` (default 100)
-  - `ServeCommand.cs` — add `[RequestSizeLimit(long)]` attribute on
-    `/clean/file` and `/clean/image`, or wrap them with a small middleware
-    that reads `Content-Length` and returns `413 Payload Too Large` before
-    streaming. Prefer middleware so the rejection happens before the file
-    is copied to disk
-  - `config.yaml` — expose `server.max_upload_mb: 100`
-  - `docs/CONFIGURATION.md` and `docs/WEB-UI.md` — document
-  - Optionally: `--max-upload-mb` CLI flag for the headless case
-- **Acceptance:**
-  - Upload a 200 MB file → server returns 413 with a JSON body matching the
-    existing `ErrorResult` shape (`{ "code": "PayloadTooLarge", "message": "..." }`)
-  - Upload a 5 MB file → still works
-  - Setting `max_upload_mb: 10` in `config.yaml` and uploading 15 MB → 413
-- **Risks:** Kestrel's default request body size is 30 MB. Use
-  `KestrelServerOptions.Limits.MaxRequestBodySize` or the per-endpoint
-  attribute. The middleware approach is cleaner because it gives a proper
-  ErrorResult response, not just a generic Kestrel 413.
-
-### 3. [ ] `clean-all` auto-routing command
+### WR-S3. [ ] `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
   and have the right pipeline (text / markdown / metadata / image) chosen
@@ -90,25 +36,23 @@ in this list unless it already covers one of the lower ones.
     `ITextCleaningPipeline` for `.txt/.text/anything-else` (text mode)
   - `src/WatermarkRemover.CLI/Program.cs` — `cfg.AddCommand<CleanAllCommand>(...)`
   - README "Commands" table — add `clean-all`
-  - Backlog tick for the matching BACKLOG P2 line
 - **Acceptance:**
   - `clean-all ./mixed-dir` with a directory containing `a.txt`, `b.jpg`,
     `c.md`, `d.pdf` produces cleaned files for all 4 (or writes a summary
     to stdout)
   - `clean-all ./mixed-dir --dry-run` lists what would be cleaned and
     exits 0 without writing
-  - At least 3 tests in `WatermarkRemover.CLI.Tests` (or extension of
-    existing tests) — happy path, recursive flag, unsupported-file
-    handling
+  - At least 3 tests — happy path, recursive flag, unsupported-file handling
 - **Risks:** Don't double-process. Be careful with text fallback
   (don't send binary files to the text pipeline). Reject `.png`/`.jpg`
   as text.
+- **Backlog ref:** WR-P211
 
-### 4. [ ] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
+### WR-S4. [ ] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
 
-- **Why:** BACKLOG P3 — currently the .NET test suite is 70 tests but
-  **zero** cover the HTTP API or any command wiring. A regression in
-  `ServeCommand` (e.g. CORS) is only caught manually.
+- **Why:** BACKLOG P3 — the .NET test suite is 94 tests but **zero** cover
+  the HTTP API or any command wiring. A regression in `ServeCommand`
+  (e.g. CORS) is only caught manually.
 - **Scope:** `src/tests/`
 - **Files to touch:**
   - New `src/tests/WatermarkRemover.CLI.Tests/WatermarkRemover.CLI.Tests.csproj`
@@ -126,21 +70,20 @@ in this list unless it already covers one of the lower ones.
     - `POST /clean/text` 400 on empty body
     - `POST /clean/text` 401 when `--api-key` is set and `X-API-Key`
       header is missing
-    - `GET /swagger` (after task 1 lands) returns 200
+    - `GET /swagger` returns 200
     - `GET /` returns 200 with HTML when `wwwroot/index.html` is shipped;
       404 when `--no-ui` or `wwwroot/` is absent
 - **Acceptance:**
-  - `dotnet test` shows 70 + ~10 new tests, all green
+  - `dotnet test` shows 94 + ~10 new tests, all green
   - The new project uses the same `xunit`/`FluentAssertions` style as the
     existing test projects (read one of them first)
 - **Risks:** `WebApplicationFactory<Program>` requires `Program` to be
   partial or to expose an `IHost` builder. Currently `Program.cs` is a
   top-level `class Program` with `Main` — should still work, but if not,
   extract the host setup into a static method on `Program`.
+- **Backlog ref:** WR-P311
 
-### 5. `Directory.Packages.props` for central package management — see [BACKLOG P0](./BACKLOG.md#p0--release-readiness-must-have-before-v10) (moved to [Recently done](#recently-done))
-
-### 6. [ ] Shell completion scripts
+### WR-S6. [ ] Shell completion scripts
 
 - **Why:** BACKLOG P2 — operators scripting against `watermarkremover` have
   to type full option names; tab-completion is the standard expectation.
@@ -162,8 +105,9 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** Spectre.Console.Cli has built-in completion support — read
   the Spectre docs first before hand-rolling; using the built-in path is
   much less work.
+- **Backlog ref:** WR-P217
 
-### 7. [ ] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
+### WR-S7. [ ] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
 
 - **Why:** BACKLOG P2 — `MarkdownCleanOptions` has 21 boolean flags; only
   ~12 are currently surfaced in `src/config.yaml`. Users can't disable
@@ -184,27 +128,28 @@ in this list unless it already covers one of the lower ones.
     without throwing on the new keys
 - **Risks:** Default values must match the C# defaults or users will get
   a surprise behaviour change.
+- **Backlog ref:** WR-P231
 
-### 8. [ ] `POST /detect/markdown` endpoint
+### WR-S8. [ ] `POST /detect/markdown` endpoint
 
 - **Why:** BACKLOG P2 — README documents 8 endpoints but only 7 exist;
-  `/detect/markdown` is missing. The C# `IDetectMarkdownCommand` /
-  detector exists; only the HTTP wiring is missing.
+  `/detect/markdown` is missing. The C# detector exists; only the HTTP
+  wiring is missing.
 - **Scope:** `src/WatermarkRemover.CLI/Commands/ServeCommand.cs`
 - **Files to touch:**
   - `ServeCommand.cs` — add `app.MapPost("/detect/markdown", ...)` that
-    accepts `{ markdown }` and returns `IReadOnlyList<MarkdownArtifact>`
+    accepts `{ markdown }` and returns `IReadOnlyList<AiArtifact>`
   - README "HTTP API" table — add the row
-  - 1 test in `WatermarkRemover.CLI.Tests` (or wherever the new test
-    project from item 5 lands) — happy path
+  - 1 test — happy path
 - **Acceptance:**
   - `curl -X POST http://localhost:5080/detect/markdown -d '{"markdown":"# hi\n"}'`
     returns 200 with a JSON array
-  - `GET /swagger/v1/swagger.json` (after item 1) lists the new endpoint
+  - `GET /swagger/v1/swagger.json` lists the new endpoint
 - **Risks:** None — small, well-scoped. Done in 30 minutes once you read
   the existing `/detect/text` mapping as a template.
+- **Backlog ref:** WR-P213
 
-### 9. [ ] Watermark version command (`--version`)
+### WR-S9. [ ] Watermark version command (`--version`)
 
 - **Why:** BACKLOG P2 — currently `--version` doesn't print the assembly
   version. Operators want to confirm what they're running.
@@ -218,9 +163,10 @@ in this list unless it already covers one of the lower ones.
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion`
     into a `VersionProvider` and register it
 - **Acceptance:**
-  - `watermarkremover --version` prints e.g. `watermarkremover 1.0.0 (commit abc1234)`
+  - `watermarkremover --version` prints e.g. `watermarkremover 1.0.0`
   - `dotnet build` is clean
 - **Risks:** Trivial.
+- **Backlog ref:** WR-P2110
 
 ---
 
@@ -241,7 +187,15 @@ in this list unless it already covers one of the lower ones.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
-- [x] **File size limit enforcement** — `server.max_upload_mb` in `config.yaml`
+- [x] **WR-S1 — Configurable HTTP rate-limit** — `server.rate_limit.{permit_limit,
+      window_seconds, queue_limit}` in `config.yaml` (defaults 100/60/0),
+      CLI overrides `--rate-limit` / `--rate-window` on `serve`. New
+      `WatermarkRemover.Core.Tests` project with 13 tests covering
+      `AppConfig.Default` shape, `RateLimitConfig` defaults, and the
+      CLI/config merge. Verified end-to-end: `serve --rate-limit 3
+      --rate-window 30` returns 200 for the first 3 requests and 429
+      for the 4th+. Invalid values fail fast with exit code 1.
+- [x] **WR-S2 — File size limit enforcement** — `server.max_upload_mb` in `config.yaml`
       (default 100 MB), CLI override `--max-upload-mb` on `serve`. A middleware
       rejects multipart uploads to `/clean/file`, `/clean/image`,
       `/inspect/file`, `/detect/image` with HTTP 413 + structured
@@ -251,16 +205,7 @@ but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
       for local dev. New `MaxUploadMBTests` (11 tests) + 2 `AppConfigTests`
       additions — total 94 tests, all green. Verified end-to-end: 2 MB upload
       with `--max-upload-mb 1` → 413; `/health` still 200.
-
-- [x] **Configurable HTTP rate-limit** — `server.rate_limit.{permit_limit,
-      window_seconds, queue_limit}` in `config.yaml` (defaults 100/60/0),
-      CLI overrides `--rate-limit` / `--rate-window` on `serve`. New
-      `WatermarkRemover.Core.Tests` project with 13 tests covering
-      `AppConfig.Default` shape, `RateLimitConfig` defaults, and the
-      CLI/config merge. Verified end-to-end: `serve --rate-limit 3
-      --rate-window 30` returns 200 for the first 3 requests and 429
-      for the 4th+. Invalid values fail fast with exit code 1.
-- [x] **`Directory.Packages.props` for central package management** —
+- [x] **WR-S5 — `Directory.Packages.props` for central package management** —
       new `src/Directory.Packages.props` listing 20 packages
       (Serilog, Spectre.Console, SixLabors.ImageSharp, OnnxRuntime,
       Swashbuckle, etc.). `Version="..."` removed from every
@@ -268,7 +213,7 @@ but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
       activated via `<ManagePackageVersionsCentrally>true</
       ManagePackageVersionsCentrally>` in `Directory.Build.props`.
       Verified: NU1008 fires for stray `Version`; clean build still
-      0 warnings; 70/70 tests pass.
+      0 warnings; 94 tests pass.
 - [x] **OpenAPI / Swagger UI at `/swagger`** — interactive UI at
       `/swagger` and OpenAPI 3.0 spec at `/swagger/v1/swagger.json` for all
       8 endpoints (text, markdown, file, image, health). Generated from the
@@ -310,5 +255,5 @@ but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
    checklist.
 6. **On merge:** update this file to move the item from `Ready` to
    `Recently done` (in the same commit) and tick the matching BACKLOG.md
-   line (also in the same commit). Keep `[Unreleased]` CHANGELOG entry
-   accurate.
+   line (same WR-ID, also in the same commit). Keep `[Unreleased]` CHANGELOG
+   entry accurate.
