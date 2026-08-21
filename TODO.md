@@ -303,7 +303,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   framework reference.
 - **Backlog ref:** WR-P602, WR-P603
 
-### WR-S12. [~] MCP server tests
+### WR-S12. [x] MCP server tests
 
 - **Why:** WR-P604 — test coverage for the MCP layer before building
   skills and plugins on top of it.
@@ -575,6 +575,39 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-S12 — MCP server integration tests** — new
+      `JsonRpcIntegrationTests` fixture in `WatermarkRemover.Mcp.Tests`
+      wires a real `McpServer` host (the same composition root the
+      `serve-mcp` stdio command uses — `AddWatermarkRemoverCore / Text /
+      Metadata / Image / Mcp` + a local `IInpaintRunner` so no ONNX
+      model is needed) to a paired `System.IO.Pipelines.Pipe` pair via
+      `WithStreamServerTransport(input, output)`, then connects an
+      `McpClient` over the matching `StreamClientTransport`. No
+      subprocess, no socket, no port — the SDK's official in-process
+      testing pattern. 11 new tests cover the full JSON-RPC surface:
+      `Initialize_Handshake_ReturnsServerInfo`,
+      `Initialize_Handsshake_AdvertisesToolsCapability`,
+      `ToolsList_Returns8Tools`, `CleanText_RemovesZwsp`,
+      `CleanMarkdown_StripsFrontmatter`,
+      `DetectText_FindsVendorWatermark` (a Cyrillic homoglyph + ZWSP
+      run triggers both Claude signatures),
+      `InspectFile_ReturnsMetadataEntries` (tEXt chunk round-trip),
+      `CleanFile_ReturnsBlobResource` (cleaned bytes as
+      `EmbeddedResourceBlock` with `image/png` MIME),
+      `CleanImage_ReturnsImageContentBlock` (PNG re-encode as
+      `ImageContentBlock` with the 0x89 P N G signature verified),
+      `DetectWatermark_ReturnsRegions` (real `MaskGenerator` over a
+      32x32 fixture with a semi-transparent overlay), and
+      `EmptyInput_ReturnsToolError` (McpException surfaces as
+      `CallToolResult.IsError = true`, not a protocol error). The
+      class-level `McpJsonRpcHost` (`IAsyncLifetime` +
+      `IClassFixture<>`) starts the host, starts the client, and
+      cleans up both at the end. Added `Microsoft.Extensions.Hosting`
+      + bumped `Microsoft.Extensions.Logging.Abstractions` to
+      `10.0.10` in `Directory.Packages.props` to match the transitive
+      graph. Solution build clean, 0 warnings, 289 tests total
+      (39 in `WatermarkRemover.Mcp.Tests`), all green.
 
 - [x] **WR-S11 — `serve-mcp` CLI command + `mcp:` config** — new
       `watermarkremover serve-mcp` command (WR-S11) hosts the

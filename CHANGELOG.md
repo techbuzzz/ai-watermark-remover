@@ -18,6 +18,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MCP server integration tests (WR-S12 / WR-P604)** — new
+  `JsonRpcIntegrationTests` fixture in `WatermarkRemover.Mcp.Tests`
+  that hosts a real `McpServer` in-process (the same composition root
+  the `serve-mcp` stdio command uses — `AddWatermarkRemoverCore /
+  Text / Metadata / Image / Mcp` plus a local `IInpaintRunner` so no
+  ONNX model is needed) bound to a paired `System.IO.Pipelines.Pipe`
+  pair via `WithStreamServerTransport(input, output)`, then connects
+  an `McpClient` over the matching `StreamClientTransport`. No
+  subprocess, no socket, no port — the SDK's official in-process
+  testing pattern. 11 new tests cover the full JSON-RPC surface:
+  `Initialize_Handshake_ReturnsServerInfo`,
+  `Initialize_Handsshake_AdvertisesToolsCapability`,
+  `ToolsList_Returns8Tools`, `CleanText_RemovesZwsp`,
+  `CleanMarkdown_StripsFrontmatter`,
+  `DetectText_FindsVendorWatermark` (Cyrillic homoglyph + ZWSP run
+  triggers both Claude signatures),
+  `InspectFile_ReturnsMetadataEntries` (tEXt chunk round-trip),
+  `CleanFile_ReturnsBlobResource` (cleaned bytes as
+  `EmbeddedResourceBlock` with `image/png` MIME),
+  `CleanImage_ReturnsImageContentBlock` (PNG re-encode as
+  `ImageContentBlock` with the `0x89 P N G` signature verified),
+  `DetectWatermark_ReturnsRegions` (real `MaskGenerator` over a
+  32×32 fixture with a semi-transparent overlay), and
+  `EmptyInput_ReturnsToolError` (McpException surfaces as
+  `CallToolResult.IsError = true`, not a protocol error, per the MCP
+  spec). The class-level `McpJsonRpcHost` (`IAsyncLifetime` +
+  `IClassFixture<>`) starts the host, starts the client, and cleans
+  up both at the end. `Microsoft.Extensions.Hosting` added to
+  `Directory.Packages.props`; `Microsoft.Extensions.Logging.Abstractions`
+  bumped to `10.0.10` and `Microsoft.Extensions.DependencyInjection.Abstractions`
+  to `10.0.10` to match the transitive graph. Solution build clean,
+  0 warnings, 289 tests total (39 in `WatermarkRemover.Mcp.Tests`),
+  all green.
 - **MCP server core (`WatermarkRemover.Mcp` project)** — new
   transport-agnostic class library that exposes the full
   WatermarkRemover pipeline as eight Model Context Protocol tools
