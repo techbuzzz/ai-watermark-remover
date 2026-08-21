@@ -253,7 +253,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   with explicit type registration instead.
 - **Backlog ref:** WR-P601
 
-### WR-S11. [~] `serve-mcp` CLI command + MCP config
+### WR-S11. [x] `serve-mcp` CLI command + MCP config
 
 - **Why:** WR-P602, WR-P603 — add a `serve-mcp` command to the CLI so
   agents can start the MCP server, and add an `mcp:` section to
@@ -576,6 +576,42 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S11 — `serve-mcp` CLI command + `mcp:` config** — new
+      `watermarkremover serve-mcp` command (WR-S11) hosts the
+      `WatermarkRemover.Mcp` server in two transports, selected via
+      `--transport`: `stdio` (default) uses
+      `Host.CreateApplicationBuilder()` + `AddWatermarkRemoverMcp()` +
+      `.WithStdioServerTransport()` with **all** logging routed to
+      stderr (per the MCP stdio spec) so the JSON-RPC stream on stdout
+      stays clean; `http` uses
+      `WebApplication.CreateBuilder()` + `AddWatermarkRemoverMcp()` +
+      `.WithHttpTransport(o => o.Stateless = true)` + `app.MapMcp()`,
+      reusing the same `X-API-Key` middleware and per-IP rate-limit
+      pattern as the regular `serve` command (defaults: `--port 5090`
+      — distinct from `serve`'s 5080 so the two can run side by side;
+      `100 req/min/IP`; API key off). New `mcp:` section in
+      `config.yaml` carries `transport` (default `stdio`), `host`,
+      `port`, `api_key`, and `rate_limit.{permit_limit,window_seconds,
+      queue_limit}` (the rate-limit inherits `server.rate_limit` when
+      null). New `McpConfig` (with `Transport` / `Host` / `Port` /
+      `ApiKey` / `RateLimit`) on `AppConfig`, plus `McpTransport` enum
+      and `McpTransportExtensions.Parse` (accepts `stdio` / `pipe` and
+      `http` / `streamable` / `streamable-http`; unknown values fail
+      fast). `ModelContextProtocol.AspNetCore` 2.2.0 added to
+      `Directory.Packages.props` and the CLI csproj. 43 new tests
+      across 3 new fixtures: `McpConfigTests` (6 — default-value
+      invariants), `McpTransportParseTests` (15 — every supported
+      spelling + typo-rejection + round-trip), and
+      `ServeMcpCommandTests` (22 — settings defaults, pre-flight
+      validation, and the HTTP transport end-to-end via `TestServer`:
+      `initialize` returns the right `serverInfo`, `tools/list` returns
+      the 8 expected tool names, `--api-key` gates the MCP endpoint
+      with `/health` exempt, unknown transport / bad rate-limit
+      return exit code 1 with a clear error). `serve-mcp` added to
+      the README commands table, the new `🤖 MCP server` README
+      section (with the Claude Code one-liner), and the
+      shell-completion script catalogue. 278 tests total, all green;
+      0 build warnings.
 - [x] **WR-S10 — MCP server core (`WatermarkRemover.Mcp`)** — new
       transport-agnostic class library exposing the full pipeline as
       eight Model Context Protocol tools (built on the official

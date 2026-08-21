@@ -32,6 +32,7 @@ public static class ShellCompletionScripts
         "inspect-file",
         "download-model",
         "serve",
+        "serve-mcp",
         "completions",
     ];
 
@@ -54,6 +55,7 @@ public static class ShellCompletionScripts
             ["inspect-file"] = "-i --input",
             ["download-model"] = "-d --dest --force",
             ["serve"] = "--port --host --api-key --cors-origins --rate-limit --rate-window --max-upload-mb --no-ui",
+            ["serve-mcp"] = "--transport --host --port --api-key --rate-limit --rate-window",
             ["completions"] = "--shell",
         };
 

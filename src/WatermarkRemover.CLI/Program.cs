@@ -73,6 +73,7 @@ try
         cfg.AddCommand<InspectFileCommand>("inspect-file").WithDescription("Report metadata found in a file.");
         cfg.AddCommand<DownloadModelCommand>("download-model").WithDescription("Download the LaMa ONNX inpainting model.");
         cfg.AddCommand<ServeCommand>("serve").WithDescription("Host the HTTP API.");
+        cfg.AddCommand<ServeMcpCommand>("serve-mcp").WithDescription("Host the MCP server (stdio for local agents, or Streamable HTTP for remote).");
         cfg.AddCommand<CompletionsCommand>("completions").WithDescription("Emit a shell completion script (bash, zsh, powershell, fish).");
 
 #if DEBUG

@@ -71,6 +71,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
   - [Image](#image)
 - [🛠️ CLI reference](#-cli-reference)
 - [🌐 HTTP API (`serve`)](#-http-api-serve)
+- [🤖 MCP server (`serve-mcp`)](#-mcp-server-serve-mcp)
 - [🐳 Docker](#-docker)
 - [⚙️ Configuration](#-configuration)
 - [🧪 Build & test](#-build--test)
@@ -324,6 +325,7 @@ The produced executable is named `watermarkremover`. During development use
 | `inspect-file`     | Report all metadata found in a file.                            |
 | `download-model`   | Download & extract the LaMa ONNX inpainting model.              |
 | `serve`            | Host the HTTP API (ASP.NET Core Minimal API).                   |
+| `serve-mcp`        | Host the MCP server. `--transport stdio` (default, local agents) or `--transport http` (Streamable HTTP, remote). |
 | `completions`      | Emit a shell completion script (bash, zsh, powershell, fish).   |
 
 ### Examples
@@ -391,7 +393,37 @@ watermarkremover serve --port 5080 --api-key s3cret
 ```bash
 curl -s -X POST http://localhost:5080/clean/text \
   -H "Content-Type: application/json" -H "X-API-Key: s3cret" \
-  -d '{"text":"Пример текста"}'
+  -d '{"text":"Пример текста"}'```
+
+---
+
+## 🤖 MCP server (`serve-mcp`)
+
+`serve-mcp` exposes the full pipeline as
+[Model Context Protocol](https://modelcontextprotocol.io/) tools so any
+MCP-compatible agent (Claude Code, OpenCode, MiniMax Code, Cursor,
+Continue, …) can call `clean_text`, `clean_markdown`, `clean_file`,
+`clean_image`, `detect_text`, `detect_markdown`, `inspect_file`, and
+`detect_watermark` directly — no shell-out to the CLI. Built on the
+official [`ModelContextProtocol` C# SDK](https://github.com/modelcontextprotocol/csharp-sdk).
+
+```bash
+# stdio (default) — local agents (Claude Code, OpenCode, MiniMax Code, Cursor, Continue)
+watermarkremover serve-mcp
+# register with Claude Code
+claude mcp add watermarkremover -- watermarkremover serve-mcp
+
+# Streamable HTTP (stateless) — remote agents / Docker
+watermarkremover serve-mcp --transport http --port 5090 --api-key s3cret
+```
+
+Flags: `--transport <stdio\|http>` (default `stdio`), `-H|--host`,
+`-p|--port` (default 5090), `--api-key`, `--rate-limit`,
+`--rate-window`. Configurable via the `mcp:` section in
+[`config.yaml`](./src/config.yaml) — see
+[`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md#mcp). The stdio
+transport routes **all** logging to stderr so the JSON-RPC stream
+on stdout stays clean, per the [MCP stdio spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio).
 ```
 
 ---

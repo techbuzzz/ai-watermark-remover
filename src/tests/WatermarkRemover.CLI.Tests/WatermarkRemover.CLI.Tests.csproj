@@ -13,11 +13,15 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\WatermarkRemover.CLI\WatermarkRemover.CLI.csproj" />
     <ProjectReference Include="..\..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />
     <ProjectReference Include="..\..\WatermarkRemover.Text\WatermarkRemover.Text.csproj" />
     <ProjectReference Include="..\..\WatermarkRemover.Metadata\WatermarkRemover.Metadata.csproj" />
+    <ProjectReference Include="..\..\WatermarkRemover.Image\WatermarkRemover.Image.csproj" />
+    <ProjectReference Include="..\..\WatermarkRemover.Mcp\WatermarkRemover.Mcp.csproj" />
   </ItemGroup>
 </Project>

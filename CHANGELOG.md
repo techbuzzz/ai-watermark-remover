@@ -60,6 +60,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Directory.Packages.props`. New project added to
   `WatermarkRemover.sln`. Build clean (0 warnings, 0 errors);
   235 tests total, all green.
+- **`serve-mcp` CLI command + `mcp:` config** — new
+  `watermarkremover serve-mcp` command (WR-S11) hosts the MCP server
+  in two transports, selected via `--transport`:
+  - **`stdio`** (default) — local agent integration. Uses
+    `Host.CreateApplicationBuilder()` + `AddWatermarkRemoverMcp()` +
+    `.WithStdioServerTransport()`. All logging is routed to **stderr**
+    via `LogToStandardErrorThreshold = LogLevel.Trace` so the
+    JSON-RPC stream on stdout stays clean, per the [MCP stdio
+    spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio).
+  - **`http`** — Streamable HTTP transport (stateless, the SDK
+    default). Uses `WebApplication.CreateBuilder()` +
+    `AddWatermarkRemoverMcp()` + `.WithHttpTransport(o => o.Stateless = true)`
+    + `app.MapMcp()`. Reuses the same `X-API-Key` middleware and
+    per-IP rate-limit pattern as the regular `serve` command
+    (defaults: `--port 5090`, `100 req/min/IP`, API key off).
+    The `ModelContextProtocol.AspNetCore` 2.2.0 package is added
+    to `Directory.Packages.props` and the CLI csproj.
+  CLI flags: `--transport <stdio|http>`, `-H|--host`,
+  `-p|--port` (default 5090 — distinct from `serve`'s 5080 so the
+  two commands can run side by side), `--api-key`, `--rate-limit`,
+  `--rate-window`. New `mcp:` section in `config.yaml` carries
+  `transport` (default `stdio`), `host`, `port`, `api_key`, and
+  `rate_limit.{permit_limit,window_seconds,queue_limit}`. The MCP
+  rate-limit inherits `server.rate_limit` when not set explicitly.
+  New `McpConfig` (with `Transport`, `Host`, `Port`, `ApiKey`,
+  `RateLimit`) on `AppConfig`, plus `McpTransport` enum and
+  `McpTransportExtensions.Parse` for case-insensitive string → enum
+  mapping (accepts `stdio`/`pipe` and `http`/`streamable`/
+  `streamable-http`; unknown values fail with a clear error). 43 new
+  tests across 2 new fixtures + 1 new file: `McpConfigTests` (6
+  tests, default-value invariants), `McpTransportParseTests` (15
+  tests, every supported spelling + typo-rejection + round-trip), and
+  `ServeMcpCommandTests` (22 tests, settings defaults + pre-flight
+  validation + HTTP transport end-to-end via `TestServer` with
+  initialize / tools-list / API-key on/off / health-endpoint
+  exempt). `serve-mcp` added to the README commands table and
+  shell-completion script catalogue; new `🤖 MCP server` README
+  section with the Claude Code one-liner. 278 tests total, all green;
+  build clean (0 warnings, 0 errors).
 - **`watermarkremover --version` (and `-V`)** — new global short-circuit
   flag that prints `watermarkremover <assembly version>` and exits `0`
   *before* `config.yaml` is loaded, Serilog is wired up, or the DI

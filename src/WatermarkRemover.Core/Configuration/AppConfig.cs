@@ -9,6 +9,7 @@ public sealed class AppConfig
     public MetadataConfig Metadata { get; set; } = new();
     public LoggingConfig Logging { get; set; } = new();
     public ServerConfig Server { get; set; } = new();
+    public McpConfig Mcp { get; set; } = new();
 
     public static AppConfig Default { get; } = new();
 }
@@ -123,4 +124,102 @@ public sealed class RateLimitConfig
 
     /// <summary>Maximum queued requests when the limit is hit. 0 = reject immediately (default).</summary>
     public int QueueLimit { get; set; } = 0;
+}
+
+/// <summary>
+/// Settings for the <c>serve-mcp</c> command (WR-S11). All fields
+/// are intentionally safe-by-default: stdio transport (so a stray
+/// remote agent can't accidentally attach), no auth required
+/// (auth makes no sense for a localhost stdio pipe), and a port
+/// that doesn't collide with <c>serve</c>'s default of 5080.
+/// </summary>
+public sealed class McpConfig
+{
+    /// <summary>Transport for the MCP server. <c>stdio</c> is the
+    /// default (and the right choice for local agent integrations).
+    /// <c>http</c> starts a Streamable HTTP transport so remote
+    /// agents can reach the server over the network.</summary>
+    public McpTransport Transport { get; set; } = McpTransport.Stdio;
+
+    /// <summary>TCP port for the HTTP transport. Ignored for stdio.
+    /// Default 5090 — distinct from <c>serve</c>'s 5080 so the two
+    /// commands can run side by side without flag-flipping.</summary>
+    public int Port { get; set; } = 5090;
+
+    /// <summary>Interface to bind the HTTP transport to. Default
+    /// <c>0.0.0.0</c> (all interfaces). Ignored for stdio.</summary>
+    public string Host { get; set; } = "0.0.0.0";
+
+    /// <summary>Optional API key for the HTTP transport. When set,
+    /// every request must carry the matching <c>X-API-Key</c> header
+    /// — same auth pattern as the regular <c>serve</c> command.
+    /// <c>null</c> disables auth (typical for localhost dev).
+    /// Ignored for stdio (the stdio pipe is the auth boundary).</summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>Per-IP rate-limit policy for the HTTP transport.
+    /// Defaults to <c>server.rate_limit</c> when null; an explicit
+    /// value here overrides it. Ignored for stdio.</summary>
+    public RateLimitConfig? RateLimit { get; set; }
+}
+
+/// <summary>
+/// Transport selection for the MCP server. The string values are
+/// what callers type on the CLI and in <c>config.yaml</c>;
+/// <see cref="McpTransportExtensions.Parse"/> normalises the spelling
+/// to a known <see cref="McpTransport"/> value.
+/// </summary>
+public enum McpTransport
+{
+    /// <summary>Local stdio pipe (default). Used by Claude Code,
+    /// OpenCode, MiniMax Code, Cursor, Continue, etc.</summary>
+    Stdio,
+
+    /// <summary>Streamable HTTP transport (stateless). Used by
+    /// remote agents and Docker deployments.</summary>
+    Http,
+}
+
+/// <summary>
+/// Helpers for converting the textual <c>transport</c> setting on
+/// <see cref="McpConfig"/> into a strongly-typed
+/// <see cref="McpTransport"/>. Lives next to the enum so any
+/// caller — the CLI, the YAML loader, the tests — gets the same
+/// "stdio / http / STDIO / HTTP" → enum mapping without
+/// duplicating the case-folding logic.
+/// </summary>
+public static class McpTransportExtensions
+{
+    /// <summary>
+    /// Case-insensitive parse. Returns <c>null</c> for <c>null</c>/
+    /// whitespace input (callers fall back to the default), or
+    /// throws <see cref="ArgumentException"/> for an unknown
+    /// spelling — that way a typo in <c>config.yaml</c> shows up
+    /// as a clear error at start-up rather than silently falling
+    /// back to stdio.
+    /// </summary>
+    public static McpTransport Parse(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return McpTransport.Stdio;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "stdio" or "pipe" => McpTransport.Stdio,
+            "http" or "streamable" or "streamable-http" or "streamable_http" => McpTransport.Http,
+            _ => throw new ArgumentException(
+                $"Unknown MCP transport '{value}'. Supported: stdio, http.", nameof(value)),
+        };
+    }
+
+    /// <summary>Inverse of <see cref="Parse"/> — the canonical
+    /// CLI / config.yaml spelling for a transport value.</summary>
+    public static string ToConfigString(this McpTransport transport) => transport switch
+    {
+        McpTransport.Stdio => "stdio",
+        McpTransport.Http => "http",
+        _ => throw new ArgumentOutOfRangeException(nameof(transport), transport, null),
+    };
 }

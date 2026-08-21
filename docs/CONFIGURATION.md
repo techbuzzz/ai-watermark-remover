@@ -236,6 +236,74 @@ can confirm the source (`config.yaml` vs. CLI override) at a glance.
 
 ---
 
+## `mcp`
+
+Settings for the [`serve-mcp`](../README.md#commands) command
+(WR-S11). The MCP server exposes the full pipeline as eight
+Model Context Protocol tools so MCP-compatible agents
+(Claude Code, OpenCode, MiniMax Code, Cursor, Continue, …) can
+call `clean_text`, `clean_markdown`, `clean_file`, `clean_image`,
+`detect_text`, `detect_markdown`, `inspect_file`, and
+`detect_watermark` directly.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `transport` | `string` | `"stdio"` | Transport to bind. `"stdio"` (default) — local stdio pipe for Claude Code / OpenCode / MiniMax Code / Cursor / Continue. `"http"` — Streamable HTTP transport for remote agents and Docker. Unknown values fail at start-up with a clear error. |
+| `host` | `string` | `"0.0.0.0"` | Interface to bind the HTTP transport to. Ignored for stdio. |
+| `port` | `int` | `5090` | TCP port for the HTTP transport. Ignored for stdio. Distinct from `server.*`'s 5080 so `serve` and `serve-mcp` can run side by side. |
+| `api_key` | `string` or `null` | `null` | When set, every HTTP request must carry the matching `X-API-Key` header. Same auth pattern as the regular `serve` command. Ignored for stdio (the pipe is the auth boundary). |
+| `rate_limit` | object or `null` | `null` (→ `server.rate_limit`) | Per-IP rate-limit policy for the HTTP transport. When `null`, inherits the `server.rate_limit` block. Ignored for stdio. |
+| `rate_limit.permit_limit` | `int` | `100` | Requests allowed per window, per IP. |
+| `rate_limit.window_seconds` | `int` | `60` | Window length, in seconds. |
+| `rate_limit.queue_limit` | `int` | `0` | 0 = reject immediately on overflow (HTTP 429 with no queueing). |
+
+### Example
+
+```yaml
+mcp:
+  transport: "http"           # stdio for local agents; http for remote / Docker
+  host: "0.0.0.0"
+  port: 5090
+  api_key: null               # leave null for localhost dev; set a real key for public
+  rate_limit:
+    permit_limit: 100
+    window_seconds: 60
+    queue_limit: 0
+```
+
+### CLI overrides
+
+| Flag | Overrides |
+|---|---|
+| `--transport <stdio\|http>` | `mcp.transport` |
+| `-H\|--host <HOST>` | `mcp.host` (HTTP only) |
+| `-p\|--port <PORT>` | `mcp.port` (HTTP only) |
+| `--api-key <KEY>` | `mcp.api_key` (HTTP only) |
+| `--rate-limit <REQUESTS>` | `mcp.rate_limit.permit_limit` (HTTP only) |
+| `--rate-window <SECONDS>` | `mcp.rate_limit.window_seconds` (HTTP only) |
+
+Resolution order (first match wins):
+
+1. CLI flag
+2. `mcp.*` from `config.yaml`
+3. `server.rate_limit` (for the rate-limit knobs only)
+4. Built-in defaults
+
+`--rate-limit` and `--rate-window` must be `> 0`; `serve-mcp` exits
+with status `1` if any value is invalid. The active values are
+printed at start-up so operators can confirm the source
+(`config.yaml` vs. CLI override) at a glance.
+
+### stdout / stderr contract (stdio transport)
+
+`serve-mcp --transport stdio` uses stdout exclusively for the
+JSON-RPC protocol stream. **All** logging is routed to stderr via
+`LogToStandardErrorThreshold = LogLevel.Trace` so the agent's
+JSON parser never sees a stray log line. This matches the
+guidance from the [MCP stdio spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio).
+
+---
+
 ## Full example
 
 A complete `config.yaml` with every key set explicitly:
@@ -294,6 +362,16 @@ server:
     window_seconds: 60
     queue_limit: 0
   max_upload_mb: 100
+
+mcp:
+  transport: "stdio"
+  host: "0.0.0.0"
+  port: 5090
+  api_key: null
+  rate_limit:
+    permit_limit: 100
+    window_seconds: 60
+    queue_limit: 0
 ```
 
 ---

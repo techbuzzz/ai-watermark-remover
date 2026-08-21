@@ -33,6 +33,8 @@
     <PackageReference Include="Spectre.Console.Cli" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
   <ItemGroup>
@@ -40,6 +42,7 @@
     <ProjectReference Include="..\WatermarkRemover.Text\WatermarkRemover.Text.csproj" />
     <ProjectReference Include="..\WatermarkRemover.Metadata\WatermarkRemover.Metadata.csproj" />
     <ProjectReference Include="..\WatermarkRemover.Image\WatermarkRemover.Image.csproj" />
+    <ProjectReference Include="..\WatermarkRemover.Mcp\WatermarkRemover.Mcp.csproj" />
   </ItemGroup>
 
   <!-- Astro web UI bundle (built by `npm run build` in /web).

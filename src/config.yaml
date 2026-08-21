@@ -72,3 +72,35 @@ server:
   # before the body is streamed to disk. 0 disables the limit (not recommended
   # for public deployments). CLI flag --max-upload-mb overrides this.
   max_upload_mb: 100
+
+mcp:
+  # `serve-mcp` (WR-S11) — expose the pipeline as Model Context Protocol
+  # tools so MCP-compatible agents (Claude Code, OpenCode, MiniMax Code,
+  # Cursor, Continue, …) can call clean_text / clean_markdown / clean_file
+  # / clean_image / detect_text / detect_markdown / inspect_file /
+  # detect_watermark directly. CLI flags --transport / --port / --api-key
+  # / --rate-limit / --rate-window override these at start-up.
+  #
+  # transport: how the MCP server is bound.
+  #   - "stdio" (default) — local stdio pipe. The right choice for
+  #     Claude Code / OpenCode / MiniMax Code / Cursor / Continue. The
+  #     agent spawns the process and talks JSON-RPC over stdin/stdout.
+  #   - "http"             — Streamable HTTP transport. Reachable over
+  #     the network; meant for remote agents and Docker deployments.
+  transport: "stdio"
+  # Host / port for the HTTP transport. Ignored for stdio. Port 5090
+  # is distinct from `serve`'s default of 5080 so the two commands can
+  # run side by side without flag-flipping.
+  host: "0.0.0.0"
+  port: 5090
+  # API key for the HTTP transport. When set, every request must carry
+  # the matching X-API-Key header — same auth pattern as `serve`.
+  # Leave null (or unset) for localhost dev. Ignored for stdio (the
+  # stdio pipe is the auth boundary).
+  api_key: null
+  # Per-IP rate-limit for the HTTP transport. When omitted, inherits
+  # the `server.rate_limit` block above. Ignored for stdio.
+  rate_limit:
+    permit_limit: 100
+    window_seconds: 60
+    queue_limit: 0
