@@ -445,7 +445,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   from what's assumed here.
 - **Backlog ref:** WR-P621
 
-### WR-S16. [ ] Claude Code integration
+### WR-S16. [~] Claude Code integration
 
 - **Why:** WR-P622 — Claude Code skill + MCP config for one-command
   setup.
