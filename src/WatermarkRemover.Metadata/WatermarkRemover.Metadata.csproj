@@ -11,7 +11,7 @@
     <PackageReference Include="PdfPig" Version="0.1.15" />
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />
