@@ -18,6 +18,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent skills (`skills/` directory + installer, WR-S14 / WR-P611..WR-P617)** —
+  new top-level `skills/` directory that ships five drop-in skill
+  packages — `watermark-clean-text`, `watermark-clean-markdown`,
+  `watermark-clean-file`, `watermark-clean-image`, and
+  `watermark-detect` — each as a self-contained folder with a
+  `SKILL.md` (YAML-frontmatter trigger description + usage guide for
+  the agent) plus POSIX (`run.sh`) and Windows (`run.ps1`) wrappers
+  that pipe input through the `watermarkremover` CLI. The skills map
+  1-to-1 onto the existing CLI commands and MCP tools:
+  `clean-text` ↔ `clean_text`, `clean-markdown` ↔ `clean_markdown`,
+  `clean-file` ↔ `clean_file` / `inspect_file`,
+  `clean-image` ↔ `clean_image` / `detect_watermark`,
+  `detect-*` ↔ `detect_text` / `detect_markdown` /
+  `detect_watermark`. Each `SKILL.md` covers: trigger conditions,
+  the canonical MCP tool call (with full request/response JSON), the
+  CLI fallback, 2-3 worked examples (EN + RU for text, before/after
+  for markdown, file-type mapping table for file, mask guidance for
+  image, vendor / kind / evidence interpretation for detect), error
+  handling, language notes, and a cross-reference to the matching
+  `docs/MCP.md` / `docs/ARCHITECTURE.md` section. New
+  `skills/install.sh` and `skills/install.ps1` install any subset
+  into the target agent's skills directory with one command:
+  `./skills/install.sh --agent opencode|claude|minimax|cursor|continue|generic|auto`,
+  plus `--target <path>`, `--dry-run`, `--list`, `--help`; auto-detect
+  probes CWD for `.opencode/` / `.claude/` / `.minimax/` and falls
+  back to `~/.config/watermarkremover/skills/`; environment overrides
+  pin individual agents (`WATERMARKREMOVER_SKILLS_AGENT`,
+  `WATERMARKREMOVER_SKILLS_CLAUDE_DIR`,
+  `WATERMARKREMOVER_SKILLS_OPENCODE_DIR`,
+  `WATERMARKREMOVER_SKILLS_MINIMAX_DIR`,
+  `WATERMARKREMOVER_SKILLS_GENERIC_DIR`). The shell scripts and the
+  new C# `SkillsInstallerTargetResolver` (in
+  `WatermarkRemover.CLI/Infrastructure/`) share the same resolution
+  rules — 30 new xUnit tests in
+  `WatermarkRemover.CLI.Tests/SkillsInstallerTargetResolverTests`
+  cover every agent name + alias (case-insensitive), the home
+  resolution fallback (`HOME` → `USERPROFILE` → CWD for generic),
+  every env-override path (including blank/whitespace being
+  ignored), the auto-detect probe (pinned env wins, marker order:
+  opencode → claude → minimax, fall-through to generic when no
+  markers), the argument-validation contract (null env / empty cwd /
+  unknown agent), and the `KnownAgents` / `SkillSubdir` invariants.
+  New `docs/SKILLS.md` is the full reference: layout, install
+  options, resolution matrix (single source of truth =
+  `SkillsInstallerTargetResolver`), per-skill deep-dive, MCP vs
+  skill guidance (recommended: use both), and a troubleshooting
+  table. README gains a new `## 🧠 Agent skills` section with a
+  one-liner per skill, an install matrix, and a "Full reference:
+  docs/SKILLS.md" pointer; the table of contents gets a matching
+  entry; the `📚 Documentation` block gets a new
+  `docs/SKILLS.md` row. Build clean (0 warnings, 0 errors), 319
+  tests total (30 new in
+  `SkillsInstallerTargetResolverTests`), all green.
 - **MCP server docs (`docs/MCP.md`, WR-S13 / WR-P605)** — new
   end-user-and-developer reference for the `serve-mcp` command.
   Sections: architecture diagram (agent → transport → `WatermarkRemover.Mcp`

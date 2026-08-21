@@ -72,6 +72,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 - [🛠️ CLI reference](#-cli-reference)
 - [🌐 HTTP API (`serve`)](#-http-api-serve)
 - [🤖 MCP server (`serve-mcp`)](#-mcp-server-serve-mcp)
+- [🧠 Agent skills](#-agent-skills)
 - [🐳 Docker](#-docker)
 - [⚙️ Configuration](#-configuration)
 - [🧪 Build & test](#-build--test)
@@ -433,6 +434,43 @@ on stdout stays clean, per the [MCP stdio spec](https://modelcontextprotocol.io/
 
 ---
 
+## 🧠 Agent skills
+
+The [`skills/`](./skills/) directory ships **drop-in skill packages**
+that teach AI coding assistants *when* and *how* to use
+WatermarkRemover. Each skill is a self-contained folder with a
+`SKILL.md` (the agent reads it) plus POSIX (`run.sh`) and Windows
+(`run.ps1`) wrappers that pipe input through the CLI.
+
+| Skill | CLI command | What it does |
+|-------|-------------|--------------|
+| `watermark-clean-text`     | `clean-text`     | Strip invisible characters and rewrite AI-sounding phrasing (EN + RU). |
+| `watermark-clean-markdown` | `clean-markdown` | Strip AI signatures / frontmatter from Markdown, preserve fenced code. |
+| `watermark-clean-file`     | `clean-file`     | Strip EXIF / XMP / IPTC / C2PA / XMP-pdf / DOCX core props / HTML meta. |
+| `watermark-clean-image`    | `clean-image`    | Detect + inpaint a visual watermark with LaMa. |
+| `watermark-detect`         | `detect-*`       | Read-only AI provenance check. |
+
+Install for your agent in one command:
+
+```bash
+./skills/install.sh --agent opencode          # ./.opencode/skills/watermarkremover/
+./skills/install.sh --agent claude            # ~/.claude/skills/watermarkremover/
+./skills/install.sh --agent minimax           # ~/.minimax/skills/watermarkremover/
+./skills/install.sh --agent auto              # probe CWD for .opencode/.claude/.minimax
+./skills/install.sh --dry-run                 # print what would happen
+```
+
+The installer scripts (`install.sh` + `install.ps1`) and the C#
+`SkillsInstallerTargetResolver` (in
+[`WatermarkRemover.CLI/Infrastructure/`](./src/WatermarkRemover.CLI/Infrastructure/SkillsInstallerTargetResolver.cs))
+share the same resolution rules — unit-tested for every agent name
+and every environment override.
+
+> **Full reference:** [📘 docs/SKILLS.md](./docs/SKILLS.md) — resolution
+> matrix, per-skill deep-dive, MCP-vs-skill integration, troubleshooting.
+
+---
+
 ## 🐳 Docker
 
 Pre-built images will be published to GHCR / Docker Hub after the first release; until
@@ -541,6 +579,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
 - 🤖 [docs/MCP.md](./docs/MCP.md) — `serve-mcp` for Claude Code, OpenCode, MiniMax Code, Cursor, Continue (MCP server architecture, tool schemas, install recipes)
+- 🧠 [docs/SKILLS.md](./docs/SKILLS.md) — drop-in agent skills (`skills/`) for OpenCode, Claude Code, MiniMax Code, Cursor, Continue (install, resolution rules, per-skill reference)
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
 - 📝 [TODO.md](./TODO.md) — current sprint
 
