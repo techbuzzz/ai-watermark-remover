@@ -38,7 +38,7 @@ Status legend:
 
 ## Next — P1 features
 
-- [ ] WebP metadata cleaner (byte-level RIFF chunk parser)
+- [x] WebP metadata cleaner (byte-level RIFF chunk parser)
 - [ ] TIFF metadata cleaner (ImageSharp-based)
 - [ ] Expand synonym dictionary (EN → 400+, RU → 200+)
 - [ ] DeepSeek / Grok / Mistral vendor detectors

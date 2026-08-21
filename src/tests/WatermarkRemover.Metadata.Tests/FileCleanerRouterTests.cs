@@ -11,6 +11,7 @@ public class FileCleanerRouterTests
     [
         new JpegMetadataCleaner(),
         new PngMetadataCleaner(),
+        new WebPMetadataCleaner(),
         new PdfMetadataCleaner(),
         new DocxMetadataCleaner(),
         new HtmlMetadataCleaner(),
@@ -20,6 +21,7 @@ public class FileCleanerRouterTests
     [InlineData("a.png")]
     [InlineData("a.jpg")]
     [InlineData("a.jpeg")]
+    [InlineData("a.webp")]
     [InlineData("a.pdf")]
     [InlineData("a.docx")]
     [InlineData("a.html")]
@@ -46,8 +48,15 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_WebP_ReturnsWebPCleaner()
+    {
+        IFileMetadataCleaner? cleaner = BuildRouter().Resolve("photo.webp");
+        cleaner.Should().BeOfType<WebPMetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".pdf", ".docx", ".html"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".pdf", ".docx", ".html"]);
     }
 }

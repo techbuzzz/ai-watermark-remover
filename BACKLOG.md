@@ -50,7 +50,7 @@ Status legend:
 ### New file format support
 - [ ] **TIFF** metadata cleaner (`TIFFMetadataCleaner`) — strip EXIF, IPTC, XMP, ICC; preserve pixel data via `SixLabors.ImageSharp`
 - [ ] **HEIF/HEIC** metadata cleaner — strip EXIF/XMP from Apple's modern photo format
-- [ ] **WebP** metadata cleaner — byte-level chunk parser for VP8/VP8L/VP8X RIFF (strip EXIF, XMP, ICC chunks)
+- [x] **WebP** metadata cleaner — byte-level chunk parser for VP8/VP8L/VP8X RIFF (strip EXIF, XMP, ICC chunks)
 - [ ] **AVIF** metadata cleaner — ISOBMFF box parser for EXIF/XMP
 - [ ] **EPUB** metadata cleaner — strip OPF metadata (creator, contributor, dc:identifier, etc.) via zip-rewrite
 - [ ] **PPTX/XLSX** metadata cleaners — extend OpenXML approach beyond DOCX

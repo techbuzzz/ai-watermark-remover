@@ -78,6 +78,99 @@ internal static class TestFixtures
         File.WriteAllText(path, html);
     }
 
+    /// <summary>
+    /// Writes a minimal but structurally valid WebP file with optional VP8X, EXIF, XMP and
+    /// ICCP chunks. The VP8 bitstream is just a header stub; tests don't decode pixels, they
+    /// only verify metadata chunk removal.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="includeVp8x">When true, emit a VP8X chunk whose flags reflect the metadata chunks present.</param>
+    /// <param name="includeExif">When true, emit an EXIF chunk (and set the EXIF flag in VP8X).</param>
+    /// <param name="includeXmp">When true, emit an XMP chunk (and set the XMP flag in VP8X).</param>
+    /// <param name="includeIccp">When true, emit an ICCP chunk (and set the ICC flag in VP8X).</param>
+    public static void WriteWebPWithMetadata(
+        string path,
+        bool includeVp8x = true,
+        bool includeExif = true,
+        bool includeXmp = true,
+        bool includeIccp = true)
+    {
+        using var fs = File.Create(path);
+
+        // RIFF header: FourCC + size (patched at the end) + WEBP form-type.
+        long riffSizePos = fs.Position;
+        fs.Write("RIFF"u8);
+        fs.Position += 4; // placeholder for file size
+        fs.Write("WEBP"u8);
+
+        if (includeVp8x)
+        {
+            byte flags = 0;
+            if (includeExif)
+            {
+                flags |= 0x08;
+            }
+
+            if (includeXmp)
+            {
+                flags |= 0x04;
+            }
+
+            if (includeIccp)
+            {
+                flags |= 0x20;
+            }
+
+            // VP8X data = 4-byte flags + 3-byte canvas width-1 + 3-byte canvas height-1 = 10 bytes
+            // Canvas: 1x1 (encoded as 0).
+            byte[] vp8xData = [flags, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            WriteRiffChunk(fs, "VP8X", vp8xData);
+        }
+
+        // Minimal VP8 bitstream header (not a real frame, but a valid chunk that must survive).
+        WriteRiffChunk(fs, "VP8 ", [0x9D, 0x01, 0x2A, 0x01, 0x00, 0x01, 0x00, 0x01, 0x40, 0x00]);
+
+        if (includeIccp)
+        {
+            WriteRiffChunk(fs, "ICCP", "iccp-payload"u8.ToArray());
+        }
+
+        if (includeExif)
+        {
+            WriteRiffChunk(fs, "EXIF", "exif-payload"u8.ToArray());
+        }
+
+        if (includeXmp)
+        {
+            WriteRiffChunk(fs, "XMP ", "xmp-payload"u8.ToArray());
+        }
+
+        // Patch the RIFF size: total file size minus 8 (RIFF + size field).
+        long finalPos = fs.Position;
+        fs.Position = riffSizePos + 4;
+        Span<byte> sizeBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(sizeBytes, (uint)(finalPos - 8));
+        fs.Write(sizeBytes);
+    }
+
+    private static void WriteRiffChunk(Stream stream, string fourcc, byte[] data)
+    {
+        byte[] fourccBytes = Encoding.ASCII.GetBytes(fourcc);
+        stream.Write(fourccBytes);
+
+        Span<byte> sizeBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(sizeBytes, (uint)data.Length);
+        stream.Write(sizeBytes);
+
+        stream.Write(data);
+
+        // RIFF chunks are padded to an even data section.
+        if ((data.Length & 1) == 1)
+        {
+            stream.WriteByte(0);
+        }
+    }
+
     private static void WriteChunk(Stream stream, string type, byte[] data)
     {
         Span<byte> len = stackalloc byte[4];
