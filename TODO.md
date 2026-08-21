@@ -355,7 +355,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   `.AsStream()` if the API expects `Stream`.
 - **Backlog ref:** WR-P604
 
-### WR-S13. [ ] MCP server docs (`docs/MCP.md`)
+### WR-S13. [~] MCP server docs (`docs/MCP.md`)
 
 - **Why:** WR-P605 — document the MCP integration for agent developers
   and end users.
