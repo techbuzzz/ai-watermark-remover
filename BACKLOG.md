@@ -1,12 +1,23 @@
 # Backlog — WatermarkRemover
 
-Prioritized list of improvements, features, and infrastructure work to make
-WatermarkRemover the most popular AI-watermark-removal tool.
+Prioritised roadmap of improvements, features, and infrastructure work.
+Items move from the roadmap into [TODO.md](./TODO.md) when they're ready
+to be picked up by a tick; the tick-ready entry there is the **spec**, this
+file is the **why**.
+
+> **Reading order for a new contributor:**
+> 1. [README.md](./README.md) — what the tool does and how to install it.
+> 2. [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — module map, data
+>    flow, extension points.
+> 3. [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml`
+>    key.
+> 4. [TODO.md](./TODO.md) — what's next; items here are tick-ready.
 
 Status legend:
 - `[ ]`  — **pending** (not started)
-- `[~]`  — **in-progress** (currently being worked on by a tick)
+- `[~]`  — **in-progress** (a tick is on it — see [TODO.md](./TODO.md))
 - `[x]`  — **done** (completed and committed)
+- `[!]`  — **blocked** (waiting on external input / decision)
 
 ---
 
@@ -14,34 +25,24 @@ Status legend:
 
 ### CI/CD & automation
 - [x] GitHub Actions workflow: `build-and-test.yml` (restore, build, test on push/PR; matrix: windows + ubuntu; `dotnet test --logger trx --collect:"XPlat Code Coverage"`; upload coverage to codecov)
-- [x] GitHub Actions workflow: `release.yml` (on tag `v*` — `dotnet publish -c Release -r {linux-x64,win-x64,osx-x64,linux-arm64}` self-contained, zip artifacts, create GitHub Release with attached binaries)
+- [x] GitHub Actions workflow: `release.yml` (on tag `v*` — Node 22 + `npm run build` step builds the web UI; `dotnet publish -c Release -r {linux-x64,win-x64,osx-x64,linux-arm64}` self-contained single-file, with `IncludeAllContentForSelfExtract=true` so `wwwroot/` is embedded; zip artifacts; create GitHub Release with attached binaries)
 - [x] `global.json` pinning the SDK version (`10.0.400`) for reproducible builds
-- [ ] `Directory.Packages.props` for central package management (single version source for all NuGet refs)
-- [ ] Dependabot config (`.github/dependabot.yml`) for NuGet + GitHub Actions updates
+- [ ] `Directory.Packages.props` for central package management — see [TODO #6](./TODO.md#6-directorypackagesprops-for-central-package-management)
+- [x] Dependabot config (`.github/dependabot.yml`) for NuGet + GitHub Actions + Docker
 
 ### Containerization
-- [x] `Dockerfile` (multi-stage: `mcr.microsoft.com/dotnet/sdk:10.0` build → `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` runtime, non-root user, `EXPOSE 5080`, `HEALTHCHECK CMD curl /health`)
-- [x] `.dockerignore` (exclude `bin/`, `obj/`, `.vs/`, `models/`, `logs/`, `*.user`)
-- [ ] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`)
+- [x] `Dockerfile` (multi-stage: `node:22-alpine` webbuild → `mcr.microsoft.com/dotnet/sdk:10.0` build → `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` runtime, non-root user, `EXPOSE 5080`, `HEALTHCHECK CMD curl /health`)
+- [x] `.dockerignore` (exclude `bin/`, `obj/`, `.vs/`, `models/`, `logs/`, `*.user`, `web/node_modules/`, `web/dist/`, `web/.astro/`, `web/.env*`)
+- [x] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`, also `WATERMARKREMOVER_CORS_ORIGINS`)
 
 ### Distribution
-- [x] `dotnet publish` publish profiles for self-contained single-file executables (`PublishSingleFile=true`, `SelfContained=true`, `RuntimeIdentifier`, `EnableCompressionInSingleFile=true`) — `src/WatermarkRemover.CLI/Properties/PublishProfiles/{linux-x64,linux-arm64,win-x64,osx-x64}.pubxml`
+- [x] `dotnet publish` publish profiles for self-contained single-file executables (`PublishSingleFile=true`, `SelfContained=true`, `RuntimeIdentifier`, `EnableCompressionInSingleFile=true`, `IncludeAllContentForSelfExtract=true`) — `src/WatermarkRemover.CLI/Properties/PublishProfiles/{linux-x64,linux-arm64,win-x64,osx-x64}.pubxml`
 - [ ] NuGet packaging: mark `WatermarkRemover.Core` / `.Text` / `.Metadata` / `.Image` as `IsPackable=true`, set `PackageId` / `PackageVersion`, `PackageReadmeFile`, `PackageIcon`, create `.snk` for strong naming
 - [ ] `dotnet tool` packaging for a potential global tool install (`dotnet tool install -g watermarkremover`)
 
 ### Docs
-- [x] `CONTRIBUTING.md` (build/test instructions, code style, PR process, commit conventions)
-- [x] `SECURITY.md` (responsible disclosure for a tool that removes tracking watermarks)
-- [x] `CHANGELOG.md` (Keep a Changelog format)
-- [x] GitHub issue templates: `.github/ISSUE_TEMPLATE/bug-report.yml` + `feature-request.yml`
-- [x] `.github/PULL_REQUEST_TEMPLATE.md`
-- [x] `.github/CODEOWNERS`
-- [x] `CODE_OF_CONDUCT.md` (Contributor Covenant)
-- [x] `.github/FUNDING.yml` (GitHub Sponsors)
-- [x] `.github/dependabot.yml` (NuGet + GitHub Actions + Docker)
-- [x] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`)
-- [x] README overhaul: badges, hero, install methods, comparison, FAQ link, TOC
-- [x] New docs: `docs/FAQ.md`, `docs/COMPARISON.md`, `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`
+- [x] `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, issue templates, `PULL_REQUEST_TEMPLATE.md`, `CODEOWNERS`, `CODE_OF_CONDUCT.md`, `FUNDING.yml`, `dependabot.yml`
+- [x] `docker-compose.yml`, README overhaul, `docs/FAQ.md`, `docs/COMPARISON.md`, `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/WEB-UI.md`
 
 ---
 
@@ -58,9 +59,7 @@ Status legend:
 - [ ] **MP4/MOV** metadata cleaner — strip `moov/udta/©xyz` atom (GPS), `udta/meta/keys/ilst` (title/author)
 
 ### Text layer enhancements
-- [ ] **DeepSeek vendor detector** — heuristic patterns for DeepSeek text watermarks
-- [ ] **Grok/xAI vendor detector** — detect Grok-specific artifacts
-- [ ] **Mistral vendor detector** — detect Mistral-specific artifacts
+- [ ] **DeepSeek / Grok / Mistral** vendor detectors — heuristic patterns for these providers' text watermarks
 - [ ] **Expand synonym dictionary** — increase EN coverage from ~140 → 400+ headwords; RU from ~50 → 200+
 - [ ] **Configurable synonym dictionary** — load custom synonyms from `config.yaml` or an external JSON file
 - [ ] **Additional language synonym sets** — German, French, Spanish, Chinese, Japanese
@@ -86,27 +85,29 @@ Status legend:
 ## P2 — Platform & UX (v1.x)
 
 ### CLI experience
-- [ ] `watermarkremover --version` command (read version from assembly metadata)
-- [ ] `clean-all` command — process a mixed directory: auto-detect file type and route to the appropriate cleaner (text/markdown → text pipeline, images → image pipeline, documents → metadata pipeline)
+- [ ] `watermarkremover --version` command — see [TODO #10](./TODO.md#10-watermark-version-command--version)
+- [ ] `clean-all` command — see [TODO #4](./TODO.md#4-clean-all-auto-routing-command)
 - [ ] `batch` command — process a JSON/CSV manifest file with list of inputs + desired outputs (for automated pipelines)
 - [ ] `--quiet` / `-q` global option (suppress all output except errors; useful for scripting)
 - [ ] `--no-color` global option (disable Spectre ANSI; auto-detect non-TTY)
-- [ ] Exit codes documentation (`0` success, `1` input error, `2` detections found, `3` unsupported format, `4` model missing)
-- [ ] Shell completion scripts generation (`watermarkremover completions --shell powershell|bash|zsh|fish`)
+- [ ] Exit codes documentation (`0` success, `1` input error, `2` detections found, `3` unsupported format, `4` model missing`)
+- [ ] Shell completion scripts generation — see [TODO #7](./TODO.md#7-shell-completion-scripts)
 
 ### HTTP API enhancements
-- [ ] `POST /clean/markdown` endpoint (documented in README but missing in `ServeCommand.MapEndpoints` — currently only `clean/text`, `detect/text`, `clean/markdown` exists; add `detect/markdown`)
-- [ ] `POST /detect/markdown` endpoint
-- [ ] OpenAPI / Swagger UI at `/swagger` (via Swashbuckle) for API discoverability
+- [x] `POST /clean/markdown` endpoint — exists; **note**: the BACKLOG item here
+      used to say "missing" but `ServeCommand.cs:148-158` already implements it.
+      Closed.
+- [ ] `POST /detect/markdown` endpoint — see [TODO #9](./TODO.md#9-post-detectmarkdown-endpoint)
+- [ ] OpenAPI / Swagger UI at `/swagger` — see [TODO #1](./TODO.md#1-openapi--swagger-ui-at-swagger)
 - [x] CORS support (configurable allowed origins via `--cors-origins`)
-- [ ] Configurable rate-limit via `config.yaml` (currently hardcoded 100 req/min)
-- [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB)
+- [ ] Configurable rate-limit via `config.yaml` — see [TODO #2](./TODO.md#2-configurable-rate-limit-via-configyaml)
+- [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB) — see [TODO #3](./TODO.md#3-file-size-limit-enforcement-server-side-max_upload_mb)
 - [ ] `/metrics` endpoint (Prometheus: request count, latency histogram, model availability)
-- [x] Web UI (Astro "box") — single-page plug-and-play dashboard at `/` with Text / Markdown / File / Image tabs. Astro 5.x static output, no UI framework, code-split per tab. Co-located with the .NET binary via `UseStaticFiles`; standalone deploys also supported. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
+- [x] Web UI (Astro "box") — single-page plug-and-play dashboard at `/` with Text / Markdown / File / Image tabs. Astro 5.x static output, no UI framework, code-split per tab. Co-located with the .NET binary via `UseStaticFiles` (single-file releases embed the bundle via `IncludeAllContentForSelfExtract`). Standalone deploys (Vercel / Netlify / GH Pages / nginx) also supported. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
 
 ### Configuration
 - [ ] Environment variable overrides (`WATERMARKREMOVER__TEXT__STATISTICAL=true`, double-underscore notation like ASP.NET config)
-- [ ] Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced)
+- [ ] Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced) — see [TODO #8](./TODO.md#8-expose-all-21-markdowncleanoptions-toggles-in-configyaml)
 - [ ] Config validation — fail fast with clear error on unknown keys / invalid values
 
 ---
@@ -114,7 +115,7 @@ Status legend:
 ## P3 — Quality & reliability (ongoing)
 
 ### Test coverage
-- [ ] `WatermarkRemover.CLI.Tests` project — test CLI commands (`CleanTextCommand`, `CleanMarkdownCommand`, `CleanFileCommand`, `CleanImageCommand`, `DetectTextCommand`, etc.) with `WebApplicationFactory` for HTTP endpoints
+- [ ] `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints — see [TODO #5](./TODO.md#5-watermarkremoverclitests-project-webapplicationfactory-for-http)
 - [ ] Integration tests — end-to-end: create temp files with known watermarks → run CLI → assert cleaned output
 - [ ] `WatermarkRemover.Core.Tests` project — test `ConfigLoader`, `AppConfig.Default`, `ErrorResult`
 - [ ] Property-based tests (FsCheck) for Unicode hygiene — random insertion of invisible chars into arbitrary text, assert all removed
@@ -144,7 +145,7 @@ Status legend:
 - [ ] APT/YUM packages for Linux distributions
 - [ ] Winget manifest (`winget install WatermarkRemover`)
 - [ ] Static Linux binary (musl, `linux-musl-x64` RID) for maximum distro compatibility
-- [ ] NuGet packages published to nuget.org — `WatermarkRemover.Core`, `WatermarkRemover.Text`, `WatermarkRemover.Metadata`, `WatermarkRemover.Image` as consumable libraries
+- [ ] NuGet packages published to nuget.org — `WatermarkRemover.Core`, `.Text`, `.Metadata`, `.Image` as consumable libraries
 
 ### Integrations
 - [ ] Python bindings — `pyo3` or `ctypes` wrapper exposing the text-cleaning pipeline as a Python package (`pip install watermarkremover`)
@@ -169,6 +170,6 @@ Status legend:
 - [ ] **Real-time API gateway** — managed cloud service (serverless) with auth, rate limiting, billing
 - [ ] **Model marketplace** — community-contributed watermark detection models (ONNX) downloadable via `download-model --list`
 - [ ] **CLI plugin system** — load custom `IFileMetadataCleaner` / `IAiTextWatermarkDetector` implementations from DLLs at runtime
-- [ ] **Web dashboard** — full React/Blazor WASM frontend with batch processing, history, and settings
+- [ ] **Web dashboard** — full React/Blazor WASM frontend with batch processing, history, and settings (the current Astro "box" is the minimal v1; this is the v2)
 - [ ] **Telemetry opt-in** — anonymous usage stats (which layers used, file types processed) to guide development priorities
 - [ ] **Multilingual CLI** — localize CLI help strings (Russian, German, Chinese, Japanese)
