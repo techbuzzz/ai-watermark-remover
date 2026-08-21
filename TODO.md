@@ -156,7 +156,7 @@ in this list.
   the existing `/detect/text` mapping as a template.
 - **Backlog ref:** WR-P213
 
-### WR-S9. [ ] Watermark version command (`--version`)
+### WR-S9. [~] Watermark version command (`--version`)
 
 - **Why:** BACKLOG P2 — currently `--version` doesn't print the assembly
   version. Operators want to confirm what they're running.
