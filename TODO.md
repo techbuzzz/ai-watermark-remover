@@ -76,7 +76,7 @@ in this list unless it already covers one of the lower ones.
   attribute. The middleware approach is cleaner because it gives a proper
   ErrorResult response, not just a generic Kestrel 413.
 
-### 3. `clean-all` auto-routing command
+### 3. [ ] `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
   and have the right pipeline (text / markdown / metadata / image) chosen
@@ -104,7 +104,7 @@ in this list unless it already covers one of the lower ones.
   (don't send binary files to the text pipeline). Reject `.png`/`.jpg`
   as text.
 
-### 4. `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
+### 4. [ ] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
 
 - **Why:** BACKLOG P3 — currently the .NET test suite is 70 tests but
   **zero** cover the HTTP API or any command wiring. A regression in
@@ -140,7 +140,7 @@ in this list unless it already covers one of the lower ones.
 
 ### 5. `Directory.Packages.props` for central package management — see [BACKLOG P0](./BACKLOG.md#p0--release-readiness-must-have-before-v10) (moved to [Recently done](#recently-done))
 
-### 6. Shell completion scripts
+### 6. [ ] Shell completion scripts
 
 - **Why:** BACKLOG P2 — operators scripting against `watermarkremover` have
   to type full option names; tab-completion is the standard expectation.
@@ -163,7 +163,7 @@ in this list unless it already covers one of the lower ones.
   the Spectre docs first before hand-rolling; using the built-in path is
   much less work.
 
-### 7. Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
+### 7. [ ] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
 
 - **Why:** BACKLOG P2 — `MarkdownCleanOptions` has 21 boolean flags; only
   ~12 are currently surfaced in `src/config.yaml`. Users can't disable
@@ -185,7 +185,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** Default values must match the C# defaults or users will get
   a surprise behaviour change.
 
-### 8. `POST /detect/markdown` endpoint
+### 8. [ ] `POST /detect/markdown` endpoint
 
 - **Why:** BACKLOG P2 — README documents 8 endpoints but only 7 exist;
   `/detect/markdown` is missing. The C# `IDetectMarkdownCommand` /
@@ -204,7 +204,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** None — small, well-scoped. Done in 30 minutes once you read
   the existing `/detect/text` mapping as a template.
 
-### 9. Watermark version command (`--version`)
+### 9. [ ] Watermark version command (`--version`)
 
 - **Why:** BACKLOG P2 — currently `--version` doesn't print the assembly
   version. Operators want to confirm what they're running.

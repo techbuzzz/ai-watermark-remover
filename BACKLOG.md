@@ -117,7 +117,7 @@ Status legend:
 ### Test coverage
 - [ ] `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints — see [TODO #4](./TODO.md#4-watermarkremoverclitests-project-webapplicationfactory-for-http)
 - [ ] Integration tests — end-to-end: create temp files with known watermarks → run CLI → assert cleaned output
-- [ ] `WatermarkRemover.Core.Tests` project — test `ConfigLoader`, `AppConfig.Default`, `ErrorResult`
+- [x] `WatermarkRemover.Core.Tests` project — test `ConfigLoader`, `AppConfig.Default`, `ErrorResult` — created with 24 tests covering `AppConfig` defaults, `RateLimitConfig`, `MaxUploadMB`
 - [ ] Property-based tests (FsCheck) for Unicode hygiene — random insertion of invisible chars into arbitrary text, assert all removed
 - [ ] Snapshot tests for markdown cleaner — verify output across a corpus of AI-generated markdown samples
 - [ ] Test coverage threshold enforcement in CI (e.g., `coverlet` threshold ≥ 80% line coverage)
