@@ -18,7 +18,7 @@ Status legend:
 
 - [x] **global.json** — pin SDK to `10.0.400` (rollForward `latestPatch`, stable only).
 
-- [ ] **Dockerfile** — multi-stage build, alpine runtime, non-root, `EXPOSE 5080`.
+- [x] **Dockerfile** — multi-stage build, alpine runtime, non-root, `EXPOSE 5080`.
 - [ ] **.dockerignore** — exclude `bin/ obj/ .vs/ models/ logs/`.
 - [ ] **docker-compose.yml** — dev service with model volume.
 
