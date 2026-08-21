@@ -18,6 +18,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Shell completion scripts** — new `completions --shell <bash|zsh|powershell|fish>`
+  CLI command emits a static completion script for the requested shell,
+  covering every sub-command and a curated set of common flags per
+  command. Install with
+  `watermarkremover completions --shell bash | sudo tee /etc/bash_completion.d/watermarkremover > /dev/null`
+  (bash), drop the zsh script into `site-functions/_watermarkremover`,
+  append the PowerShell block to `$PROFILE.CurrentUserAllHosts`, or
+  redirect the fish script into `~/.config/fish/completions/`. See
+  [`docs/SHELL-COMPLETION.md`](./docs/SHELL-COMPLETION.md) for the
+  full install matrix. Static generator lives in
+  `ShellCompletionScripts`; command list and option hints are
+  kept in one place so all four shells stay in lockstep. 17 new
+  tests in `CompletionsCommandTests` cover: every shell renders a
+  script that names the main sub-commands, the bash script registers
+  `complete -F _watermarkremover`, the zsh script starts with
+  `#compdef watermarkremover`, the PowerShell script uses
+  `Register-ArgumentCompleter`, the fish script uses the
+  `complete` builtin, an unknown shell throws
+  `ArgumentException`, and the command itself returns 1 on an
+  unknown / empty shell and 0 with a valid script on stdout.
 - **HTTP endpoint tests for `serve`** — the eight endpoints
   (`/health`, `POST /clean/text`, `POST /clean/markdown`,
   `POST /clean/file`, `POST /clean/image`, `POST /detect/text`,

@@ -1,0 +1,32 @@
+// opencode.jsonc — Configuration for .NET / ASP.NET Core projects
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    // Context7 — fetch latest .NET/EF/ASP.NET docs
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    },
+    // GitHub — PR review and code search
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "oauth": {},
+      "enabled": false
+    }
+  },
+  "permission": {
+    "skill": {
+      "dotnet-expert": "allow",
+      "code-review": "allow",
+      "tdd": "allow",
+      "security-audit": "allow",
+      "git-flow": "allow",
+      "*": "allow"
+    }
+  },
+  "instructions": [
+    "AGENTS.md"
+  ]
+}

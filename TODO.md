@@ -90,7 +90,7 @@ in this list.
   extract the host setup into a static method on `Program`.
 - **Backlog ref:** WR-P311
 
-### WR-S6. [~] Shell completion scripts
+### WR-S6. [x] Shell completion scripts
 
 - **Why:** BACKLOG P2 — operators scripting against `watermarkremover` have
   to type full option names; tab-completion is the standard expectation.
@@ -576,6 +576,27 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S6 — Shell completion scripts** — new `completions --shell
+      <bash|zsh|powershell|fish>` command emits a static completion script
+      for the requested shell. `ShellCompletionScripts` (Infrastructure)
+      holds the single source of truth — a curated command list and
+      best-effort per-command option hints — and emits well-formed scripts
+      that are namespaced to `watermarkremover` so they don't interfere
+      with anything else. Install via
+      `... --shell bash | sudo tee /etc/bash_completion.d/watermarkremover > /dev/null`
+      (bash), drop the zsh script into
+      `$(brew --prefix)/share/zsh/site-functions/_watermarkremover`, append
+      the PowerShell block to `$PROFILE.CurrentUserAllHosts`, or save the
+      fish script to `~/.config/fish/completions/watermarkremover.fish`.
+      New `docs/SHELL-COMPLETION.md` covers all four installs plus a
+      troubleshooting section. 17 new tests in `CompletionsCommandTests`:
+      every shell renders a script that names the main sub-commands, the
+      bash script registers `complete -F _watermarkremover`, the zsh
+      script starts with `#compdef watermarkremover`, the PowerShell
+      script uses `Register-ArgumentCompleter`, the fish script uses
+      `complete` builtins, an unknown shell throws, the command returns 1
+      on an unknown / empty shell and 0 with a valid script on stdout.
+      155 tests total, all green.
 - [x] **WR-S4 — `WatermarkRemover.CLI.Tests` HTTP coverage** — the
       `serve` command's HTTP surface now has end-to-end coverage via
       `Microsoft.AspNetCore.TestHost` (`Microsoft.AspNetCore.Mvc.Testing

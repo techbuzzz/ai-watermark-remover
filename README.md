@@ -323,6 +323,7 @@ The produced executable is named `watermarkremover`. During development use
 | `inspect-file`     | Report all metadata found in a file.                            |
 | `download-model`   | Download & extract the LaMa ONNX inpainting model.              |
 | `serve`            | Host the HTTP API (ASP.NET Core Minimal API).                   |
+| `completions`      | Emit a shell completion script (bash, zsh, powershell, fish).   |
 
 ### Examples
 
