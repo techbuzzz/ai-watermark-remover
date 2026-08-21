@@ -137,7 +137,7 @@ in this list.
   a surprise behaviour change.
 - **Backlog ref:** WR-P231
 
-### WR-S8. [ ] `POST /detect/markdown` endpoint
+### WR-S8. [~] `POST /detect/markdown` endpoint
 
 - **Why:** BACKLOG P2 — README documents 8 endpoints but only 7 exist;
   `/detect/markdown` is missing. The C# detector exists; only the HTTP
