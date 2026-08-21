@@ -42,3 +42,12 @@ metadata:
 logging:
   level: "Information"   # Verbose | Debug | Information | Warning | Error | Fatal
   output: "console"      # any combination of: console, file
+
+server:
+  # HTTP API rate-limit (only used by `serve`). The global limiter is
+  # partitioned by remote IP, so each client gets its own bucket.
+  # CLI flags --rate-limit / --rate-window override these at start-up.
+  rate_limit:
+    permit_limit: 100    # requests allowed per window, per IP
+    window_seconds: 60   # window length in seconds
+    queue_limit: 0       # 0 = reject immediately when the limit is hit

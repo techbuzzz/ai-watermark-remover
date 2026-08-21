@@ -62,10 +62,30 @@ public sealed class ServeCommand(
         [Description("Skip serving the bundled Astro web UI (wwwroot/) even when present. " +
                      "Useful for headless API-only deployments.")]
         public bool NoUi { get; init; }
+
+        [CommandOption("--rate-limit <REQUESTS>")]
+        [Description("Override server.rate_limit.permit_limit from config.yaml. " +
+                     "Must be > 0. Sets the maximum requests per --rate-window per remote IP.")]
+        public int? RateLimit { get; init; }
+
+        [CommandOption("--rate-window <SECONDS>")]
+        [Description("Override server.rate_limit.window_seconds from config.yaml. " +
+                     "Must be > 0. Window length for the rate-limit counter.")]
+        public int? RateWindow { get; init; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
     {
+        // Resolve rate-limit knobs once, up-front, so we can fail fast on bad input
+        // before binding sockets. CLI > config.yaml > built-in default.
+        RateLimitConfig rateLimit = ResolveRateLimit(_config.Server.RateLimit, settings.RateLimit, settings.RateWindow);
+        if (rateLimit.PermitLimit <= 0 || rateLimit.WindowSeconds <= 0)
+        {
+            OutputFormatter.Error(
+                $"Invalid rate-limit configuration: permit_limit={rateLimit.PermitLimit}, window_seconds={rateLimit.WindowSeconds}. Both must be > 0.");
+            return 1;
+        }
+
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://{settings.Host}:{settings.Port}");
 
@@ -84,9 +104,9 @@ public sealed class ServeCommand(
                 string key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 100,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
+                    PermitLimit = rateLimit.PermitLimit,
+                    Window = TimeSpan.FromSeconds(rateLimit.WindowSeconds),
+                    QueueLimit = rateLimit.QueueLimit,
                 });
             });
         });
@@ -233,9 +253,32 @@ public sealed class ServeCommand(
         {
             OutputFormatter.Warning("API key authentication is ENABLED (X-API-Key header required).");
         }
+        OutputFormatter.Info(
+            $"Rate limit: {rateLimit.PermitLimit} requests / {rateLimit.WindowSeconds}s per IP " +
+            $"(queue_limit={rateLimit.QueueLimit}, source={(settings.RateLimit.HasValue || settings.RateWindow.HasValue ? "CLI override" : "config.yaml")}).");
 
         await app.RunAsync().ConfigureAwait(false);
         return 0;
+    }
+
+    /// <summary>
+    /// Resolution order: <c>--rate-limit</c>/<c>--rate-window</c> CLI flags
+    /// &gt; <c>server.rate_limit.*</c> from <c>config.yaml</c> &gt; built-in
+    /// defaults already baked into <see cref="RateLimitConfig"/>. A null CLI
+    /// value means "use the config-side value"; a positive CLI value wins
+    /// outright.
+    /// </summary>
+    private static RateLimitConfig ResolveRateLimit(RateLimitConfig fromConfig, int? cliPermit, int? cliWindow)
+    {
+        int permit = cliPermit ?? fromConfig.PermitLimit;
+        int window = cliWindow ?? fromConfig.WindowSeconds;
+        int queue = fromConfig.QueueLimit; // intentionally CLI-only override path; queue is rarely tweaked
+        return new RateLimitConfig
+        {
+            PermitLimit = permit,
+            WindowSeconds = window,
+            QueueLimit = queue,
+        };
     }
 
     /// <summary>

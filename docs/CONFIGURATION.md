@@ -29,6 +29,7 @@ markdown:   # MarkdownCleaner toggle set
 image:      # LaMa model path + mask heuristics
 metadata:   # JPEG / PNG / PDF / DOCX / HTML cleaner defaults
 logging:    # Serilog sinks + minimum level
+server:     # HTTP API host knobs (rate-limit, etc.) — `serve` only
 ```
 
 ---
@@ -167,6 +168,49 @@ logging:
 
 ---
 
+## `server`
+
+Settings that only apply when the HTTP API is up (`serve` command).
+Other commands (CLI cleaning, batch jobs) ignore this section entirely.
+
+| Key                            | Type   | Default | Description |
+|--------------------------------|--------|---------|-------------|
+| `server.rate_limit.permit_limit` | `int` | `100`   | Maximum requests allowed per `window_seconds` per remote IP. Lower for stricter throttling. |
+| `server.rate_limit.window_seconds` | `int` | `60`  | Length of the fixed-window counter, in seconds. Shorter windows give more frequent bursts. |
+| `server.rate_limit.queue_limit` | `int`  | `0`    | Maximum requests to queue when the limit is hit. `0` = reject immediately with HTTP 429. |
+
+### Example
+
+```yaml
+server:
+  rate_limit:
+    permit_limit: 200     # allow 200 req / minute
+    window_seconds: 60
+    queue_limit: 0        # reject immediately on overflow
+```
+
+### CLI overrides
+
+The `serve` command also accepts two flags that take precedence over
+`config.yaml` (but not over each other — each flag overrides its own key only):
+
+| Flag                          | Type | Overrides                                  |
+|-------------------------------|------|--------------------------------------------|
+| `--rate-limit <REQUESTS>`     | `int` | `server.rate_limit.permit_limit`           |
+| `--rate-window <SECONDS>`     | `int` | `server.rate_limit.window_seconds`         |
+
+Resolution order (first match wins):
+
+1. `--rate-limit` / `--rate-window` (CLI flag)
+2. `server.rate_limit.*` from `config.yaml`
+3. Built-in defaults (100 / 60 / 0)
+
+Both flags must be `> 0`; the server exits with status `1` if either is
+non-positive. The active values are printed at start-up so operators
+can confirm the source (`config.yaml` vs. CLI override) at a glance.
+
+---
+
 ## Full example
 
 A complete `config.yaml` with every key set explicitly:
@@ -208,6 +252,12 @@ metadata:
 logging:
   level: "Information"
   output: "console"
+
+server:
+  rate_limit:
+    permit_limit: 100
+    window_seconds: 60
+    queue_limit: 0
 ```
 
 ---

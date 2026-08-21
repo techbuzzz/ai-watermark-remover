@@ -22,7 +22,7 @@ extension points the tick should read first.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list unless it already covers one of the lower ones.
 
-### 1. Configurable rate-limit via `config.yaml`
+### 1. [x] Configurable rate-limit via `config.yaml`
 
 - **Why:** Currently `ServeCommand.cs:58-71` hard-codes `PermitLimit = 100`
   and `Window = TimeSpan.FromMinutes(1)`. Operators want to tune this
@@ -241,6 +241,14 @@ in this list unless it already covers one of the lower ones.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **Configurable HTTP rate-limit** — `server.rate_limit.{permit_limit,
+      window_seconds, queue_limit}` in `config.yaml` (defaults 100/60/0),
+      CLI overrides `--rate-limit` / `--rate-window` on `serve`. New
+      `WatermarkRemover.Core.Tests` project with 13 tests covering
+      `AppConfig.Default` shape, `RateLimitConfig` defaults, and the
+      CLI/config merge. Verified end-to-end: `serve --rate-limit 3
+      --rate-window 30` returns 200 for the first 3 requests and 429
+      for the 4th+. Invalid values fail fast with exit code 1.
 - [x] **`Directory.Packages.props` for central package management** —
       new `src/Directory.Packages.props` listing 20 packages
       (Serilog, Spectre.Console, SixLabors.ImageSharp, OnnxRuntime,

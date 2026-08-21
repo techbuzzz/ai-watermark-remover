@@ -100,7 +100,7 @@ Status legend:
 - [ ] `POST /detect/markdown` endpoint — see [TODO #8](./TODO.md#8-post-detectmarkdown-endpoint)
 - [x] OpenAPI / Swagger UI at `/swagger` — completed 2026-08-21; spec at `/swagger/v1/swagger.json`, interactive UI at `/swagger/`
 - [x] CORS support (configurable allowed origins via `--cors-origins`)
-- [ ] Configurable rate-limit via `config.yaml` — see [TODO #1](./TODO.md#1-configurable-rate-limit-via-configyaml)
+- [x] Configurable rate-limit via `config.yaml` — see [TODO #1](./TODO.md#1-configurable-rate-limit-via-configyaml)
 - [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB) — see [TODO #2](./TODO.md#2-file-size-limit-enforcement-server-side-max_upload_mb)
 - [ ] `/metrics` endpoint (Prometheus: request count, latency histogram, model availability)
 - [x] Web UI (Astro "box") — single-page plug-and-play dashboard at `/` with Text / Markdown / File / Image tabs. Astro 5.x static output, no UI framework, code-split per tab. Co-located with the .NET binary via `UseStaticFiles` (single-file releases embed the bundle via `IncludeAllContentForSelfExtract`). Standalone deploys (Vercel / Netlify / GH Pages / nginx) also supported. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).

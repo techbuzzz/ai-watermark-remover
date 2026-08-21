@@ -8,6 +8,7 @@ public sealed class AppConfig
     public ImageConfig Image { get; set; } = new();
     public MetadataConfig Metadata { get; set; } = new();
     public LoggingConfig Logging { get; set; } = new();
+    public ServerConfig Server { get; set; } = new();
 
     public static AppConfig Default { get; } = new();
 }
@@ -61,4 +62,33 @@ public sealed class LoggingConfig
 {
     public string Level { get; set; } = "Information";
     public string Output { get; set; } = "console";
+}
+
+/// <summary>
+/// HTTP server (currently <c>serve</c>) settings. Holds knobs that
+/// only matter when the API host is up — they're safely ignored by
+/// every other command.
+/// </summary>
+public sealed class ServerConfig
+{
+    /// <summary>Per-IP rate-limit policy for the global limiter.</summary>
+    public RateLimitConfig RateLimit { get; set; } = new();
+}
+
+/// <summary>
+/// Token-bucket style rate-limit parameters. Mirrors the
+/// <see cref="System.Threading.RateLimiting.FixedWindowRateLimiterOptions"/>
+/// shape; <see cref="WindowSeconds"/> is the wall-clock window the
+/// counter resets in.
+/// </summary>
+public sealed class RateLimitConfig
+{
+    /// <summary>Number of requests permitted per <see cref="WindowSeconds"/> per partition (typically per remote IP).</summary>
+    public int PermitLimit { get; set; } = 100;
+
+    /// <summary>Window length, in seconds, over which <see cref="PermitLimit"/> applies.</summary>
+    public int WindowSeconds { get; set; } = 60;
+
+    /// <summary>Maximum queued requests when the limit is hit. 0 = reject immediately (default).</summary>
+    public int QueueLimit { get; set; } = 0;
 }

@@ -12,6 +12,7 @@
     <Project Path="WatermarkRemover.Text/WatermarkRemover.Text.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/WatermarkRemover.Core.Tests/WatermarkRemover.Core.Tests.csproj" />
     <Project Path="tests/WatermarkRemover.Image.Tests/WatermarkRemover.Image.Tests.csproj" />
     <Project Path="tests/WatermarkRemover.Metadata.Tests/WatermarkRemover.Metadata.Tests.csproj" />
     <Project Path="tests/WatermarkRemover.Text.Tests/WatermarkRemover.Text.Tests.csproj" />

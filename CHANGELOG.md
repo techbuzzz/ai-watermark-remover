@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Configurable HTTP rate-limit** — the per-IP fixed-window limiter that
+  used to be hard-coded at 100 requests / minute in `ServeCommand` is now
+  driven by the new `server.rate_limit` section in `config.yaml`
+  (`permit_limit`, `window_seconds`, `queue_limit`). Two new CLI flags
+  override individual values at start-up: `serve --rate-limit <n>` and
+  `serve --rate-window <seconds>`. Resolution order: CLI flag >
+  `config.yaml` > built-in default (100 / 60 / 0). The active values and
+  the source of the resolution are printed at start-up. Invalid values
+  (`<= 0`) cause `serve` to exit with status `1` before binding sockets.
 - **OpenAPI / Swagger UI** — interactive API documentation at
   `/swagger/` and the machine-readable OpenAPI 3.0 spec at
   `/swagger/v1/swagger.json`. All 8 HTTP endpoints are documented with

@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WatermarkRemover.Metadata.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WatermarkRemover.Text.Tests", "tests\WatermarkRemover.Text.Tests\WatermarkRemover.Text.Tests.csproj", "{6A4CC14B-FE6C-4027-9B4A-4531FE9E702E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WatermarkRemover.Core.Tests", "tests\WatermarkRemover.Core.Tests\WatermarkRemover.Core.Tests.csproj", "{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -129,6 +131,18 @@ Global
 		{6A4CC14B-FE6C-4027-9B4A-4531FE9E702E}.Release|x64.Build.0 = Release|Any CPU
 		{6A4CC14B-FE6C-4027-9B4A-4531FE9E702E}.Release|x86.ActiveCfg = Release|Any CPU
 		{6A4CC14B-FE6C-4027-9B4A-4531FE9E702E}.Release|x86.Build.0 = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|x64.Build.0 = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Debug|x86.Build.0 = Debug|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|x64.ActiveCfg = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|x64.Build.0 = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|x86.ActiveCfg = Release|Any CPU
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -142,5 +156,6 @@ Global
 		{D4D26D76-AC3A-4FF9-B44B-44FB1888E25D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{32BC1F58-0877-413F-8E98-39EEF3324BFD} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{6A4CC14B-FE6C-4027-9B4A-4531FE9E702E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{FFAB3E78-F6C1-4F1F-81A7-7F200F575099} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
