@@ -137,7 +137,7 @@ in this list.
   a surprise behaviour change.
 - **Backlog ref:** WR-P231
 
-### WR-S8. [~] `POST /detect/markdown` endpoint
+### WR-S8. [x] `POST /detect/markdown` endpoint
 
 - **Why:** BACKLOG P2 — README documents 8 endpoints but only 7 exist;
   `/detect/markdown` is missing. The C# detector exists; only the HTTP
@@ -576,6 +576,17 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S8 — `POST /detect/markdown` endpoint** — new `POST /detect/markdown`
+      route in `ServeEndpointMapper.cs` (consumed by `serve`) that takes the
+      same `{ markdown, stripAll }` body as `POST /clean/markdown` and returns
+      `AiArtifact[]` — the same detector output the `detect-markdown` CLI
+      command prints. `stripAll` is intentionally ignored: detection uses a
+      fixed detector set, not the cleaning toggles. 400 on empty body, 401 when
+      `--api-key` is set and the `X-API-Key` header is missing (consistent
+      with the rest of the API). 4 new tests in `HttpEndpointTests`:
+      happy path (frontmatter + AI signature both reported), 400 on empty
+      body, 401 when auth is required, and OpenAPI spec includes the route.
+      README HTTP API table updated.
 - [x] **WR-S7 — Full markdown config surface** — every public toggle
       on `MarkdownCleanOptions` is now reachable from `config.yaml`
       (the previous 12-key surface grew to all 21). New

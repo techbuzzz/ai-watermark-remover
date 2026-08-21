@@ -92,7 +92,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [ ] WR-P2110 — `watermarkremover --version` command (→ TODO WR-S9)
 - [x] WR-P211 — `clean-all` command (→ TODO WR-S3)
 - [ ] WR-P212 — `batch` command — process a JSON/CSV manifest file with list of inputs + desired outputs (for automated pipelines)
-- [~] WR-P213 — `POST /detect/markdown` endpoint (→ TODO WR-S8)
+- [x] WR-P213 — `POST /detect/markdown` endpoint (→ TODO WR-S8)
 - [ ] WR-P214 — `--quiet` / `-q` global option (suppress all output except errors; useful for scripting)
 - [ ] WR-P215 — `--no-color` global option (disable Spectre ANSI; auto-detect non-TTY)
 - [ ] WR-P216 — Exit codes documentation (`0` success, `1` input error, `2` detections found, `3` unsupported format, `4` model missing`)
@@ -100,7 +100,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 
 ### HTTP API enhancements
 - [x] WR-P221 — `POST /clean/markdown` endpoint — exists; `ServeCommand.cs:148-158` already implements it. Closed.
-- [~] WR-P222 — `POST /detect/markdown` endpoint (→ TODO WR-S8, same as WR-P213)
+- [x] WR-P222 — `POST /detect/markdown` endpoint (→ TODO WR-S8, same as WR-P213)
 - [x] WR-P223 — OpenAPI / Swagger UI at `/swagger` — completed 2026-08-21; spec at `/swagger/v1/swagger.json`, interactive UI at `/swagger/`
 - [x] WR-P224 — CORS support (configurable allowed origins via `--cors-origins`)
 - [x] WR-P225 — Configurable rate-limit via `config.yaml` (→ TODO WR-S1)

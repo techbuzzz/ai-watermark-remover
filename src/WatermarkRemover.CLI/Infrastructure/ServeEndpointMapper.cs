@@ -100,6 +100,24 @@ public static class ServeEndpointMapper
             return Results.Ok(result);
         });
 
+        // POST /detect/markdown
+        // Mirrors POST /detect/text: takes the same body shape as /clean/markdown
+        // but skips the cleaning step — the response is the raw list of
+        // detected AI artifacts (frontmatter, AI signature, boilerplate
+        // disclaimer, invisible box-drawing separators, invisible characters
+        // inside code blocks). `StripAll` is intentionally ignored: detection
+        // operates on a fixed detector set, not on the cleaning toggles.
+        app.MapPost("/detect/markdown", (MarkdownRequest req) =>
+        {
+            if (string.IsNullOrEmpty(req.Markdown))
+            {
+                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Field 'markdown' is required."));
+            }
+
+            IReadOnlyList<AiArtifact> artifacts = markdownCleaner.Detect(req.Markdown);
+            return Results.Ok(artifacts);
+        });
+
         // POST /clean/file  (multipart upload)
         app.MapPost("/clean/file", async (HttpRequest request, CancellationToken ct) =>
         {

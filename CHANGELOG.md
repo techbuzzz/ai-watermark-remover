@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`POST /detect/markdown` endpoint** — new HTTP route in
+  `ServeEndpointMapper.cs` (consumed by `serve`) that takes the same
+  `{ markdown, stripAll }` body as `POST /clean/markdown` and returns
+  `AiArtifact[]` — the same detector output the `detect-markdown` CLI
+  command prints (frontmatter, AI signature, boilerplate disclaimer,
+  invisible box-drawing separators, invisible characters inside code
+  blocks). `stripAll` is intentionally ignored: detection uses a fixed
+  detector set, not the cleaning toggles. 400 on empty body, 401 when
+  `--api-key` is set and `X-API-Key` is missing (consistent with the
+  rest of the API). 4 new tests in `HttpEndpointTests` cover the happy
+  path (frontmatter + AI signature both reported), 400 on empty body,
+  401 when auth is required, and that the new route is listed in
+  `/swagger/v1/swagger.json`. README HTTP API table updated.
 - **Full markdown config surface** — every public toggle on
   `MarkdownCleanOptions` is now reachable from `config.yaml`. The
   previous 12-key surface grew to all 21 (`strip_bold_italic`,

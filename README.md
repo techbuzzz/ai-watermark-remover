@@ -376,6 +376,7 @@ watermarkremover serve --port 5080 --api-key s3cret
 | `POST /clean/text`  | `{ "text": "…" }`                       | `TextCleanResult` JSON     |
 | `POST /detect/text` | `{ "text": "…" }`                       | `WatermarkMatch[]` JSON    |
 | `POST /clean/markdown` | `{ "markdown": "…", "stripAll": false }` | `MarkdownCleanResult` JSON |
+| `POST /detect/markdown` | `{ "markdown": "…", "stripAll": false }` | `AiArtifact[]` JSON        |
 | `POST /clean/file`  | multipart file upload                   | cleaned file (octet-stream)|
 | `POST /inspect/file`| multipart file upload                   | `MetadataEntry[]` JSON     |
 | `POST /clean/image` | multipart image upload                  | cleaned image              |

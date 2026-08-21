@@ -171,6 +171,98 @@ public class HttpEndpointTests : IDisposable
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    // ---------------------------------------------------- /clean/markdown, /detect/markdown
+
+    [Fact]
+    public async Task PostDetectMarkdown_ReturnsArtifacts()
+    {
+        // WR-S8 — happy path for the new endpoint. The body is crafted to
+        // trigger the AI boilerplate detector ("As an AI, …") and the AI
+        // signature detector ("Generated with ChatGPT."). The trailing
+        // newline after the vendor name is required: the signature regex
+        // needs a word boundary at the end of "ChatGPT" and word chars on
+        // both sides don't satisfy it.
+        using HttpClient client = BuildClient(opts =>
+        {
+            opts.ApiKey = null;
+            opts.WithSwagger = false;
+            opts.WithStaticUi = false;
+        });
+
+        const string md =
+            "I cannot help with that request.\n"
+          + "\n"
+          + "_Generated with ChatGPT._\n";
+        HttpResponseMessage response = await client.PostAsJsonAsync("/detect/markdown", new MarkdownRequest(md, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AiArtifact[]? artifacts = await response.Content.ReadFromJsonAsync<AiArtifact[]>();
+        artifacts.Should().NotBeNull();
+        artifacts!.Should().NotBeEmpty();
+
+        // Both detectors are independently asserted so a future refactor
+        // can't silently drop one of them.
+        artifacts.Should().Contain(a => a.Type == "ai-boilerplate", because: "the 'As an AI, …' line should be reported");
+        artifacts.Should().Contain(a => a.Type == "ai-signature", because: "the 'Generated with ChatGPT' trailer should be reported");
+    }
+
+    [Fact]
+    public async Task PostDetectMarkdown_EmptyMarkdown_Returns400()
+    {
+        // Mirrors the existing /clean/text 400 contract: an empty body field is
+        // an invalid input, not an empty (valid) detection result.
+        using HttpClient client = BuildClient(opts =>
+        {
+            opts.ApiKey = null;
+            opts.WithSwagger = false;
+            opts.WithStaticUi = false;
+        });
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/detect/markdown", new MarkdownRequest(string.Empty, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        ErrorResult? err = await response.Content.ReadFromJsonAsync<ErrorResult>();
+        err.Should().NotBeNull();
+        err!.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
+    }
+
+    [Fact]
+    public async Task PostDetectMarkdown_RequiresApiKeyWhenConfigured()
+    {
+        // The auth middleware applies to every endpoint except /health; the
+        // new /detect/markdown mapping inherits that.
+        using HttpClient client = BuildClient(opts =>
+        {
+            opts.ApiKey = "test-secret-key";
+            opts.WithSwagger = false;
+            opts.WithStaticUi = false;
+        });
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/detect/markdown", new MarkdownRequest("# hi", null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetSwaggerJson_ListsDetectMarkdownEndpoint()
+    {
+        // The spec's second acceptance criterion: /swagger/v1/swagger.json
+        // must enumerate the new route. We mount Swagger here so the OpenAPI
+        // generator has the endpoint surface to introspect.
+        using HttpClient client = BuildClient(opts =>
+        {
+            opts.ApiKey = null;
+            opts.WithSwagger = true;
+            opts.WithStaticUi = false;
+        });
+
+        HttpResponseMessage response = await client.GetAsync("/swagger/v1/swagger.json");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        string body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("\"/detect/markdown\"", because: "the new endpoint must be advertised in the OpenAPI spec");
+    }
+
     // ---------------------------------------------------------------- /swagger
 
     [Fact]
