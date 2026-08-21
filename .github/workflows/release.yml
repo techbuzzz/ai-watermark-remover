@@ -1,0 +1,214 @@
+name: release
+
+# Cut a GitHub Release for the WatermarkRemover CLI whenever a `v*` tag is
+# pushed. The matrix builds a self-contained single-file executable for each
+# supported runtime identifier (linux-x64, linux-arm64, win-x64, osx-x64),
+# zips the publish output, and a final `release` job collects every binary
+# and creates the GitHub Release with auto-generated notes.
+#
+# The tag (e.g. `v1.2.3`) becomes the release title; the workflow also runs
+# on `workflow_dispatch` so we can rebuild and re-publish assets for an
+# existing tag without re-tagging the commit.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)publish assets for (without leading 'v'). Leave empty to use $GITHUB_REF_NAME."
+        required: false
+        default: ""
+
+# Cancel any in-flight run for the same tag so re-pushing a tag doesn't
+# double-publish or race against an older in-progress build.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+# `contents: write` is required to create the GitHub Release and upload
+# binary assets via the built-in `GITHUB_TOKEN`.
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION_PATH: src/WatermarkRemover.sln
+  DOTNET_VERSION: 10.0.400
+  CONFIGURATION: Release
+  PROJECT_PATH: src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj
+
+jobs:
+  publish:
+    name: publish (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact_name: watermarkremover-linux-x64
+            zip_name: watermarkremover-linux-x64.zip
+          - os: ubuntu-latest
+            rid: linux-arm64
+            artifact_name: watermarkremover-linux-arm64
+            zip_name: watermarkremover-linux-arm64.zip
+          - os: windows-latest
+            rid: win-x64
+            artifact_name: watermarkremover-win-x64
+            zip_name: watermarkremover-win-x64.zip
+          - os: macos-latest
+            rid: osx-x64
+            artifact_name: watermarkremover-osx-x64
+            zip_name: watermarkremover-osx-x64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nuget/packages
+            ~/.local/share/NuGet/v3-cache
+            %LOCALAPPDATA%\NuGet\v3-cache
+            %USERPROFILE%\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Publish (self-contained, single-file)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p publish/${{ matrix.rid }}
+          dotnet publish "${{ env.PROJECT_PATH }}" \
+            -c "${{ env.CONFIGURATION }}" \
+            -r "${{ matrix.rid }}" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:SelfContained=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=embedded \
+            --output "./publish/${{ matrix.rid }}" \
+            /p:TreatWarningsAsErrors=true
+          echo "Published files:"
+          ls -la "./publish/${{ matrix.rid }}"
+
+      - name: Package binary archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "publish/${{ matrix.rid }}"
+          # Strip the per-publish PDB embedded in the single-file binary's
+          # debug info before zipping (DebugType=embedded keeps symbols in
+          # the binary itself; we don't want stray PDB files bloating the
+          # archive).
+          rm -f *.pdb
+          # `zip` is available on all three runners via apt/choco/brew or
+          # pre-installed on macOS. On Windows we fall back to PowerShell's
+          # Compress-Archive if zip is missing.
+          if command -v zip >/dev/null 2>&1; then
+            zip -r "../../${{ matrix.zip_name }}" ./
+          else
+            powershell -NoProfile -Command "Compress-Archive -Path '.' -DestinationPath '../../${{ matrix.zip_name }}' -Force"
+          fi
+          cd ../..
+          ls -la "${{ matrix.zip_name }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.zip_name }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: create-github-release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download all platform archives
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Verify archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          echo "Downloaded artifacts:"
+          ls -la artifacts/
+          count=0
+          for f in artifacts/*.zip; do
+            [ -s "$f" ] || { echo "::error::Empty or missing archive: $f"; exit 1; }
+            count=$((count + 1))
+          done
+          if [ "$count" -lt 4 ]; then
+            echo "::error::Expected 4 platform archives, found $count"
+            exit 1
+          fi
+          echo "All $count archives present and non-empty."
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+              && [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="v${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $TAG"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.tag }}"
+          shopt -s nullglob
+          ASSETS=(artifacts/*.zip)
+
+          # `--fail-on-already-exists` would be ideal but `gh release create`
+          # lacks it; we tolerate the "already exists" error and fall back
+          # to `gh release upload` so manual re-runs of this workflow can
+          # refresh the binaries attached to a release.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading assets to existing release."
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            echo "Creating release $TAG with ${#ASSETS[@]} assets."
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --title "$TAG" \
+              --generate-notes \
+              --target "$GITHUB_SHA"
+          fi
+
+          echo "Release URL: https://github.com/${{ github.repository }}/releases/tag/$TAG"

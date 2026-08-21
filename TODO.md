@@ -7,7 +7,7 @@ Reference: [BACKLOG.md](./BACKLOG.md) for full feature roadmap.
 
 ## Active — P0 release readiness
 
-- [ ] **Release workflow** — `.github/workflows/release.yml`
+- [x] **Release workflow** — `.github/workflows/release.yml`
       Triggered on `v*` tag. Publish self-contained single-file binaries for
       `linux-x64`, `win-x64`, `osx-x64`, `linux-arm64`. Attach to GitHub Release.
 
