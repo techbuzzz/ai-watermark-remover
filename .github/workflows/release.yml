@@ -103,7 +103,7 @@ jobs:
           ls -la ../src/WatermarkRemover.CLI/wwwroot
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.nuget/packages
