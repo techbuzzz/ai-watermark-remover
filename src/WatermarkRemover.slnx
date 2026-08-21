@@ -1,0 +1,19 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="WatermarkRemover.CLI/WatermarkRemover.CLI.csproj" />
+    <Project Path="WatermarkRemover.Core/WatermarkRemover.Core.csproj" />
+    <Project Path="WatermarkRemover.Image/WatermarkRemover.Image.csproj" />
+    <Project Path="WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj" />
+    <Project Path="WatermarkRemover.Text/WatermarkRemover.Text.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WatermarkRemover.Image.Tests/WatermarkRemover.Image.Tests.csproj" />
+    <Project Path="tests/WatermarkRemover.Metadata.Tests/WatermarkRemover.Metadata.Tests.csproj" />
+    <Project Path="tests/WatermarkRemover.Text.Tests/WatermarkRemover.Text.Tests.csproj" />
+  </Folder>
+</Solution>

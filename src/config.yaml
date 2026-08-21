@@ -1,0 +1,44 @@
+# WatermarkRemover configuration.
+# All keys are snake_case; unknown keys are ignored. Command-line flags override these values.
+
+text:
+  # Language-agnostic pipeline. Unicode hygiene and vendor detection are safe for
+  # Latin AND Cyrillic (Russian) text: homoglyph normalisation only fires when a
+  # look-alike character sits between Latin letters, so genuine Russian words are
+  # never mangled. The green-list rewriter (Layer B) ships with both English and
+  # Russian synonym sets.
+  layers:
+    unicode: true          # Layer A — strip invisible / normalising code points
+    statistical: false     # Layer B — green-list synonym rewrite (EN + RU)
+    vendor_specific: true  # Layer C — Claude / Gemini / OpenAI heuristics
+  llm_endpoint: "http://localhost:11434"  # optional Ollama-compatible endpoint for Layer B back-translation
+  llm_model: "llama3"
+
+markdown:
+  strip_headings: true
+  strip_code_fences: false      # code blocks are preserved by default
+  strip_inline_code: false
+  strip_links: false
+  strip_images: true
+  strip_html: true
+  strip_frontmatter: true
+  strip_ai_signatures: true
+  strip_mentions: true
+  strip_unicode_md: true
+  strip_trailing_ws: true
+  preserve_code_blocks: true
+
+image:
+  model_path: "./models/big_lama_regular_inpaint.onnx"
+  auto_detect_threshold: 0.4
+  blend_edges: true
+
+metadata:
+  strip_c2pa: true
+  strip_exif: true
+  strip_xmp: true
+  preserve_color_profile: true
+
+logging:
+  level: "Information"   # Verbose | Debug | Information | Warning | Error | Fatal
+  output: "console"      # any combination of: console, file
