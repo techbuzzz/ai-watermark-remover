@@ -48,7 +48,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** Keep `GlobalSettings` precedence clean. Don't break the existing
   rate limiter behavior when the new keys are absent.
 
-### 2. File size limit enforcement (server-side, `max_upload_mb`)
+### 2. [x] File size limit enforcement (server-side, `max_upload_mb`)
 
 - **Why:** `ServeCommand.cs` accepts any-size multipart uploads. The web UI
   already pre-checks 100 MB on the client (see
@@ -240,6 +240,17 @@ in this list unless it already covers one of the lower ones.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **File size limit enforcement** — `server.max_upload_mb` in `config.yaml`
+      (default 100 MB), CLI override `--max-upload-mb` on `serve`. A middleware
+      rejects multipart uploads to `/clean/file`, `/clean/image`,
+      `/inspect/file`, `/detect/image` with HTTP 413 + structured
+      `ErrorResult("PAYLOAD_TOO_LARGE", …)` *before* the body is streamed to
+      disk. Kestrel's `MaxRequestBodySize` is lifted to the configured limit
+      so the framework doesn't emit a bare 413 first. `0` disables the limit
+      for local dev. New `MaxUploadMBTests` (11 tests) + 2 `AppConfigTests`
+      additions — total 94 tests, all green. Verified end-to-end: 2 MB upload
+      with `--max-upload-mb 1` → 413; `/health` still 200.
 
 - [x] **Configurable HTTP rate-limit** — `server.rate_limit.{permit_limit,
       window_seconds, queue_limit}` in `config.yaml` (defaults 100/60/0),

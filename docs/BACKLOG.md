@@ -92,7 +92,7 @@ Status legend: **planned** · **in-progress** · **done**
 - [ ] planned — OpenAPI / Swagger UI at `/swagger` (via Swashbuckle) for API discoverability
 - [ ] planned — CORS support (configurable allowed origins via `--cors-origins`)
 - [ ] planned — Configurable rate-limit via `config.yaml` (currently hardcoded 100 req/min)
-- [ ] planned — File size limit enforcement (configurable `max_upload_mb`, default 100 MB)
+- [x] File size limit enforcement (configurable `max_upload_mb`, default 100 MB)
 - [ ] planned — `/metrics` endpoint (Prometheus: request count, latency histogram, model availability)
 - [ ] planned — Web UI — simple static HTML page at `/` with drag-and-drop file upload (vanilla JS, no framework dependency)
 

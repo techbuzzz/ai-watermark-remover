@@ -178,6 +178,7 @@ Other commands (CLI cleaning, batch jobs) ignore this section entirely.
 | `server.rate_limit.permit_limit` | `int` | `100`   | Maximum requests allowed per `window_seconds` per remote IP. Lower for stricter throttling. |
 | `server.rate_limit.window_seconds` | `int` | `60`  | Length of the fixed-window counter, in seconds. Shorter windows give more frequent bursts. |
 | `server.rate_limit.queue_limit` | `int`  | `0`    | Maximum requests to queue when the limit is hit. `0` = reject immediately with HTTP 429. |
+| `server.max_upload_mb`         | `int`  | `100`   | Maximum request body size, in MB, for multipart uploads (`/clean/file`, `/clean/image`, `/inspect/file`, `/detect/image`). Oversized uploads are rejected with HTTP 413 before the body is streamed to disk. `0` disables the limit (not recommended for public deployments). |
 
 ### Example
 
@@ -187,26 +188,28 @@ server:
     permit_limit: 200     # allow 200 req / minute
     window_seconds: 60
     queue_limit: 0        # reject immediately on overflow
+  max_upload_mb: 50       # reject uploads larger than 50 MB
 ```
 
 ### CLI overrides
 
-The `serve` command also accepts two flags that take precedence over
-`config.yaml` (but not over each other — each flag overrides its own key only):
+The `serve` command accepts flags that take precedence over `config.yaml`:
 
 | Flag                          | Type | Overrides                                  |
 |-------------------------------|------|--------------------------------------------|
 | `--rate-limit <REQUESTS>`     | `int` | `server.rate_limit.permit_limit`           |
 | `--rate-window <SECONDS>`     | `int` | `server.rate_limit.window_seconds`         |
+| `--max-upload-mb <MEGABYTES>` | `int` | `server.max_upload_mb`                     |
 
 Resolution order (first match wins):
 
-1. `--rate-limit` / `--rate-window` (CLI flag)
-2. `server.rate_limit.*` from `config.yaml`
-3. Built-in defaults (100 / 60 / 0)
+1. CLI flag (`--rate-limit` / `--rate-window` / `--max-upload-mb`)
+2. `server.*` from `config.yaml`
+3. Built-in defaults (100 / 60 / 0 / 100 MB)
 
-Both flags must be `> 0`; the server exits with status `1` if either is
-non-positive. The active values are printed at start-up so operators
+`--rate-limit` and `--rate-window` must be `> 0`; `--max-upload-mb` must be
+`>= 0` (0 disables the limit). The server exits with status `1` if any
+value is invalid. The active values are printed at start-up so operators
 can confirm the source (`config.yaml` vs. CLI override) at a glance.
 
 ---
@@ -258,6 +261,7 @@ server:
     permit_limit: 100
     window_seconds: 60
     queue_limit: 0
+  max_upload_mb: 100
 ```
 
 ---

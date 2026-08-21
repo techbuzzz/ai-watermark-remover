@@ -73,6 +73,16 @@ public sealed class ServerConfig
 {
     /// <summary>Per-IP rate-limit policy for the global limiter.</summary>
     public RateLimitConfig RateLimit { get; set; } = new();
+
+    /// <summary>
+    /// Maximum request body size for multipart uploads, in megabytes.
+    /// Applies to <c>/clean/file</c>, <c>/clean/image</c>,
+    /// <c>/inspect/file</c>, and <c>/detect/image</c>. Oversized
+    /// uploads are rejected with HTTP 413 <i>before</i> the body is
+    /// streamed to disk. <c>0</c> disables the limit (use Kestrel's
+    /// default, 30 MB) — not recommended for public deployments.
+    /// </summary>
+    public int MaxUploadMB { get; set; } = 100;
 }
 
 /// <summary>

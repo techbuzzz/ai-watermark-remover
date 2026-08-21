@@ -51,3 +51,8 @@ server:
     permit_limit: 100    # requests allowed per window, per IP
     window_seconds: 60   # window length in seconds
     queue_limit: 0       # 0 = reject immediately when the limit is hit
+  # Maximum request body size for multipart uploads (clean/file, clean/image,
+  # inspect/file, detect/image). Oversized uploads are rejected with HTTP 413
+  # before the body is streamed to disk. 0 disables the limit (not recommended
+  # for public deployments). CLI flag --max-upload-mb overrides this.
+  max_upload_mb: 100

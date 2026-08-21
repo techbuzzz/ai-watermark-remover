@@ -33,6 +33,23 @@ public sealed class AppConfigTests
     }
 
     [Fact]
+    public void Default_Server_HasMaxUploadMB()
+    {
+        AppConfig cfg = AppConfig.Default;
+
+        cfg.Server.MaxUploadMB.Should().Be(100);
+    }
+
+    [Fact]
+    public void Default_Server_MaxUploadMB_IsPositive()
+    {
+        // The upload guard only activates when MaxUploadMB > 0; the
+        // default must be a sane positive value so public deployments
+        // aren't wide-open by default.
+        AppConfig.Default.Server.MaxUploadMB.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
     public void Default_LoggingLevel_IsInformation()
     {
         // The "silent by default" promise — operators who don't touch

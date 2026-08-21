@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **File size limit enforcement** — multipart uploads to `/clean/file`,
+  `/clean/image`, `/inspect/file`, and `/detect/image` are now rejected
+  with HTTP 413 (`PAYLOAD_TOO_LARGE`) *before* the body is streamed to
+  disk when they exceed the configured size cap. New `server.max_upload_mb`
+  key in `config.yaml` (default `100`); CLI override `serve --max-upload-mb
+  <n>`. `0` disables the limit (local dev only). Kestrel's
+  `MaxRequestBodySize` is lifted to the configured limit so the
+  framework-level 413 doesn't fire first — the structured `ErrorResult`
+  JSON is always returned. New `MaxUploadMBTests` (11 tests) + 2
+  `AppConfigTests` additions.
 - **Configurable HTTP rate-limit** — the per-IP fixed-window limiter that
   used to be hard-coded at 100 requests / minute in `ServeCommand` is now
   driven by the new `server.rate_limit` section in `config.yaml`

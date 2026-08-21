@@ -72,6 +72,12 @@ public sealed class ServeCommand(
         [Description("Override server.rate_limit.window_seconds from config.yaml. " +
                      "Must be > 0. Window length for the rate-limit counter.")]
         public int? RateWindow { get; init; }
+
+        [CommandOption("--max-upload-mb <MEGABYTES>")]
+        [Description("Override server.max_upload_mb from config.yaml. " +
+                     "Maximum request body size, in MB, for multipart uploads. " +
+                     "0 disables the limit (not recommended for public deployments).")]
+        public int? MaxUploadMB { get; init; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -86,8 +92,25 @@ public sealed class ServeCommand(
             return 1;
         }
 
+        // Upload size limit — rejects oversized multipart bodies *before* they
+        // reach the endpoint (and before they're copied to temp files). 0 disables.
+        // CLI > config.yaml > built-in default (100 MB).
+        int maxUploadMB = settings.MaxUploadMB ?? _config.Server.MaxUploadMB;
+        if (maxUploadMB < 0)
+        {
+            OutputFormatter.Error(
+                $"Invalid upload size limit: max_upload_mb={maxUploadMB}. Must be >= 0 (0 disables the limit).");
+            return 1;
+        }
+
+        long maxUploadBytes = maxUploadMB == 0 ? long.MaxValue : (long)maxUploadMB * 1024 * 1024;
+
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://{settings.Host}:{settings.Port}");
+        // Lift Kestrel's default 30 MB body cap so our upload-size middleware
+        // is the single source of truth for 413 responses (it returns a
+        // structured ErrorResult; Kestrel's built-in 413 does not).
+        builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = maxUploadBytes);
 
         // Reuse the already-constructed pipeline services.
         builder.Services.AddSingleton(_textPipeline);
@@ -196,6 +219,29 @@ public sealed class ServeCommand(
             });
         }
 
+        // Upload-size guard. Rejects multipart uploads whose declared
+        // Content-Length exceeds the configured limit *before* the body is
+        // streamed to temp files. Applies to the four file/image endpoints;
+        // everything else passes through unchanged.
+        if (maxUploadMB > 0)
+        {
+            app.Use(async (ctx, next) =>
+            {
+                if (IsUploadEndpoint(ctx.Request.Path) &&
+                    ctx.Request.Headers.TryGetValue("Content-Length", out var lenStr) &&
+                    long.TryParse(lenStr, out long len) && len > maxUploadBytes)
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                    await ctx.Response.WriteAsJsonAsync(new ErrorResult(
+                        ErrorCodes.PayloadTooLarge,
+                        $"Upload size {len} bytes exceeds the configured limit of {maxUploadMB} MB.")).ConfigureAwait(false);
+                    return;
+                }
+
+                await next().ConfigureAwait(false);
+            });
+        }
+
         MapEndpoints(app);
 
         // Serve the OpenAPI spec at /swagger/v1/swagger.json and the interactive
@@ -256,6 +302,9 @@ public sealed class ServeCommand(
         OutputFormatter.Info(
             $"Rate limit: {rateLimit.PermitLimit} requests / {rateLimit.WindowSeconds}s per IP " +
             $"(queue_limit={rateLimit.QueueLimit}, source={(settings.RateLimit.HasValue || settings.RateWindow.HasValue ? "CLI override" : "config.yaml")}).");
+        OutputFormatter.Info(
+            $"Upload limit: {(maxUploadMB == 0 ? "unlimited" : $"{maxUploadMB} MB")} " +
+            $"(source={(settings.MaxUploadMB.HasValue ? "CLI override" : "config.yaml")}).");
 
         await app.RunAsync().ConfigureAwait(false);
         return 0;
@@ -280,6 +329,16 @@ public sealed class ServeCommand(
             QueueLimit = queue,
         };
     }
+
+    /// <summary>
+    /// Returns <c>true</c> for the four multipart upload endpoints that the
+    /// upload-size guard applies to.
+    /// </summary>
+    private static bool IsUploadEndpoint(PathString path) =>
+        path.StartsWithSegments("/clean/file", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWithSegments("/clean/image", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWithSegments("/inspect/file", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWithSegments("/detect/image", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Resolution order: --cors-origins flag > WATERMARKREMOVER_CORS_ORIGINS env var

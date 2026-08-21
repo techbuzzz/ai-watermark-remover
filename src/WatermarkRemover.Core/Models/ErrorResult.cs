@@ -18,5 +18,6 @@ public static class ErrorCodes
     public const string ModelDownloadFailed = "MODEL_DOWNLOAD_FAILED";
     public const string InferenceFailed = "INFERENCE_FAILED";
     public const string NetworkError = "NETWORK_ERROR";
+    public const string PayloadTooLarge = "PAYLOAD_TOO_LARGE";
     public const string Unknown = "UNKNOWN";
 }
