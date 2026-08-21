@@ -184,7 +184,7 @@ inside Claude Code, OpenCode, MiniMax Code, Cursor, Continue, and any
 MCP-compatible host. Full specs in [BACKLOG.md → P6](./BACKLOG.md#p6--agent-integration-mcp-skills-plugins).
 Pick in order — MCP server must land before skills and plugins can use it.
 
-### WR-S10. [~] MCP server core (`WatermarkRemover.Mcp` project)
+### WR-S10. [x] MCP server core (`WatermarkRemover.Mcp` project)
 
 - **Why:** WR-P601 — expose the full pipeline as MCP tools so any
   MCP-compatible agent can call `clean_text`, `clean_markdown`,
@@ -576,6 +576,33 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S10 — MCP server core (`WatermarkRemover.Mcp`)** — new
+      transport-agnostic class library exposing the full pipeline as
+      eight Model Context Protocol tools (built on the official
+      `ModelContextProtocol` C# SDK 2.2.0): `clean_text`,
+      `clean_markdown`, `clean_file`, `clean_image`, `detect_text`,
+      `detect_markdown`, `inspect_file`, `detect_watermark`. Each
+      tool is a `[McpServerToolType]` static class with one
+      `[McpServerTool]` method that calls the existing pipeline
+      interface (`ITextCleaningPipeline`, `IMarkdownCleaner`,
+      `IFileCleanerRouter`, `IImageCleaningPipeline`) — no new
+      business logic. `clean_file` returns the cleaned bytes as an
+      `EmbeddedResourceBlock` with the correct MIME; `clean_image`
+      returns the cleaned PNG as an `ImageContentBlock`; the rest
+      return `TextContentBlock` (text or JSON sidecar). New
+      `AddWatermarkRemoverMcp` extension calls
+      `AddMcpServer().WithToolsFromAssembly()` and applies the
+      shared `ServerInfo` (name + version) to `McpServerOptions`.
+      Transport binding (stdio or Streamable HTTP) is deliberately
+      left to the host — `serve-mcp` in WR-S11 calls
+      `.WithStdioServerTransport()` or `.WithHttpTransport()`
+      before `RunAsync()`. 28 new tests in the new
+      `WatermarkRemover.Mcp.Tests` project: 24 (happy + null-guard
+      + error per tool), plus 4 DI tests asserting the builder,
+      `ServerInfo`, 8 `McpServerTool` services, and full pipeline
+      resolution. `ModelContextProtocol` 2.2.0 added to
+      `Directory.Packages.props`. Solution build clean, 0 warnings,
+      235 tests total, all green.
 - [x] **WR-S9 — `watermarkremover --version`** — new global
       short-circuit that prints `watermarkremover <assembly version>` and
       exits `0` *before* `config.yaml` is loaded, Serilog is wired up,

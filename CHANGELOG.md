@@ -18,6 +18,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MCP server core (`WatermarkRemover.Mcp` project)** — new
+  transport-agnostic class library that exposes the full
+  WatermarkRemover pipeline as eight Model Context Protocol tools
+  (built on the official `ModelContextProtocol` C# SDK 2.2.0):
+  `clean_text`, `clean_markdown`, `clean_file`, `clean_image`,
+  `detect_text`, `detect_markdown`, `inspect_file`, and
+  `detect_watermark`. Each tool is a `[McpServerToolType]`-attributed
+  static class with a single `[McpServerTool]` method that calls the
+  existing pipeline interface (`ITextCleaningPipeline`,
+  `IMarkdownCleaner`, `IFileCleanerRouter`, `IImageCleaningPipeline`) —
+  no new business logic, no duplication. Tools resolve their
+  dependencies via DI parameter binding (the SDK auto-resolves
+  `ITextCleaningPipeline` / `IMarkdownCleaner` / `IFileCleanerRouter`
+  / `IImageCleaningPipeline` / `AppConfig` / `ILoggerFactory` from
+  the same service collection the host uses). `clean_file` returns
+  the cleaned bytes as an `EmbeddedResourceBlock`
+  (`BlobResourceContents`, base64-encoded with the correct MIME
+  type); `clean_image` returns the cleaned PNG as an
+  `ImageContentBlock`; everything else returns `TextContentBlock`
+  (cleaned text or a JSON sidecar of `WatermarkMatch` / `AiArtifact`
+  / `MetadataEntry` records). New `AddWatermarkRemoverMcp` extension
+  in `DependencyInjection.cs` calls `AddMcpServer()` with the standard
+  `serverInfo.name` / `serverInfo.version` (sourced from
+  `ServerInfo` constants) and `.WithToolsFromAssembly()` for
+  attribute-based discovery. Transport binding (stdio or Streamable
+  HTTP) is deliberately left to the host — the next tick (`serve-mcp`
+  CLI command, WR-S11) wires `WithStdioServerTransport()` or
+  `WithHttpTransport()`. New `WatermarkRemover.Mcp.Tests` project
+  with 28 tests across 9 fixtures: one happy-path + null-guard +
+  error-case per tool (8 × 3 = 24), plus 4 DI extension tests
+  asserting that `AddWatermarkRemoverMcp` returns a usable
+  `IMcpServerBuilder`, that the SDK's `McpServerOptionsSetup` carries
+  our `ServerInfo` values into the registered
+  `IOptions<McpServerOptions>`, that exactly 8 `McpServerTool`
+  services are discoverable with the expected names, and that all
+  four pipeline interfaces the tools depend on resolve from the same
+  container. Image and file tests use local fakes (no ONNX model,
+  no network). `ModelContextProtocol` 2.2.0 + supporting
+  `Microsoft.Extensions.*` 10.0.x added to
+  `Directory.Packages.props`. New project added to
+  `WatermarkRemover.sln`. Build clean (0 warnings, 0 errors);
+  235 tests total, all green.
 - **`watermarkremover --version` (and `-V`)** — new global short-circuit
   flag that prints `watermarkremover <assembly version>` and exits `0`
   *before* `config.yaml` is loaded, Serilog is wired up, or the DI
