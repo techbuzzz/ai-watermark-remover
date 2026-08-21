@@ -1,0 +1,210 @@
+# ============================================================================
+# .dockerignore — WatermarkRemover
+# ----------------------------------------------------------------------------
+# Keep the Docker build context as small as possible, and prevent local
+# secrets, IDE state, and test code from accidentally leaking into the
+# published image. This file mirrors the .gitignore conventions used in
+# this repository, plus a few extras that are useful for container builds
+# but not for source control.
+#
+# The Dockerfile currently consumes:
+#   * `global.json` and `Directory.Build.props` (root) — KEEP
+#   * `src/<Project>/<Project>.csproj` for the projects in the CLI graph
+#   * `src/` (entire tree) for the `dotnet publish` step
+#
+# Anything not on those lists can be safely excluded.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Version control / GitHub metadata
+# ----------------------------------------------------------------------------
+.git/
+.gitattributes
+.github/
+.gitignore
+
+# ----------------------------------------------------------------------------
+# Test projects — not shipped in the production image
+# ----------------------------------------------------------------------------
+src/tests/
+
+# ----------------------------------------------------------------------------
+# Build output
+# ----------------------------------------------------------------------------
+# Standard .NET / Visual Studio patterns (case-insensitive via globs)
+**/[Bb]in/
+**/[Oo]bj/
+**/[Dd]ebug/
+**/[Dd]ebugPublic/
+**/[Rr]elease/
+**/[Rr]eleases/
+**/[Oo]ut/
+
+# ----------------------------------------------------------------------------
+# IDE / editor state
+# ----------------------------------------------------------------------------
+.vs/
+.vscode/
+.idea/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.localhistory/
+.history/
+**/.ionide/
+**/.mfractor/
+**/.cr/personal
+**/.fake/
+
+# Rider / ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+*.swp
+*.swo
+
+# Visual Studio user files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.userprefs
+*.rsuser
+
+# ----------------------------------------------------------------------------
+# Logs and runtime data
+# ----------------------------------------------------------------------------
+**/[Ll]og/
+**/[Ll]ogs/
+*.log
+*.tlog
+*.svclog
+logs/
+models/
+
+# ----------------------------------------------------------------------------
+# Test artefacts, coverage, benchmarks
+# ----------------------------------------------------------------------------
+**/[Tt]est[Rr]esult*/
+**/[Bb]uild[Ll]og.*
+*.trx
+TestResult.xml
+nunit-*.xml
+*.VisualState.xml
+*.received.*
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+.dotCover/
+*.dotCover
+.axoCover/*
+BenchmarkDotNet.Artifacts/
+healthchecksdb
+
+# MSBuild binary & structured logs
+*.binlog
+MSBuild_Logs/
+
+# ----------------------------------------------------------------------------
+# NuGet & package restore output
+# ----------------------------------------------------------------------------
+**/[Pp]ackages/
+**/*.nupkg
+**/*.snupkg
+project.lock.json
+project.fragment.lock.json
+*.nuget.props
+*.nuget.targets
+artifacts/
+.artifacts/
+
+# ----------------------------------------------------------------------------
+# Published app output (never re-ship from inside the context)
+# ----------------------------------------------------------------------------
+publish/
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.publishproj
+PublishScripts/
+AppPackages/
+BundleArtifacts/
+
+# ----------------------------------------------------------------------------
+# Documentation and human-facing files (not needed to compile the app)
+# ----------------------------------------------------------------------------
+docs/
+*.md
+README.md
+LICENSE
+CHANGELOG.md
+SECURITY.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# ----------------------------------------------------------------------------
+# OS / shell cruft
+# ----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+$RECYCLE.BIN/
+*.lnk
+
+# ----------------------------------------------------------------------------
+# Editor / temp / backup files
+# ----------------------------------------------------------------------------
+*~
+~$*
+*.tmp
+*.tmp_proj
+*.bak
+*.cache
+*.swp
+*.swo
+Backup*/
+_MigrationBackup/
+MigrationBackup/
+_UpgradeReport_Files/
+UpgradeLog*.XML
+UpgradeLog*.htm
+ServiceFabricBackup/
+*.rptproj.bak
+
+# Fody / source generators
+FodyWeavers.xsd
+Generated_Code/
+
+# ASP.NET Scaffolding output
+ScaffoldingReadMe.txt
+wwwroot/lib/
+
+# Miscellaneous
+*.gpState
+*.jmconfig
+*.btp.cs
+*.btm.cs
+*.odx.cs
+*.xsd.cs
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+orleans.codegen.cs
+*.fakes.props
+*.fakes.csproj
+
+# Node tooling (we don't ship any, but ignore just in case)
+node_modules/
+.ntvs_analysis.dat
+
+# Local secrets — never bake into the image
+*.env
+*.env.*
+secrets/
+config/local/

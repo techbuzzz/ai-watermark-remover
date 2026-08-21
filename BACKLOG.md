@@ -21,7 +21,7 @@ Status legend:
 
 ### Containerization
 - [x] `Dockerfile` (multi-stage: `mcr.microsoft.com/dotnet/sdk:10.0` build → `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` runtime, non-root user, `EXPOSE 5080`, `HEALTHCHECK CMD curl /health`)
-- [ ] `.dockerignore` (exclude `bin/`, `obj/`, `.vs/`, `models/`, `logs/`, `*.user`)
+- [x] `.dockerignore` (exclude `bin/`, `obj/`, `.vs/`, `models/`, `logs/`, `*.user`)
 - [ ] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`)
 
 ### Distribution
