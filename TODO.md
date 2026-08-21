@@ -190,34 +190,67 @@ Pick in order — MCP server must land before skills and plugins can use it.
   MCP-compatible agent can call `clean_text`, `clean_markdown`,
   `clean_file`, `clean_image`, `detect_text`, `detect_markdown`,
   `inspect_file`, `detect_watermark` directly — no shell-out needed.
+- **SDK:** Official `ModelContextProtocol` C# SDK
+  (https://github.com/modelcontextprotocol/csharp-sdk, NuGet
+  `ModelContextProtocol` for stdio, `ModelContextProtocol.AspNetCore`
+  for HTTP). Maintained in collaboration with Microsoft. Uses attribute
+  based tool discovery: `[McpServerToolType]` on the class,
+  `[McpServerTool]` on each method, `[Description]` on params — the SDK
+  auto-generates the JSON Schema 2020-12 for each tool from the C# method
+  signature. Transport via `WithStdioServerTransport()` (stdio) or
+  `WithHttpTransport(o => o.Stateless = true)` + `app.MapMcp()` (HTTP).
 - **Scope:** new `src/WatermarkRemover.Mcp/` project
 - **Files to touch:**
   - New `src/WatermarkRemover.Mcp/WatermarkRemover.Mcp.csproj` —
     references `WatermarkRemover.Core`, `.Text`, `.Metadata`, `.Image`,
-    and the `ModelContextProtocol` C# SDK (check NuGet for the official
-    package name / version)
-  - New `src/WatermarkRemover.Mcp/McpServerHost.cs` — bootstraps the
-    MCP server, registers all 8 tools, handles `initialize` →
-    `tools/list` → `tools/call` JSON-RPC over stdio
-  - New `src/WatermarkRemover.Mcp/Tools/` — one file per tool
-    (`CleanTextTool.cs`, `CleanMarkdownTool.cs`, `CleanFileTool.cs`,
-    `CleanImageTool.cs`, `DetectTextTool.cs`, `DetectMarkdownTool.cs`,
-    `InspectFileTool.cs`, `DetectWatermarkTool.cs`). Each is a thin
-    adapter calling the existing pipeline interface method — no new
-    business logic
-  - `src/WatermarkRemover.Mcp/DependencyInjection.cs` —
-    `AddWatermarkRemoverMcp()` extension method
+    and NuGet `ModelContextProtocol` (stdio) +
+    `Microsoft.Extensions.Hosting`. Target `net10.0`.
+  - New `src/WatermarkRemover.Mcp/Tools/CleanTextTool.cs` —
+    `[McpServerToolType] public static class CleanTextTool` with a
+    `[McpServerTool] public static async Task<string> CleanText(
+    [Description("Text to clean")] string text,
+    [Description("Enable Layer B statistical rewrite")] bool? statistical = null,
+    CancellationToken ct = default)` method. The method calls
+    `ITextCleaningPipeline.CleanAsync()` (injected via DI) and returns
+    `result.Cleaned` as a string (auto-wrapped in `TextContentBlock` by
+    the SDK). For richer output, return `IEnumerable<TextContentBlock>`
+    including removed-items summary when `--verbose` is requested.
+  - New `src/WatermarkRemover.Mcp/Tools/` — one file per tool:
+    - `CleanMarkdownTool.cs` — calls `IMarkdownCleaner.Clean()`
+    - `CleanFileTool.cs` — calls `IFileCleanerRouter.Clean()` (writes
+      to a temp file, returns base64 `BlobResourceContents` for binary
+      formats)
+    - `CleanImageTool.cs` — calls `IImageCleaningPipeline.CleanAsync()`
+      (returns cleaned image as `ImageContentBlock.FromBytes()`)
+    - `DetectTextTool.cs` — calls `ITextCleaningPipeline.Detect()`
+    - `DetectMarkdownTool.cs` — calls `IMarkdownCleaner.Detect()`
+    - `InspectFileTool.cs` — calls `IFileCleanerRouter.Inspect()`
+    - `DetectWatermarkTool.cs` — calls
+      `IImageCleaningPipeline.Detect()` (returns JSON array of
+      `DetectedRegion`)
+  - New `src/WatermarkRemover.Mcp/DependencyInjection.cs` —
+    `AddWatermarkRemoverMcp(this IServiceCollection services, AppConfig
+    config)` extension method. Calls `AddMcpServer()`,
+    `.WithStdioServerTransport()`, `.WithToolsFromAssembly()`.
   - `src/WatermarkRemover.sln` — `dotnet sln add` the new project
+- **Logging:** All logging goes to **stderr** (`LogToStandardErrorThreshold
+  = LogLevel.Trace`). stdout is reserved for the JSON-RPC protocol —
+  never write to stdout from the server. Use `Host.CreateApplicationBuilder()`
+  and configure `logging.AddConsole(o => o.LogToStandardErrorThreshold =
+  LogLevel.Trace)`.
 - **Acceptance:**
   - `dotnet build` clean, 0 warnings
-  - MCP stdio handshake works: send `initialize` → get `capabilities`;
-    send `tools/list` → get 8 tools; send `tools/call` with
-    `clean_text` + ZWSP input → get cleaned text
+  - stdio handshake works: send `initialize` → get server capabilities;
+    send `tools/list` → get 8 tools with JSON Schema; send `tools/call`
+    with `clean_text` + ZWSP input → get cleaned text
+  - Each tool returns `TextContentBlock` (text tools), `ImageContentBlock`
+    (image tool), or `EmbeddedResourceBlock` (file tool) as appropriate
   - At least 8 unit tests (one per tool) verifying the result shape
-- **Risks:** The `ModelContextProtocol` SDK API may differ from the
-  Python/TypeScript reference — read the C# SDK source/docs first. If
-  no official C# SDK exists, implement the JSON-RPC 2.0 protocol
-  manually over stdio (it's a thin spec).
+- **Risks:** The `ModelContextProtocol` NuGet package requires .NET 8+ —
+  confirm it works on net10.0 (it should; the SDK targets `net8.0`+
+  with `netstandard2.0` fallback). If `WithToolsFromAssembly()` doesn't
+  discover tools in a separate project, use `.WithTools<CleanTextTool>()`
+  with explicit type registration instead.
 - **Backlog ref:** WR-P601
 
 ### WR-S11. [ ] `serve-mcp` CLI command + MCP config
@@ -225,63 +258,140 @@ Pick in order — MCP server must land before skills and plugins can use it.
 - **Why:** WR-P602, WR-P603 — add a `serve-mcp` command to the CLI so
   agents can start the MCP server, and add an `mcp:` section to
   `config.yaml`.
+- **SDK:** The stdio transport uses `Host.CreateApplicationBuilder()` +
+  `AddMcpServer().WithStdioServerTransport()` + `WithToolsFromAssembly()`.
+  The HTTP transport uses `WebApplication.CreateBuilder()` +
+  `AddMcpServer().WithHttpTransport(o => o.Stateless = true)` +
+  `app.MapMcp()` (reuses the existing ASP.NET Core host pattern from
+  `ServeCommand`). `MapMcp()` maps the Streamable HTTP endpoint at the
+  root by default; use `app.MapMcp("/mcp")` for a custom route.
 - **Scope:** `src/WatermarkRemover.CLI/`, `src/config.yaml`,
   `src/WatermarkRemover.Core/Configuration/`
 - **Files to touch:**
   - New `src/WatermarkRemover.CLI/Commands/ServeMcpCommand.cs` —
-    `AsyncCommand` that boots `McpServerHost` with `--transport stdio|http|sse`
-    (default stdio). `--port <PORT>` for HTTP/SSE (default 5090).
-    `--api-key <KEY>` optional auth
-  - `src/WatermarkRemover.CLI/Program.cs` — register `serve-mcp`
+    `AsyncCommand` that builds the host with the MCP transport:
+    - **stdio** (default): `Host.CreateApplicationBuilder()` →
+      `services.AddWatermarkRemoverMcp(config)` (which internally calls
+      `AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()`)
+      → `await host.RunAsync()`. Logging to stderr only.
+    - **http**: `WebApplication.CreateBuilder()` →
+      `AddMcpServer().WithHttpTransport(o => o.Stateless = true)`
+      → `app.MapMcp()` → `await app.RunAsync()`. Reuses `--port`
+      (default 5090), `--api-key` (optional, reuses the same
+      auth middleware pattern from `ServeCommand`).
+  - `src/WatermarkRemover.CLI/Program.cs` — register `serve-mcp`:
+    `cfg.AddCommand<ServeMcpCommand>("serve-mcp").WithDescription(...)`
   - `src/WatermarkRemover.Core/Configuration/AppConfig.cs` — add
-    `McpConfig { Transport, Port, ApiKey }` with defaults (stdio, 5090, null)
+    `McpConfig { Transport, Port, ApiKey }` with defaults (stdio,
+    5090, null)
   - `src/config.yaml` — add `mcp:` section
   - README "Commands" table — add `serve-mcp`
 - **Acceptance:**
   - `dotnet run --project src/WatermarkRemover.CLI -- serve-mcp` starts
-    the stdio MCP server and responds to JSON-RPC
-  - `serve-mcp --transport http --port 5090` starts the HTTP transport
+    the stdio MCP server and responds to JSON-RPC over stdin/stdout
+  - `serve-mcp --transport http --port 5090` starts the Streamable HTTP
+    transport at `http://0.0.0.0:5090` (testable with `curl`)
   - Config values overrideable via `config.yaml`
-  - `--help` shows the new command
+  - `--help` shows the new command with all flags
+  - stdout contains ONLY JSON-RPC messages (no log output) in stdio mode
 - **Risks:** stdio transport must not log to stdout (stdout is the
-  JSON-RPC channel) — all logging goes to stderr.
+  JSON-RPC channel) — all logging goes to stderr via
+  `LogToStandardErrorThreshold = LogLevel.Trace`. The HTTP transport
+  reuses the existing `WatermarkRemover.CLI` project which already
+  references `Microsoft.AspNetCore.App` framework, so
+  `ModelContextProtocol.AspNetCore` can be added without a new
+  framework reference.
 - **Backlog ref:** WR-P602, WR-P603
 
 ### WR-S12. [ ] MCP server tests
 
 - **Why:** WR-P604 — test coverage for the MCP layer before building
   skills and plugins on top of it.
+- **SDK:** Use `StreamServerTransport` / `StreamClientTransport`
+  (in-memory pipe transport from the `ModelContextProtocol` SDK) to
+  test the full JSON-RPC handshake without spawning a subprocess.
+  Create paired pipes (`System.IO.Pipelines.Pipe`) and connect the
+  server + client in the same process. This is the official testing
+  pattern recommended by the SDK (see `samples/InMemoryTransport`).
 - **Scope:** new `src/tests/WatermarkRemover.Mcp.Tests/`
 - **Files to touch:**
   - New `src/tests/WatermarkRemover.Mcp.Tests/WatermarkRemover.Mcp.Tests.csproj`
-  - Tests: each of the 8 tools returns the expected result shape for a
-    known input; stdio transport handshake (initialize → tools/list →
-    tools/call); error mapping (invalid input → JSON-RPC error with
-    `ErrorResult` code)
+    — references `ModelContextProtocol` (for the in-memory transport
+    types), `WatermarkRemover.Mcp`, `WatermarkRemover.Core`, and the
+    same test stack (`xunit`, `FluentAssertions`,
+    `Microsoft.NET.Test.Sdk`) as the other test projects.
   - `src/WatermarkRemover.sln` — `dotnet sln add` the new project
+  - Tests:
+    - `Initialize_Handshake_ReturnsServerInfo` — send `initialize`
+      JSON-RPC, assert `serverInfo` contains `"WatermarkRemover"`
+    - `ToolsList_Returns8Tools` — send `tools/list`, assert 8 tool
+      names match the expected set
+    - `CleanText_RemovesZwsp` — `tools/call` `clean_text` with ZWSP
+      input, assert cleaned text has no ZWSP
+    - `CleanMarkdown_StripsFrontmatter` — `tools/call` `clean_markdown`
+      with frontmatter, assert it's removed
+    - `DetectText_FindsVendorWatermark` — `tools/call` `detect_text`
+      with a known Claude/Gemini/OpenAI pattern, assert `WatermarkMatch[]`
+    - `InspectFile_ReturnsMetadataEntries` — `tools/call`
+      `inspect_file` with a test PNG containing tEXt chunk, assert
+      `MetadataEntry[]`
+    - `CleanFile_ReturnsBlobResource` — `tools/call` `clean_file` with
+      a test PNG, assert `EmbeddedResourceBlock` with `BlobResourceContents`
+    - `CleanImage_ReturnsImageContentBlock` — `tools/call`
+      `clean_image` with a test image + fake inpaint runner, assert
+      `ImageContentBlock` with `image/png` MIME
+    - `DetectWatermark_ReturnsRegions` — `tools/call`
+      `detect_watermark` with a test image, assert `DetectedRegion[]`
+    - `EmptyInput_ReturnsToolError` — `tools/call` `clean_text` with
+      empty string, assert `CallToolResult.IsError == true`
 - **Acceptance:**
   - `dotnet test` shows all MCP tests green
-  - At least 10 tests
-- **Risks:** Testing stdio transport requires a test harness that pipes
-  JSON-RPC lines — use `Console` redirection or a `StringReader`/`StringWriter`
-  pair.
+  - At least 10 tests (8 tool tests + handshake + error case)
+  - No ONNX model required (use `FakeInpaintRunner` from
+    `WatermarkRemover.Image.Tests` or a test double)
+- **Risks:** The in-memory transport requires `System.IO.Pipelines`
+  (part of the .NET runtime). The `StreamServerTransport` constructor
+  takes a `PipeReader` + `PipeWriter` — convert with
+  `.AsStream()` if the API expects `Stream`.
 - **Backlog ref:** WR-P604
 
 ### WR-S13. [ ] MCP server docs (`docs/MCP.md`)
 
 - **Why:** WR-P605 — document the MCP integration for agent developers
   and end users.
+- **SDK ref:** Link to https://github.com/modelcontextprotocol/csharp-sdk
+  and https://csharp.sdk.modelcontextprotocol.io/ as the SDK reference.
+  Document the three transport modes (stdio, Streamable HTTP stateless,
+  legacy SSE) and which one to use when.
 - **Scope:** new `docs/MCP.md`
 - **Files to touch:**
-  - New `docs/MCP.md` — architecture diagram, tool schemas (request/
-    response JSON for all 8 tools), transport options (stdio / HTTP /
-    SSE), configuration reference, install instructions for Claude Code,
-    OpenCode, MiniMax Code, Cursor, Continue
-  - README — add link to `docs/MCP.md` in the "Agent integration" section
+  - New `docs/MCP.md` — sections:
+    - **Architecture** — diagram: `Agent → MCP transport (stdio/HTTP) →
+      WatermarkRemover.Mcp → pipeline (text/markdown/file/image)`
+    - **Tool schemas** — request/response JSON for all 8 tools
+      (`clean_text`, `clean_markdown`, `clean_file`, `clean_image`,
+      `detect_text`, `detect_markdown`, `inspect_file`,
+      `detect_watermark`). Each with parameter descriptions and example
+      output (text → `TextContentBlock`, file → `EmbeddedResourceBlock`
+      with `BlobResourceContents`, image → `ImageContentBlock`)
+    - **Transports** — stdio (local agents, default), Streamable HTTP
+      (remote, stateless recommended), legacy SSE (disabled by default,
+      enable with `EnableLegacySse = true` for old clients)
+    - **Configuration** — `mcp:` section in `config.yaml`, CLI flags
+      (`--transport`, `--port`, `--api-key`)
+    - **Install** — one-liner per host:
+      - Claude Code: `claude mcp add watermarkremover -- dotnet run --project src/WatermarkRemover.CLI -- serve-mcp`
+      - OpenCode: add to `.opencode/mcp-config.json`
+      - MiniMax Code: add to plugin manifest
+      - Cursor: `~/.cursor/mcp.json` snippet
+      - Continue: `~/.continue/config.json` snippet
+      - Docker: `docker run -p 5090:5090 watermarkremover serve-mcp --transport http`
+  - README — add "Agent integration" section with link to `docs/MCP.md`
 - **Acceptance:**
   - A user can follow `docs/MCP.md` to register the MCP server in any
     of the 5 listed hosts without reading source code
   - Every tool has a request/response example
+  - SDK reference links are correct and live
 - **Risks:** None — documentation only.
 - **Backlog ref:** WR-P605
 
@@ -421,19 +531,30 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 - **Why:** WR-P631, WR-P633 — ensure `serve-mcp` is in release binaries
   and Docker exposes the MCP HTTP transport.
-- **Scope:** release workflow, Dockerfile
+- **Scope:** release workflow, Dockerfile, Directory.Packages.props
 - **Files to touch:**
+  - `src/Directory.Packages.props` — add `ModelContextProtocol` and
+    `ModelContextProtocol.AspNetCore` package versions (central package
+    management)
   - `.github/workflows/release.yml` — verify `serve-mcp` command is
-    included in single-file binaries (no extra deps)
-  - `Dockerfile` — expose MCP HTTP port 5090, add `CMD` option for
-    `serve-mcp --transport http`
+    included in single-file binaries (no extra runtime deps; the MCP
+    SDK is a pure managed library). Add a smoke-test step that runs
+    `./watermarkremover serve-mcp --help` on the built binary.
+  - `Dockerfile` — add `EXPOSE 5090` for the MCP HTTP transport. Add a
+    `CMD` variant for `serve-mcp --transport http --port 5090`.
+    Alternatively, document in `docs/MCP.md` that users can run:
+    `docker run -p 5090:5090 watermarkremover serve-mcp --transport http --port 5090`
   - `docker-compose.yml` — add MCP service or port mapping
   - `docs/MCP.md` — add Docker instructions
 - **Acceptance:**
-  - `docker run watermarkremover serve-mcp --transport http --port 5090`
-    starts the MCP HTTP server
-  - Release binary includes `serve-mcp` (test on at least one RID)
-- **Risks:** None — packaging only.
+  - `docker run -p 5090:5090 watermarkremover serve-mcp --transport http`
+    starts the MCP Streamable HTTP server at `http://0.0.0.0:5090`
+  - Release binary includes `serve-mcp` (test on at least one RID by
+    running `./watermarkremover serve-mcp --help`)
+  - `ModelContextProtocol` packages listed in `Directory.Packages.props`
+- **Risks:** None — packaging only. The MCP SDK is a pure managed
+  library with no native dependencies, so single-file self-contained
+  publish works out of the box.
 - **Backlog ref:** WR-P631, WR-P633
 
 ---
