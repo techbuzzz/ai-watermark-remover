@@ -1,10 +1,12 @@
 using System.ComponentModel;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Spectre.Console.Cli;
 using WatermarkRemover.CLI.Infrastructure;
@@ -28,6 +30,12 @@ public sealed class ServeCommand(
     private readonly IImageCleaningPipeline _imagePipeline = imagePipeline;
     private readonly AppConfig _config = config;
 
+    /// <summary>Default CORS origins when the API runs open (no --api-key).</summary>
+    private const string DefaultCorsOriginsOpen = "*";
+
+    /// <summary>Default CORS origins when the API is key-protected.</summary>
+    private const string DefaultCorsOriginsKeyed = "http://localhost:4321,http://localhost:5080";
+
     public sealed class Settings : GlobalSettings
     {
         [CommandOption("--host <HOST>")]
@@ -41,6 +49,17 @@ public sealed class ServeCommand(
         [CommandOption("--api-key <KEY>")]
         [Description("Require this API key via the X-API-Key header. Omit to disable auth.")]
         public string? ApiKey { get; init; }
+
+        [CommandOption("--cors-origins <ORIGINS>")]
+        [Description("Comma-separated CORS origin list. '*' for any. Defaults to '*' " +
+                     "when --api-key is unset, otherwise 'http://localhost:4321,http://localhost:5080'. " +
+                     "Override via WATERMARKREMOVER_CORS_ORIGINS env var or this flag.")]
+        public string? CorsOrigins { get; init; }
+
+        [CommandOption("--no-ui")]
+        [Description("Skip serving the bundled Astro web UI (wwwroot/) even when present. " +
+                     "Useful for headless API-only deployments.")]
+        public bool NoUi { get; init; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -70,8 +89,36 @@ public sealed class ServeCommand(
             });
         });
 
+        // CORS — only enabled when the user (or env var) provides origins. The
+        // browser UI needs to call the API cross-origin in dev (Astro's dev
+        // server runs on :4321 by default).
+        string[] corsOrigins = ResolveCorsOrigins(settings);
+        bool corsEnabled = corsOrigins.Length > 0;
+        if (corsEnabled)
+        {
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    if (corsOrigins.Length == 1 && corsOrigins[0] == "*")
+                    {
+                        policy.AllowAnyOrigin();
+                    }
+                    else
+                    {
+                        policy.WithOrigins(corsOrigins);
+                    }
+                    policy.AllowAnyHeader().AllowAnyMethod();
+                });
+            });
+        }
+
         WebApplication app = builder.Build();
         app.UseRateLimiter();
+        if (corsEnabled)
+        {
+            app.UseCors();
+        }
 
         // API-key auth middleware (only when a key is configured).
         if (!string.IsNullOrWhiteSpace(settings.ApiKey))
@@ -98,7 +145,42 @@ public sealed class ServeCommand(
 
         MapEndpoints(app);
 
+        // Bundle the Astro web UI (built by `npm run build` in /web) on the
+        // same port. Skipped when the user passes --no-ui or when the
+        // wwwroot/ directory wasn't shipped with the binary.
+        string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        bool webRootPresent = Directory.Exists(webRoot) &&
+                              File.Exists(Path.Combine(webRoot, "index.html"));
+        if (!settings.NoUi && webRootPresent)
+        {
+            // Serve index.html on directory hits, static files for everything else.
+            app.UseDefaultFiles(new DefaultFilesOptions
+            {
+                DefaultFileNames = { "index.html" },
+                FileProvider = new PhysicalFileProvider(webRoot),
+            });
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(webRoot),
+            });
+            // SPA-style fallback: any non-API path that didn't match a static
+            // file or an API route returns index.html so client-side tab
+            // routing (and direct deep links like /#file) keep working.
+            app.MapFallback(() => Results.File(Path.Combine(webRoot, "index.html"), "text/html"));
+            OutputFormatter.Success($"Web UI bundle mounted at http://{settings.Host}:{settings.Port}/");
+        }
+        else if (!settings.NoUi)
+        {
+            OutputFormatter.Warning(
+                "Web UI bundle not found (expected wwwroot/index.html next to the binary). " +
+                "Run `npm run build` in /web to bundle it, or pass --no-ui to silence this warning.");
+        }
+
         OutputFormatter.Success($"WatermarkRemover API listening on http://{settings.Host}:{settings.Port}");
+        if (corsEnabled)
+        {
+            OutputFormatter.Info($"CORS enabled for: {(corsOrigins.Length == 1 && corsOrigins[0] == "*" ? "*" : string.Join(", ", corsOrigins))}");
+        }
         if (!string.IsNullOrWhiteSpace(settings.ApiKey))
         {
             OutputFormatter.Warning("API key authentication is ENABLED (X-API-Key header required).");
@@ -106,6 +188,35 @@ public sealed class ServeCommand(
 
         await app.RunAsync().ConfigureAwait(false);
         return 0;
+    }
+
+    /// <summary>
+    /// Resolution order: --cors-origins flag > WATERMARKREMOVER_CORS_ORIGINS env var
+    /// > smart default based on whether --api-key is set.
+    /// Returns an empty array when the user wants CORS off (empty flag value).
+    /// </summary>
+    private static string[] ResolveCorsOrigins(Settings settings)
+    {
+        string? raw = settings.CorsOrigins;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            raw = Environment.GetEnvironmentVariable("WATERMARKREMOVER_CORS_ORIGINS");
+        }
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            raw = string.IsNullOrWhiteSpace(settings.ApiKey)
+                ? DefaultCorsOriginsOpen
+                : DefaultCorsOriginsKeyed;
+        }
+        // Allow the user to explicitly turn CORS off with the empty string after
+        // the equals sign: --cors-origins=""
+        if (settings.CorsOrigins == string.Empty)
+        {
+            return Array.Empty<string>();
+        }
+        return raw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
     }
 
     private void MapEndpoints(WebApplication app)

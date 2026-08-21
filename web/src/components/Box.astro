@@ -1,0 +1,41 @@
+---
+// Box.astro — the card shell that wraps the four tab panels.
+// `tabs` is a list of { id, label } used to render the tab nav.
+// The four panels themselves are passed in via the default slot.
+export interface Tab {
+  id: string;
+  label: string;
+}
+interface Props {
+  tabs: Tab[];
+  active?: string;
+}
+const { tabs, active } = Astro.props as Props;
+const initial = active ?? tabs[0]?.id ?? '';
+---
+
+<section class="wr-box" data-active-tab={initial}>
+  <header class="wr-box-header">
+    <h1 class="wr-box-title">🧹 WatermarkRemover</h1>
+    <p class="wr-box-sub">Strip AI-provenance watermarks from text, markdown, files &amp; images.</p>
+  </header>
+
+  <nav class="wr-tabs" role="tablist" aria-label="Watermark tools">
+    {tabs.map((t) => (
+      <button
+        type="button"
+        role="tab"
+        class="wr-tab"
+        id={`tab-${t.id}`}
+        data-tab={t.id}
+        aria-controls={`panel-${t.id}`}
+        aria-selected={t.id === initial ? 'true' : 'false'}
+        tabindex={t.id === initial ? 0 : -1}
+      >
+        {t.label}
+      </button>
+    ))}
+  </nav>
+
+  <slot />
+</section>

@@ -98,11 +98,11 @@ Status legend:
 - [ ] `POST /clean/markdown` endpoint (documented in README but missing in `ServeCommand.MapEndpoints` — currently only `clean/text`, `detect/text`, `clean/markdown` exists; add `detect/markdown`)
 - [ ] `POST /detect/markdown` endpoint
 - [ ] OpenAPI / Swagger UI at `/swagger` (via Swashbuckle) for API discoverability
-- [ ] CORS support (configurable allowed origins via `--cors-origins`)
+- [x] CORS support (configurable allowed origins via `--cors-origins`)
 - [ ] Configurable rate-limit via `config.yaml` (currently hardcoded 100 req/min)
 - [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB)
 - [ ] `/metrics` endpoint (Prometheus: request count, latency histogram, model availability)
-- [ ] Web UI — simple static HTML page at `/` with drag-and-drop file upload (vanilla JS, no framework dependency)
+- [x] Web UI (Astro "box") — single-page plug-and-play dashboard at `/` with Text / Markdown / File / Image tabs. Astro 5.x static output, no UI framework, code-split per tab. Co-located with the .NET binary via `UseStaticFiles`; standalone deploys also supported. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
 
 ### Configuration
 - [ ] Environment variable overrides (`WATERMARKREMOVER__TEXT__STATISTICAL=true`, double-underscore notation like ASP.NET config)

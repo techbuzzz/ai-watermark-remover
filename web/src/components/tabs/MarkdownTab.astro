@@ -1,0 +1,45 @@
+---
+// MarkdownTab — the markdown-cleaning form panel.
+---
+
+<section
+  class="wr-panel"
+  role="tabpanel"
+  id="panel-markdown"
+  data-tab-panel="markdown"
+  data-active="false"
+  aria-labelledby="tab-markdown"
+>
+  <div data-widget="markdown">
+    <form>
+      <div class="wr-field">
+        <label for="md-input">Markdown to clean</label>
+        <textarea
+          name="markdown"
+          id="md-input"
+          placeholder="# Hello&#10;&#10;Paste markdown here…"
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
+      </div>
+
+      <div class="wr-field-row">
+        <label><input type="checkbox" name="stripAll" /> Strip everything (heading levels, code fences, links…)</label>
+      </div>
+
+      <div class="wr-actions">
+        <button type="submit">Clean markdown</button>
+        <button type="button" class="ghost" data-action="reset">Reset</button>
+      </div>
+
+      <div class="wr-status" data-role="status" aria-live="polite"></div>
+      <div class="wr-result" data-role="result"></div>
+    </form>
+  </div>
+</section>
+
+<script>
+  import { mountMarkdownWidget } from '../widgets/markdown-widget';
+  const root = document.querySelector<HTMLElement>('[data-widget="markdown"]');
+  if (root) mountMarkdownWidget(root);
+</script>

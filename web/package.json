@@ -1,0 +1,30 @@
+{
+  "name": "watermarkremover-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Astro-based plug-and-play web UI for WatermarkRemover (consumes the .NET HTTP API on :5080).",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build && node scripts/sync.mjs",
+    "preview": "astro preview",
+    "astro": "astro",
+    "typecheck": "astro check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync": "node scripts/sync.mjs"
+  },
+  "dependencies": {
+    "astro": "^5.18.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

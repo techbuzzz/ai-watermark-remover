@@ -27,4 +27,12 @@
     <ProjectReference Include="..\WatermarkRemover.Metadata\WatermarkRemover.Metadata.csproj" />
     <ProjectReference Include="..\WatermarkRemover.Image\WatermarkRemover.Image.csproj" />
   </ItemGroup>
+
+  <!-- Astro web UI bundle (built by `npm run build` in /web).
+       The sync script copies /web/dist → wwwroot/. The directory is left
+       out of the repo by default; running `npm run build` (or just
+       `npm run sync`) is what populates it. -->
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

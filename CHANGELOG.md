@@ -18,6 +18,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Out-of-the-box experience** — every install path now produces a working
+  API **and** web UI on the same port without extra steps:
+  - The release pipeline (`.github/workflows/release.yml`) builds the Astro
+    web UI in a new Node 22 step before `dotnet publish`, and the publish
+    uses `IncludeAllContentForSelfExtract=true` so the static bundle is
+    embedded in the single-file binary.
+  - A new `Makefile` (Linux / macOS) and `scripts/build.ps1` (Windows
+    PowerShell) wrap the whole flow in one command — `make build`,
+    `make serve`, `make test`, or `scripts\build.ps1 -Serve`.
+  - The Dockerfile `webbuild` stage (added with the UI itself) was already
+    doing the same for Docker; the README and `docs/WEB-UI.md` now document
+    it explicitly under "Out of the box".
+- **Web UI (Astro "box")** — single-page plug-and-play dashboard at `/` with
+  Text / Markdown / File / Image tabs. Built with Astro 5.x (`output: 'static'`,
+  no UI framework, code-split per tab, <50 KB total page weight gzipped).
+  Configured via two env vars (`PUBLIC_API_URL`, `PUBLIC_API_KEY`). Co-located
+  with the .NET binary via `UseStaticFiles`; standalone deploys (Vercel /
+  Netlify / GH Pages / nginx) also supported. See
+  [`docs/WEB-UI.md`](./docs/WEB-UI.md).
+- **`/web` Astro project** — `package.json`, `astro.config.mjs`, `tsconfig.json`,
+  Tab components, vanilla-JS widgets, 20+ Vitest unit tests, `npm run build`
+  that syncs `dist/` → `src/WatermarkRemover.CLI/wwwroot/`.
+- **CORS middleware** in `ServeCommand` — `--cors-origins` flag +
+  `WATERMARKREMOVER_CORS_ORIGINS` env var, smart defaults (`*` for open APIs,
+  local dev hosts when `--api-key` is set).
+- **`--no-ui` flag** in `ServeCommand` — skip serving `wwwroot/` for
+  headless API-only deployments.
+- **`OutputFormatter.Info`** — small additional method on the Spectre.Console
+  helper for informational messages.
+- **`docs/WEB-UI.md`** — comprehensive guide: dev loop, build, env vars,
+  co-located serve, standalone deploy recipes, security notes, troubleshooting.
+- **Multi-stage Docker build** — new `webbuild` stage (Node 22 alpine) that
+  builds the Astro bundle and overlays it into the .NET source tree before
+  `dotnet publish`.
+- **`Makefile`** — `make`, `make build`, `make web`, `make dotnet`, `make test`,
+  `make serve`, `make clean`, `make smoke` targets for Linux / macOS.
+- **`scripts/build.ps1`** — one-command equivalent for Windows PowerShell.
+  Handles npm deprecation warnings that otherwise trip `$ErrorActionPreference
+  = 'Stop'`. Supports `-SkipWeb`, `-SkipDotnet`, `-Configuration`, `-Serve`,
+  `-Port` switches.
 - **Documentation overhaul** — comprehensive [README](./README.md) with badges, hero,
   TOC, install methods (binary / Docker / from source), comparison table, FAQ,
   Russian-language support section.

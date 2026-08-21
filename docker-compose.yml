@@ -41,15 +41,19 @@ services:
       - no-new-privileges:true
 
     # Environment variables consumed by the server:
-    #   WATERMARKREMOVER_API_KEY    — enables X-API-Key auth (omit to run open)
-    #   WATERMARKREMOVER_HOST       — default 0.0.0.0 (set to 127.0.0.1 to bind locally)
-    #   WATERMARKREMOVER_PORT       — default 5080
-    #   DOTNET_*                    — passed through for .NET runtime tweaks
+    #   WATERMARKREMOVER_API_KEY        — enables X-API-Key auth (omit to run open)
+    #   WATERMARKREMOVER_HOST           — default 0.0.0.0 (set to 127.0.0.1 to bind locally)
+    #   WATERMARKREMOVER_PORT           — default 5080
+    #   WATERMARKREMOVER_CORS_ORIGINS   — comma-separated CORS origin list
+    #                                     (overrides --cors-origins flag; defaults to '*'
+    #                                     when no API key, otherwise to the local dev origins)
+    #   DOTNET_*                        — passed through for .NET runtime tweaks
     #
     # The .NET configuration loader does not yet consume env vars directly
     # (see BACKLOG → P2). For now, pass CLI flags via `command:` below.
     environment:
       WATERMARKREMOVER_API_KEY: ${WATERMARKREMOVER_API_KEY:-}
+      WATERMARKREMOVER_CORS_ORIGINS: ${WATERMARKREMOVER_CORS_ORIGINS:-}
       DOTNET_RUNNING_IN_CONTAINER: "true"
       DOTNET_CLI_TELEMETRY_OPTOUT: "true"
     command:

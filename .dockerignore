@@ -203,6 +203,16 @@ orleans.codegen.cs
 node_modules/
 .ntvs_analysis.dat
 
+# ----------------------------------------------------------------------------
+# Astro web UI (/web) — source files are needed for the webbuild stage,
+# but we don't want to bake the install cache or prior build output.
+# ----------------------------------------------------------------------------
+web/node_modules/
+web/dist/
+web/.astro/
+web/.env
+web/.env.*
+
 # Local secrets — never bake into the image
 *.env
 *.env.*

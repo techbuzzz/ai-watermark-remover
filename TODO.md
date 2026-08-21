@@ -10,6 +10,32 @@ Status legend:
 
 ---
 
+## Active — P2 platform & UX
+
+- [x] **Web UI (Astro "box")** — single-page plug-and-play dashboard with Text /
+      Markdown / File / Image tabs. Astro 5.x static output, code-split per tab,
+      no UI framework. Co-located with the .NET binary via `UseStaticFiles`;
+      standalone deploys also work. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
+      Implementation includes: `web/` Astro project, CORS middleware in
+      `ServeCommand` (`--cors-origins` + `WATERMARKREMOVER_CORS_ORIGINS` env var),
+      `--no-ui` flag for headless deployments, Dockerfile `webbuild` stage,
+      Vitest unit tests (20 passing), and `npm run build` integration that
+      syncs `dist/` → `src/WatermarkRemover.CLI/wwwroot/`.
+
+- [ ] **OpenAPI / Swagger UI** at `/swagger` (via Swashbuckle) for API
+      discoverability. Still pending.
+
+- [ ] **Configurable rate-limit** via `config.yaml` (currently hardcoded
+      100 req/min). Still pending.
+
+- [ ] **File size limit** enforcement (configurable `max_upload_mb`, default
+      100 MB). Client-side check is in place; server-side enforcement still
+      pending.
+
+- [ ] **`clean-all`** auto-routing command. Still pending.
+
+---
+
 ## Active — P0 release readiness
 
 - [x] **Release workflow** — `.github/workflows/release.yml`

@@ -1,0 +1,50 @@
+---
+// FileTab — metadata cleaning + inspection for files (JPEG/PNG/PDF/DOCX/HTML).
+---
+
+<section
+  class="wr-panel"
+  role="tabpanel"
+  id="panel-file"
+  data-tab-panel="file"
+  data-active="false"
+  aria-labelledby="tab-file"
+>
+  <div data-widget="file">
+    <div
+      class="wr-drop"
+      data-role="dropzone"
+      role="button"
+      tabindex="0"
+      aria-label="Choose a file to clean or inspect"
+    >
+      <p><strong>Drop a file here</strong> or click to choose</p>
+      <p class="muted">JPEG · PNG · PDF · DOCX · HTML — max 100 MB</p>
+      <input type="file" hidden accept=".jpg,.jpeg,.png,.pdf,.docx,.html,.htm" />
+    </div>
+
+    <p class="muted">
+      File: <span data-role="filename">—</span>
+      <span style="margin-left: 0.5rem">(<span data-role="filesize">—</span>)</span>
+    </p>
+
+    <div class="wr-progress" data-role="progress" data-active="false">
+      <div class="wr-progress-bar" data-role="progress-bar"></div>
+    </div>
+
+    <div class="wr-actions">
+      <button type="button" data-action="clean">Strip metadata</button>
+      <button type="button" class="ghost" data-action="inspect">Inspect only</button>
+      <button type="button" class="ghost" data-action="reset">Reset</button>
+    </div>
+
+    <div class="wr-status" data-role="status" aria-live="polite"></div>
+    <div class="wr-result" data-role="result"></div>
+  </div>
+</section>
+
+<script>
+  import { mountFileWidget } from '../widgets/file-widget';
+  const root = document.querySelector<HTMLElement>('[data-widget="file"]');
+  if (root) mountFileWidget(root);
+</script>

@@ -62,6 +62,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 ## 📑 Table of contents
 
 - [🚀 Quick start](#-quick-start)
+- [🌐 Web UI](#-web-ui)
 - [📦 Installation](#-installation)
 - [🧠 How it works](#-how-it-works)
   - [Text — three layers](#text--three-layers)
@@ -86,11 +87,16 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 ## 🚀 Quick start
 
+**The promise:** clone, build, run — and the API + web UI are both live on
+`http://localhost:5080/`. Or `docker run` and the UI is immediately available
+from the container. No extra steps, no separate ports.
+
 ```bash
-# 1. Clone & build (one-time, needs .NET 10 SDK)
+# 1. Clone & build (one-time, needs .NET 10 SDK + Node 20+)
 git clone https://github.com/techbuzzz/ai-watermark-remover.git
 cd ai-watermark-remover
-dotnet build
+dotnet build                           # .NET pipeline
+(cd web && npm install && npm run build)   # web UI (bundled into the .NET publish)
 
 # 2. Strip invisible characters from a text blob
 dotnet run --project src/WatermarkRemover.CLI -- clean-text "Hello‍‎world"   # ZWSP, ZWJ, LRM
@@ -103,21 +109,68 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-file ./photos --recursive
 dotnet run --project src/WatermarkRemover.CLI -- download-model
 dotnet run --project src/WatermarkRemover.CLI -- clean-image photo.png -o clean.png
 
-# 5. Spin up the HTTP API on :5080
+# 5. Spin up the HTTP API + web UI on :5080 (UI at http://localhost:5080/)
 dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080 --api-key s3cret
 ```
+
+Or the one-command variants:
+
+```bash
+# Linux / macOS (uses Make)
+make build && make serve
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Serve
+```
+
+Or just Docker — single command, UI included:
+
+```bash
+docker run --rm -p 5080:5080 techbuzzz/watermarkremover:latest
+# → open http://localhost:5080/
+```
+
+---
+
+## 🌐 Web UI
+
+`watermarkremover serve` ships a **plug-and-play Astro web UI** on the
+same port — a single-page "box" with four tabs (Text, Markdown, File, Image)
+that wrap every endpoint in the API. The UI is a pure-static bundle (no
+Node server, no framework runtime), so it deploys anywhere a folder of files
+can be served.
+
+After building once (see Quick start), the UI is automatically mounted on the
+same port as the API:
+
+```bash
+dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080
+# → open http://localhost:5080/
+```
+
+To re-point the UI at a different API (e.g. a remote server you already have
+running), rebuild with a different URL:
+
+```bash
+cd web
+PUBLIC_API_URL=https://api.other-host.example.com npm run build
+```
+
+For full configuration, dev loop, deployment recipes (Vercel / Netlify / GH
+Pages / nginx), and security notes, see **[📘 docs/WEB-UI.md](./docs/WEB-UI.md)**.
 
 ---
 
 ## 📦 Installation
 
+Every install path produces a working API **and** web UI on the same port.
 Pick the path that fits your environment.
 
 ### 1. Pre-built binary (recommended)
 
 Download the latest self-contained single-file executable for your platform from
 [GitHub Releases](https://github.com/techbuzzz/ai-watermark-remover/releases/latest).
-**No .NET runtime required.**
+**No .NET runtime required. Web UI is embedded in the binary.**
 
 | Platform    | Architecture | Asset                          |
 |-------------|--------------|--------------------------------|
@@ -127,37 +180,63 @@ Download the latest self-contained single-file executable for your platform from
 | 🍎 macOS    | x64          | `watermarkremover-osx-x64.zip`       |
 
 ```bash
-# Linux / macOS
+# Linux / macOS — one binary, UI included
 unzip watermarkremover-linux-x64.zip
 sudo mv watermarkremover /usr/local/bin/
-watermarkremover --help
+watermarkremover serve --port 5080
+# → open http://localhost:5080/  (UI + API on the same port)
 ```
 
 ```powershell
-# Windows (PowerShell)
+# Windows (PowerShell) — one .exe, UI included
 Expand-Archive .\watermarkremover-win-x64.zip
-Move-Item .\watermarkremover\watermarkremover.exe C:\Tools\
-& 'C:\Tools\watermarkremover.exe' --help
+& .\watermarkremover\watermarkremover.exe serve --port 5080
+# → open http://localhost:5080/  (UI + API on the same port)
 ```
 
-### 2. Docker
+### 2. Docker (one command, UI included)
 
 ```bash
+# Build the image (multi-stage; the Astro web UI is built into the same image)
 docker build -t watermarkremover .
 docker run --rm -p 5080:5080 -e WATERMARKREMOVER_API_KEY=s3cret watermarkremover
+# → open http://localhost:5080/
+```
+
+Or with `docker compose` (single-service dev loop with the `./models`
+volume mounted):
+
+```bash
+docker compose up
+# → open http://localhost:5080/
 ```
 
 See [🐳 Docker](#-docker) and [`docker-compose.yml`](./docker-compose.yml).
 
 ### 3. From source
 
-Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download) and
+[Node.js 20+](https://nodejs.org/) (for the web UI only).
 
 ```bash
 git clone https://github.com/techbuzzz/ai-watermark-remover.git
 cd ai-watermark-remover
+
+# One command — builds the web UI + .NET, then runs the server with the UI on :5080
+# Linux / macOS
+make serve
+
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Serve
+```
+
+Or the manual three-liner if you prefer:
+
+```bash
 dotnet build
-dotnet run --project src/WatermarkRemover.CLI -- --help
+(cd web && npm install && npm run build)
+dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080
+# → open http://localhost:5080/
 ```
 
 ### 4. As a library (planned)
@@ -411,6 +490,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
   `exiftool`, `mat2`, `exiv2`, `sd-webui-watermark`, etc.
 - 🏛️ [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — module boundaries, data flow,
   extension points
+- 🌐 [docs/WEB-UI.md](./docs/WEB-UI.md) — the plug-and-play Astro web UI
 - ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap

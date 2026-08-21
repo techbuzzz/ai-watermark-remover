@@ -1,0 +1,48 @@
+---
+// TextTab — the text-cleaning form panel.
+---
+
+<section
+  class="wr-panel"
+  role="tabpanel"
+  id="panel-text"
+  data-tab-panel="text"
+  data-active={Astro.props['data-active'] ?? 'false'}
+  aria-labelledby="tab-text"
+>
+  <div data-widget="text">
+    <form>
+      <div class="wr-field">
+        <label for="text-input">Text to clean</label>
+        <textarea
+          name="text"
+          id="text-input"
+          placeholder="Paste text here…"
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
+      </div>
+
+      <div class="wr-field-row">
+        <label><input type="checkbox" name="enableUnicode" checked /> Unicode hygiene (Layer A)</label>
+        <label><input type="checkbox" name="enableStatistical" /> Statistical rewrite (Layer B)</label>
+        <label><input type="checkbox" name="enableVendorSpecific" checked /> Vendor detectors (Layer C)</label>
+      </div>
+
+      <div class="wr-actions">
+        <button type="submit" data-action="clean">Clean text</button>
+        <button type="button" class="ghost" data-action="detect">Detect only</button>
+        <button type="button" class="ghost" data-action="reset">Reset</button>
+      </div>
+
+      <div class="wr-status" data-role="status" aria-live="polite"></div>
+      <div class="wr-result" data-role="result"></div>
+    </form>
+  </div>
+</section>
+
+<script>
+  import { mountTextWidget } from '../widgets/text-widget';
+  const root = document.querySelector<HTMLElement>('[data-widget="text"]');
+  if (root) mountTextWidget(root);
+</script>

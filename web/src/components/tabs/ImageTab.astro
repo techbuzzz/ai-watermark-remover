@@ -1,0 +1,58 @@
+---
+// ImageTab — visual watermark removal via mask + LaMa inpainting.
+---
+
+<section
+  class="wr-panel"
+  role="tabpanel"
+  id="panel-image"
+  data-tab-panel="image"
+  data-active="false"
+  aria-labelledby="tab-image"
+>
+  <div data-widget="image">
+    <div
+      class="wr-drop"
+      data-role="dropzone"
+      role="button"
+      tabindex="0"
+      aria-label="Choose an image to clean or detect"
+    >
+      <p><strong>Drop an image here</strong> or click to choose</p>
+      <p class="muted">PNG · JPEG · WebP — max 100 MB</p>
+      <input type="file" hidden accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp" />
+    </div>
+
+    <p class="muted">
+      File: <span data-role="filename">—</span>
+      <span style="margin-left: 0.5rem">(<span data-role="filesize">—</span>)</span>
+    </p>
+
+    <img
+      alt="Preview"
+      data-role="preview"
+      hidden
+      style="max-width: 100%; max-height: 220px; border-radius: 8px; border: var(--wr-border); display: block; margin: 0.5rem 0;"
+    />
+
+    <div class="wr-progress" data-role="progress" data-active="false">
+      <div class="wr-progress-bar" data-role="progress-bar"></div>
+    </div>
+
+    <div class="wr-actions">
+      <button type="button" data-action="clean">Remove watermark</button>
+      <button type="button" class="ghost" data-action="detect">Detect only</button>
+      <button type="button" class="ghost" data-action="cancel" disabled>Cancel</button>
+      <button type="button" class="ghost" data-action="reset">Reset</button>
+    </div>
+
+    <div class="wr-status" data-role="status" aria-live="polite"></div>
+    <div class="wr-result" data-role="result"></div>
+  </div>
+</section>
+
+<script>
+  import { mountImageWidget } from '../widgets/image-widget';
+  const root = document.querySelector<HTMLElement>('[data-widget="image"]');
+  if (root) mountImageWidget(root);
+</script>

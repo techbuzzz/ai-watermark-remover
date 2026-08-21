@@ -40,6 +40,7 @@ env:
   DOTNET_VERSION: 10.0.400
   CONFIGURATION: Release
   PROJECT_PATH: src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj
+  NODE_VERSION: 22
 
 jobs:
   publish:
@@ -79,6 +80,28 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build the Astro web UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npm ci --no-audit --no-fund
+          # `npm run build` runs `astro build` then `node scripts/sync.mjs`,
+          # which copies dist/ → ../src/WatermarkRemover.CLI/wwwroot/. The
+          # CLI csproj picks up that directory as <Content> and ships it
+          # next to the published binary so `serve` can mount the UI on
+          # the same port as the API.
+          npm run build
+          echo "Web UI bundle:"
+          ls -la ../src/WatermarkRemover.CLI/wwwroot
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -107,6 +130,7 @@ jobs:
             -p:SelfContained=true \
             -p:EnableCompressionInSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
             -p:DebugType=embedded \
             --output "./publish/${{ matrix.rid }}" \
             /p:TreatWarningsAsErrors=true

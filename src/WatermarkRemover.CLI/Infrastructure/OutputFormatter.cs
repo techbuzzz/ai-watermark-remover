@@ -28,6 +28,10 @@ public static class OutputFormatter
     public static void Warning(string message) =>
         AnsiConsole.MarkupLine($"[yellow]\u26a0[/] {Markup.Escape(message)}");
 
+    /// <summary>Render a labelled informational line.</summary>
+    public static void Info(string message) =>
+        AnsiConsole.MarkupLine($"[cyan]\u2139[/] {Markup.Escape(message)}");
+
     /// <summary>Render a labelled error line to stderr.</summary>
     public static void Error(string message) =>
         AnsiConsole.MarkupLineInterpolated($"[red]\u2718 {message}[/]");
