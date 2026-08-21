@@ -10,7 +10,7 @@ Status legend: **planned** · **in-progress** · **done**
 ## P0 — Release readiness (must-have before v1.0)
 
 ### CI/CD & automation
-- [ ] planned — GitHub Actions workflow: `build-and-test.yml` (restore, build, test on push/PR; matrix: windows + ubuntu; `dotnet test --logger trx --collect:"XPlat Code Coverage"`; upload coverage to codecov)
+- [x] done — GitHub Actions workflow: `build-and-test.yml` (restore, build, test on push/PR; matrix: windows + ubuntu; `dotnet test --logger trx --collect:"XPlat Code Coverage"`; upload coverage to codecov)
 - [ ] planned — GitHub Actions workflow: `release.yml` (on tag `v*` — `dotnet publish -c Release -r {linux-x64,win-x64,osx-x64,linux-arm64}` self-contained, zip artifacts, create GitHub Release with attached binaries)
 - [ ] planned — `global.json` pinning the SDK version (`10.0.400`) for reproducible builds
 - [ ] planned — `Directory.Packages.props` for central package management (single version source for all NuGet refs)

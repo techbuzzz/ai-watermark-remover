@@ -1,0 +1,107 @@
+name: build-and-test
+
+# Restore, build, and test the solution on every push and pull request to
+# the main branches. Matrix runs on both Linux and Windows runners so we catch
+# platform-specific regressions early. Test results and XPlat code coverage
+# reports are uploaded as workflow artifacts for inspection.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+# Cancel any in-progress run for the same ref (PR or branch) when a new
+# commit is pushed. Saves CI minutes and surfaces the most recent result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Keep the permissions as small as possible. The default `GITHUB_TOKEN`
+# only needs read access to fetch the repo.
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION_PATH: src/WatermarkRemover.sln
+  DOTNET_VERSION: 10.0.400
+  CONFIGURATION: Release
+
+jobs:
+  build:
+    name: build-and-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nuget/packages
+            ~/.local/share/NuGet/v3-cache
+            %LOCALAPPDATA%\NuGet\v3-cache
+            %USERPROFILE%\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} -c ${{ env.CONFIGURATION }} --no-restore /p:TreatWarningsAsErrors=true
+
+      - name: Test
+        run: >-
+          dotnet test ${{ env.SOLUTION_PATH }}
+          -c ${{ env.CONFIGURATION }}
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=normal"
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+          --data-collection-run-settings-and-arguments
+          "DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura"
+
+      - name: Upload test results (TRX)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            **/*.trx
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: |
+            **/coverage.cobertura.xml
+            **/coverage.*.cobertura.xml
+            **/coverage*.json
+            **/coverage*.xml
+          if-no-files-found: warn
+          retention-days: 14

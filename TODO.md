@@ -7,11 +7,6 @@ Reference: [BACKLOG.md](./BACKLOG.md) for full feature roadmap.
 
 ## Active — P0 release readiness
 
-- [ ] **CI workflow** — `.github/workflows/build-and-test.yml`
-      Restore → build → test on push/PR. Matrix: `ubuntu-latest` + `windows-latest`.
-      `dotnet test src/WatermarkRemover.sln --logger trx --collect:"XPlat Code Coverage"`
-      Upload `*.trx` + coverage as artifacts.
-
 - [ ] **Release workflow** — `.github/workflows/release.yml`
       Triggered on `v*` tag. Publish self-contained single-file binaries for
       `linux-x64`, `win-x64`, `osx-x64`, `linux-arm64`. Attach to GitHub Release.
