@@ -307,6 +307,7 @@ The produced executable is named `watermarkremover`. During development use
 | `--dry-run`         | Show what *would* happen without touching files |
 | `--output` / `-o`   | Write result to a path instead of stdout        |
 | `--config` / `-c`   | Path to a custom `config.yaml`                  |
+| `--version` / `-V`  | Print the assembly version and exit (short-circuits before config / logging are loaded). A bare `-v` is also accepted; note that Spectre intercepts `-v` even when paired with other args, so use `--verbose` (long form) for verbose logging. |
 
 ### Commands
 

@@ -156,7 +156,7 @@ in this list.
   the existing `/detect/text` mapping as a template.
 - **Backlog ref:** WR-P213
 
-### WR-S9. [~] Watermark version command (`--version`)
+### WR-S9. [x] Watermark version command (`--version`)
 
 - **Why:** BACKLOG P2 — currently `--version` doesn't print the assembly
   version. Operators want to confirm what they're running.
@@ -576,6 +576,26 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S9 — `watermarkremover --version`** — new global
+      short-circuit that prints `watermarkremover <assembly version>` and
+      exits `0` *before* `config.yaml` is loaded, Serilog is wired up,
+      or the DI container is built. Three call shapes are accepted:
+      `--version` (long form), `-V` (uppercase short), and a bare
+      `-v` (lowercase short, only when it is the only arg). Backed by
+      the new `WatermarkRemover.CLI.Infrastructure.CliShortCircuits`
+      helper (which reads `VersionInfo.Current` — sourced from
+      `AssemblyInformationalVersionAttribute` on the entry assembly)
+      and the new `<Version>1.0.0</Version>` /
+      `<InformationalVersion>1.0.0</InformationalVersion>` properties
+      on the CLI csproj. 12 new tests in `VersionInfoTests` /
+      `CliShortCircuitsTests`: the value is never empty or
+      whitespace-padded, the fallback string is stable, all three call
+      shapes exit `0` and write `watermarkremover {version}`, the
+      short-circuit still fires when mixed with other args,
+      non-version invocations (and `-v` paired with another arg) fall
+      through to the regular `CommandApp` path, and `null` args
+      throw. README "Global options" table updated. 207 tests total,
+      all green; 0 build warnings.
 - [x] **WR-S8 — `POST /detect/markdown` endpoint** — new `POST /detect/markdown`
       route in `ServeEndpointMapper.cs` (consumed by `serve`) that takes the
       same `{ markdown, stripAll }` body as `POST /clean/markdown` and returns

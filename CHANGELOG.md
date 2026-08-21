@@ -18,6 +18,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`watermarkremover --version` (and `-V`)** — new global short-circuit
+  flag that prints `watermarkremover <assembly version>` and exits `0`
+  *before* `config.yaml` is loaded, Serilog is wired up, or the DI
+  container is built. Backed by the new
+  `WatermarkRemover.CLI.Infrastructure.CliShortCircuits` helper (which
+  reads `VersionInfo.Current` — sourced from
+  `AssemblyInformationalVersionAttribute` on the entry assembly) and
+  the new `<Version>1.0.0</Version>` / `<InformationalVersion>1.0.0</
+  InformationalVersion>` properties on the CLI csproj. Three call
+  shapes are accepted: `--version` (long form), `-V` (uppercase
+  short), and a bare `-v` (lowercase short, only when it is the only
+  arg). When `-v` is paired with another token it stays attached to
+  the existing `--verbose` logging flow. 12 new tests in
+  `VersionInfoTests` / `CliShortCircuitsTests` cover: the version
+  value is never empty or whitespace-padded, the fallback string is
+  stable, all three call shapes exit `0` and write
+  `watermarkremover {version}`, the short-circuit still fires when
+  mixed with other args, non-version invocations (and `-v` paired
+  with another arg) fall through to the regular `CommandApp` path,
+  and `null` args throw. README "Global options" table updated.
 - **`POST /detect/markdown` endpoint** — new HTTP route in
   `ServeEndpointMapper.cs` (consumed by `serve`) that takes the same
   `{ markdown, stripAll }` body as `POST /clean/markdown` and returns

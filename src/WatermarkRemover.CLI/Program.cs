@@ -10,6 +10,15 @@ using WatermarkRemover.Image;
 using WatermarkRemover.Metadata;
 using WatermarkRemover.Text;
 
+// Honour `--version` (and the short forms `-V` and a bare `-v`) BEFORE
+// we load `config.yaml` or wire up Serilog. The short-circuit also runs
+// before Spectre's auto-registered version handler, so we own the
+// output format and the exit code.
+if (CliShortCircuits.TryHandle(args) is int shortCircuitExit)
+{
+    return shortCircuitExit;
+}
+
 // Resolve --config early (Spectre parses it per-command, but config drives DI registration).
 string? configPath = ExtractOption(args, "--config", "-c");
 AppConfig config = ConfigLoader.Load(configPath);
@@ -47,6 +56,12 @@ try
     app.Configure(cfg =>
     {
         cfg.SetApplicationName("watermarkremover");
+        // `cfg.SetApplicationVersion` is intentionally not called —
+        // `CliShortCircuits` owns the long-form `--version` output (so
+        // we control the format, the exit code, and the no-side-effects
+        // guarantee). Spectre's auto-registered `-v, --version` based
+        // on `InformationalVersion` would still be live for the
+        // lowercase short form; see `Program.cs` for the rationale.
         cfg.AddCommand<CleanTextCommand>("clean-text").WithDescription("Clean plain text (Layers A/B/C).");
         cfg.AddCommand<CleanMarkdownCommand>("clean-markdown").WithDescription("Clean markdown, preserving code blocks.");
         cfg.AddCommand<CleanFileCommand>("clean-file").WithDescription("Strip metadata from files (batch capable).");

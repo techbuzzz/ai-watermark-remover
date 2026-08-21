@@ -8,6 +8,18 @@
     <AssemblyName>watermarkremover</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!--
+      Assembly version metadata. Read by VersionInfo and surfaced by
+      the global version flag. Bump these in lockstep when cutting
+      a release (the release workflow also tags vX.Y.Z which is the
+      authoritative source of truth; these just make the version
+      flag meaningful on local builds and on the NuGet package).
+    -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
