@@ -303,7 +303,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   framework reference.
 - **Backlog ref:** WR-P602, WR-P603
 
-### WR-S12. [ ] MCP server tests
+### WR-S12. [~] MCP server tests
 
 - **Why:** WR-P604 — test coverage for the MCP layer before building
   skills and plugins on top of it.
