@@ -3,6 +3,11 @@
 Current sprint work items. Move items to BACKLOG.md when done.
 Reference: [BACKLOG.md](./BACKLOG.md) for full feature roadmap.
 
+Status legend:
+- `[ ]`  — **pending** (not started)
+- `[~]`  — **in-progress** (currently being worked on by a tick)
+- `[x]`  — **done** (completed and committed)
+
 ---
 
 ## Active — P0 release readiness
@@ -11,7 +16,7 @@ Reference: [BACKLOG.md](./BACKLOG.md) for full feature roadmap.
       Triggered on `v*` tag. Publish self-contained single-file binaries for
       `linux-x64`, `win-x64`, `osx-x64`, `linux-arm64`. Attach to GitHub Release.
 
-- [x] done — **global.json** — pin SDK to `10.0.400` (rollForward `latestPatch`, stable only).
+- [x] **global.json** — pin SDK to `10.0.400` (rollForward `latestPatch`, stable only).
 
 - [ ] **Dockerfile** — multi-stage build, alpine runtime, non-root, `EXPOSE 5080`.
 - [ ] **.dockerignore** — exclude `bin/ obj/ .vs/ models/ logs/`.
