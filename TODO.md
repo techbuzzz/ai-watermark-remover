@@ -114,7 +114,7 @@ in this list.
   much less work.
 - **Backlog ref:** WR-P217
 
-### WR-S7. [ ] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
+### WR-S7. [~] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
 
 - **Why:** BACKLOG P2 — `MarkdownCleanOptions` has 21 boolean flags; only
   ~12 are currently surfaced in `src/config.yaml`. Users can't disable

@@ -110,7 +110,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 
 ### Configuration
 - [ ] WR-P231 — Environment variable overrides (`WATERMARKREMOVER__TEXT__STATISTICAL=true`, double-underscore notation like ASP.NET config)
-- [ ] WR-P232 — Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced) (→ TODO WR-S7)
+- [~] WR-P232 — Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced) (→ TODO WR-S7)
 - [ ] WR-P233 — Config validation — fail fast with clear error on unknown keys / invalid values
 
 ---
