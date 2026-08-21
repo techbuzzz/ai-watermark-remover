@@ -435,7 +435,9 @@ on stdout stays clean, per the [MCP stdio spec](https://modelcontextprotocol.io/
 > **Full reference:** [📘 docs/MCP.md](./docs/MCP.md) — architecture diagram, all 8
 > tool schemas (request/response JSON), transport options, configuration keys, and
 > install recipes for Claude Code, OpenCode, MiniMax Code, Cursor, Continue, and
-> Docker.
+> Docker. Claude Code-specific install paths and the optional
+> `UserPromptSubmit` auto-clean hook live in
+> [🪝 docs/CLAUDE-CODE.md](./docs/CLAUDE-CODE.md).
 
 ---
 
@@ -465,6 +467,25 @@ integration as soon as you open the repo. The only step left is to
 enable the MCP server entry in
 [`.opencode/opencode.jsonc`](./.opencode/opencode.jsonc) after
 installing the binary. See [`docs/MCP.md → OpenCode`](./docs/MCP.md#opencode).
+
+**Claude Code users get a parallel pre-wired integration.** The
+project ships the master `watermark-remover` skill under
+[`.claude/skills/watermark-remover/SKILL.md`](./.claude/skills/watermark-remover/SKILL.md),
+a drop-in `mcp-config.json`, and an optional `UserPromptSubmit`
+hook at
+[`.claude/skills/watermark-remover/hooks.json`](./.claude/skills/watermark-remover/hooks.json)
+that auto-cleans text pasted into the prompt. The fastest install
+is one line:
+
+```bash
+claude mcp add watermarkremover -- watermarkremover serve-mcp
+```
+
+Then restart Claude Code — the eight MCP tools appear and the
+project-local `SKILL.md` teaches the agent when to call them. See
+[`docs/CLAUDE-CODE.md`](./docs/CLAUDE-CODE.md) for project-local
+`mcp-config.json`, global `~/.claude/settings.json` merge, the
+auto-clean hook, and the troubleshooting table.
 
 Install for your agent in one command:
 
@@ -595,6 +616,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
 - 🤖 [docs/MCP.md](./docs/MCP.md) — `serve-mcp` for Claude Code, OpenCode, MiniMax Code, Cursor, Continue (MCP server architecture, tool schemas, install recipes)
+- 🪝 [docs/CLAUDE-CODE.md](./docs/CLAUDE-CODE.md) — Claude Code-specific install (project-local `mcp-config.json`, `~/.claude/settings.json` merge, `claude mcp add` one-liner) and the optional `UserPromptSubmit` hook for auto-cleaning pasted text
 - 🧠 [docs/SKILLS.md](./docs/SKILLS.md) — drop-in agent skills (`skills/`) for OpenCode, Claude Code, MiniMax Code, Cursor, Continue (install, resolution rules, per-skill reference)
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
 - 📝 [TODO.md](./TODO.md) — current sprint

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 25,
+            "command": "node .claude/skills/watermark-remover/hooks/auto-clean.js"
+          }
+        ]
+      }
+    ]
+  }
+}

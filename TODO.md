@@ -445,7 +445,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   from what's assumed here.
 - **Backlog ref:** WR-P621
 
-### WR-S16. [~] Claude Code integration
+### WR-S16. [x] Claude Code integration
 
 - **Why:** WR-P622 — Claude Code skill + MCP config for one-command
   setup.
@@ -576,6 +576,39 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S16 — Claude Code integration (`.claude/` + `docs/CLAUDE-CODE.md`)** —
+      the project now ships a first-class Claude Code integration
+      pre-wired into the repo: new
+      `.claude/skills/watermark-remover/SKILL.md` (master skill with
+      routing table, CLI fallback, error contract — mirrors the
+      OpenCode one but Claude-Code-specific since Claude invokes
+      the MCP tools as ordinary tool calls rather than via
+      auto-discovered slash-command files), drop-in
+      `.claude/skills/watermark-remover/mcp-config.json` (project-
+      level `mcpServers` snippet for `.mcp.json` or
+      `.claude/settings.json` merge), optional
+      `.claude/skills/watermark-remover/hooks.json` registering a
+      `UserPromptSubmit` command hook that pipes the user's pasted
+      text through `clean_text` and injects the cleaned version
+      back as `hookSpecificOutput.additionalContext` (the
+      `hooks/auto-clean.js` script is a graceful no-op when the
+      CLI is missing, returns non-zero, or the cleaned text equals
+      the input — so the hook is invisible in the common case).
+      New `docs/CLAUDE-CODE.md` is the end-to-end reference
+      (install shapes — one-liner / project-local / global merge /
+      `dotnet run` source-mode swap; verification via `claude mcp
+      list` + `claude mcp get`; auto-clean hook contract with
+      project-local and `skills/install.sh --agent claude` paths
+      and tuning tips; "what the agent sees" walkthrough;
+      7-row troubleshooting table). README's MCP reference
+      callout now points at `docs/CLAUDE-CODE.md` next to
+      `docs/MCP.md`; the `## 🧠 Agent skills` section gains a
+      parallel "Claude Code users get the integration pre-wired"
+      callout with the one-liner; the docs-link footer adds a `🪝
+      docs/CLAUDE-CODE.md` row. Build clean (0 warnings), 321
+      tests all green; JSON validated with `node -e JSON.parse`,
+      `auto-clean.js` exits 0 on empty / malformed / missing-CLI
+      stdin.
 - [x] **WR-S15 — OpenCode integration (`.opencode/` + slash commands)** —
       the project now ships a first-class OpenCode integration
       pre-wired into the repo: new

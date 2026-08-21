@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "watermarkremover": {
+      "type": "stdio",
+      "command": "watermarkremover",
+      "args": ["serve-mcp"]
+    }
+  }
+}
