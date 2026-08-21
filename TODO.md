@@ -20,17 +20,21 @@ Status legend:
 
 - [x] **Dockerfile** — multi-stage build, alpine runtime, non-root, `EXPOSE 5080`.
 - [x] **.dockerignore** — exclude `bin/ obj/ .vs/ models/ logs/`.
-- [ ] **docker-compose.yml** — dev service with model volume.
+- [x] **docker-compose.yml** — dev service with model volume + API-key env.
 
 - [ ] **Publish profiles** — self-contained single-file `dotnet publish` config.
 
-- [ ] **CONTRIBUTING.md** — build/test, code style, PR process.
-- [ ] **SECURITY.md** — responsible disclosure.
-- [ ] **CHANGELOG.md** — initial entry for current state.
-- [ ] **Issue templates** — `.github/ISSUE_TEMPLATE/bug-report.yml`, `feature-request.yml`.
-- [ ] **PR template** — `.github/PULL_REQUEST_TEMPLATE.md`.
-- [ ] **CODEOWNERS** — `.github/CODEOWNERS`.
-- [ ] **CODE_OF_CONDUCT.md** — Contributor Covenant.
+- [x] **CONTRIBUTING.md** — build/test, code style, PR process, commit conventions.
+- [x] **SECURITY.md** — responsible disclosure + responsible-use policy.
+- [x] **CHANGELOG.md** — initial entries + Keep a Changelog format.
+- [x] **Issue templates** — `.github/ISSUE_TEMPLATE/bug-report.yml`, `feature-request.yml`, `config.yml`.
+- [x] **PR template** — `.github/PULL_REQUEST_TEMPLATE.md`.
+- [x] **CODEOWNERS** — `.github/CODEOWNERS`.
+- [x] **CODE_OF_CONDUCT.md** — Contributor Covenant v2.1.
+- [x] **README overhaul** — badges, hero, TOC, install methods, comparison, FAQ, Russian.
+- [x] **New docs** — `docs/FAQ.md`, `docs/COMPARISON.md`, `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`.
+- [x] **Dependabot** — `.github/dependabot.yml` (NuGet + GitHub Actions + Docker, weekly).
+- [x] **FUNDING.yml** — `.github/FUNDING.yml` (GitHub Sponsors).
 
 ## Next — P1 features
 

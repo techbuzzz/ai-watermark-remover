@@ -1,0 +1,18 @@
+# Funding — list the channels where users can financially support the project.
+# GitHub will surface a "Sponsor" button in the repo sidebar when at least
+# one of the entries below is filled in.
+#
+# Reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: [techbuzzz]              # GitHub Sponsors (one or more usernames)
+# patreon: techbuzzz             # Patreon username
+# open_collective: watermarkremover   # Open Collective username
+# ko_fi: techbuzzz               # Ko-fi username
+# tidelift: npm/<package>        # Tidelift (for projects published on a registry)
+# community_bridge: techbuzzz   # Community Bridge
+# liberapay: techbuzzz           # Liberapay username
+# issuehunt: techbuzzz           # IssueHunt username
+# otechie: techbuzzz             # Otechie username
+# custom:                        # Up to four custom URLs
+#   - https://buymeacoffee.com/techbuzzz
+#   - https://paypal.me/techbuzzz

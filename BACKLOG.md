@@ -30,13 +30,18 @@ Status legend:
 - [ ] `dotnet tool` packaging for a potential global tool install (`dotnet tool install -g watermarkremover`)
 
 ### Docs
-- [ ] `CONTRIBUTING.md` (build/test instructions, code style, PR process, commit conventions)
-- [ ] `SECURITY.md` (responsible disclosure for a tool that removes tracking watermarks)
-- [ ] `CHANGELOG.md` (Keep a Changelog format)
-- [ ] GitHub issue templates: `.github/ISSUE_TEMPLATE/bug-report.yml` + `feature-request.yml`
-- [ ] `.github/PULL_REQUEST_TEMPLATE.md`
-- [ ] `.github/CODEOWNERS`
-- [ ] `CODE_OF_CONDUCT.md` (Contributor Covenant)
+- [x] `CONTRIBUTING.md` (build/test instructions, code style, PR process, commit conventions)
+- [x] `SECURITY.md` (responsible disclosure for a tool that removes tracking watermarks)
+- [x] `CHANGELOG.md` (Keep a Changelog format)
+- [x] GitHub issue templates: `.github/ISSUE_TEMPLATE/bug-report.yml` + `feature-request.yml`
+- [x] `.github/PULL_REQUEST_TEMPLATE.md`
+- [x] `.github/CODEOWNERS`
+- [x] `CODE_OF_CONDUCT.md` (Contributor Covenant)
+- [x] `.github/FUNDING.yml` (GitHub Sponsors)
+- [x] `.github/dependabot.yml` (NuGet + GitHub Actions + Docker)
+- [x] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`)
+- [x] README overhaul: badges, hero, install methods, comparison, FAQ link, TOC
+- [x] New docs: `docs/FAQ.md`, `docs/COMPARISON.md`, `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`
 
 ---
 

@@ -1,0 +1,40 @@
+# CODEOWNERS — every line of this repo is owned by the maintainer until
+# we add co-maintainers. Update this file as the team grows.
+#
+# Syntax reminder:
+#   *       — any file
+#   /dir/   — directory (trailing slash)
+#   *.ext   — by extension
+#   @user   — GitHub username
+#
+# The last matching rule wins; put the most specific pattern LAST.
+
+# Default owner for everything that isn't matched below
+*                                               @techbuzzz
+
+# CI / release pipeline — release engineering is delicate
+/.github/workflows/                             @techbuzzz
+/.github/dependabot.yml                         @techbuzzz
+/Dockerfile                                     @techbuzzz
+/.dockerignore                                  @techbuzzz
+/docker-compose.yml                             @techbuzzz
+
+# Public surface area — every change here is a contract change
+/src/WatermarkRemover.Core/                     @techbuzzz
+/src/WatermarkRemover.CLI/                      @techbuzzz
+
+# Text + metadata + image pipelines are stable; still need review
+/src/WatermarkRemover.Text/                     @techbuzzz
+/src/WatermarkRemover.Metadata/                 @techbuzzz
+/src/WatermarkRemover.Image/                    @techbuzzz
+
+# Tests are co-owned with the module they cover
+/src/tests/                                     @techbuzzz
+
+# Documentation lives with the project
+/README.md                                      @techbuzzz
+/CONTRIBUTING.md                                @techbuzzz
+/SECURITY.md                                    @techbuzzz
+/CHANGELOG.md                                   @techbuzzz
+/CODE_OF_CONDUCT.md                             @techbuzzz
+/docs/                                          @techbuzzz

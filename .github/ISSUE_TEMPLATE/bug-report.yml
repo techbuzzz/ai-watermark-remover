@@ -1,0 +1,112 @@
+name: 🐛 Bug report
+description: Report a bug in WatermarkRemover — a crash, a wrong result, a regression, or a flaky test.
+title: "[bug]: "
+labels: ["type: bug", "status: triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please fill in the template below — the more
+        concrete the repro, the faster we can fix it.
+        If this is a **security** issue, **do not** use this template —
+        follow [SECURITY.md](https://github.com/techbuzzz/ai-watermark-remover/blob/main/SECURITY.md) instead.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear, one-paragraph summary of the bug.
+      placeholder: |
+        `clean-text --statistical` rewrites "значимый" as "значимый" instead
+        of the expected synonym from the Russian dictionary.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands / code / files that triggered the bug.
+      placeholder: |
+        1. `dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значимый результат." --statistical`
+        2. See the output below
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened. Include the exact output, stack trace, or screenshot.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which subsystem exhibits the bug?
+      options:
+        - Text cleaning (Layers A / B / C)
+        - Markdown cleaning
+        - Metadata cleaning (JPEG / PNG / PDF / DOCX / HTML)
+        - Image cleaning / inpainting
+        - CLI (`clean-text`, `clean-file`, `serve`, …)
+        - HTTP API
+        - Docker image
+        - Release / packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: "Tag, release, or commit SHA (e.g. `v0.1.0`, `main@ba0dc87`)."
+      placeholder: "main"
+
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime environment
+      description: "OS, .NET version (`dotnet --info`), Docker version (if relevant)."
+      placeholder: |
+        - OS: Ubuntu 24.04 LTS
+        - .NET: 10.0.400
+        - Docker: 27.3.1 (if applicable)
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: "Paste the relevant output. For long logs, attach as a file. Run with `--verbose` if it helps."
+      render: shell
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Workarounds you tried, related issues, screenshots — anything that helps.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched [open issues](https://github.com/techbuzzz/ai-watermark-remover/issues?q=is%3Aissue+is%3Aopen) and didn't find a duplicate.
+          required: true
+        - label: I can reproduce the bug on the latest `main`.
+          required: false
+        - label: I'm willing to open a PR to fix this.
+          required: false

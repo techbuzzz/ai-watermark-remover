@@ -1,0 +1,31 @@
+name: ❓ Question or other
+description: Use this for any other kind of issue — questions, docs typos, performance reports.
+title: "[other]: "
+labels: ["status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for anything that doesn't fit *bug* or *feature request*.
+        For **security** issues, see [SECURITY.md](https://github.com/techbuzzz/ai-watermark-remover/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of issue is this?
+      options:
+        - Question / how-to
+        - Documentation typo
+        - Performance report
+        - Tooling / CI / build
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: body
+    attributes:
+      label: Details
+      description: "What's on your mind? The clearer the question, the faster the answer."
+    validations:
+      required: true

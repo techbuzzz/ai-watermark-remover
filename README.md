@@ -1,70 +1,248 @@
-# WatermarkRemover
+<div align="center">
 
-A cross-platform **.NET 10** console application that strips AI-provenance watermarks and
-metadata from **text**, **files**, and **images**. It removes invisible Unicode steganography,
-statistical/green-list token watermarks, vendor-specific signatures (Claude / Gemini / OpenAI),
-file metadata (EXIF/XMP/IPTC/C2PA and Office/PDF/HTML properties), and visual image watermarks
-via LaMa ONNX inpainting.
+# 🧹 WatermarkRemover
 
-> **Language support:** the text pipeline is language-agnostic and ships with **first-class
-> Russian (русский) support** — see [Поддержка русского языка](#поддержка-русского-языка--russian-language-support).
+**A cross-platform, single-binary .NET 10 toolkit for stripping AI-provenance watermarks
+from text, markdown, files (metadata), and images — with first-class Russian support.**
+
+<p align="center">
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/stargazers"><img src="https://img.shields.io/github/stars/techbuzzz/ai-watermark-remover?style=for-the-badge&logo=github&color=ffd33d" alt="GitHub stars" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/network/members"><img src="https://img.shields.io/github/forks/techbuzzz/ai-watermark-remover?style=for-the-badge&logo=github&color=6f42c1" alt="Forks" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/actions/workflows/build-and-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/techbuzzz/ai-watermark-remover/build-and-test.yml?style=for-the-badge&logo=githubactions&label=build%20%26%20test" alt="Build & Test" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/techbuzzz/ai-watermark-remover/release.yml?style=for-the-badge&logo=githubactions&label=release" alt="Release" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/releases/latest"><img src="https://img.shields.io/github/v/release/techbuzzz/ai-watermark-remover?style=for-the-badge&logo=github&color=blue" alt="Latest release" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/blob/main/LICENSE"><img src="https://img.shields.io/github/license/techbuzzz/ai-watermark-remover?style=for-the-badge&color=blue" alt="MIT License" /></a>
+  <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet" alt=".NET 10" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/pulse"><img src="https://img.shields.io/github/commit-activity/m/techbuzzz/ai-watermark-remover?style=for-the-badge&color=brightgreen" alt="Commit activity" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/issues"><img src="https://img.shields.io/github/issues/techbuzzz/ai-watermark-remover?style=for-the-badge" alt="Open issues" /></a>
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/graphs/contributors"><img src="https://img.shields.io/github/contributors/techbuzzz/ai-watermark-remover?style=for-the-badge&color=orange" alt="Contributors" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/issues/new?template=bug-report.yml">🐛 Report a bug</a>
+  ·
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/issues/new?template=feature-request.yml">✨ Request a feature</a>
+  ·
+  <a href="./docs/FAQ.md">❓ FAQ</a>
+  ·
+  <a href="https://github.com/techbuzzz/ai-watermark-remover/discussions">💬 Discussions</a>
+</p>
+
+</div>
 
 ---
 
-## Solution layout
+## ✨ Why WatermarkRemover?
 
-```
-WatermarkRemover.sln
-├── src/
-│   ├── WatermarkRemover.Core        # Models, interfaces, configuration, DI contracts
-│   ├── WatermarkRemover.Text        # Layer A (Unicode) / B (statistical) / C (vendor) + Markdown
-│   ├── WatermarkRemover.Metadata    # JPEG / PNG / PDF / DOCX / HTML metadata cleaners
-│   ├── WatermarkRemover.Image       # Mask generation + LaMa ONNX inpainting pipeline
-│   └── WatermarkRemover.CLI         # Spectre.Console CLI + ASP.NET Core HTTP API (serve)
-└── tests/
-    ├── WatermarkRemover.Text.Tests
-    ├── WatermarkRemover.Metadata.Tests
-    └── WatermarkRemover.Image.Tests
-```
+AI providers increasingly embed **invisible provenance signals** into the content they
+generate — invisible Unicode characters, statistical token biases, hidden C2PA manifests,
+EXIF/XMP metadata, visual logos, and per-vendor "SynthID"-style fingerprints. Sometimes
+you want to clean your own output, normalize a corpus, or run forensic analysis.
 
-## Requirements
+`WatermarkRemover` is a **single .NET 10 binary** (no Node, no Python, no Electron) that:
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- (Optional) the `big-lama` ONNX model for **image** inpainting — download via `download-model`.
-  Without it, image cleaning degrades gracefully (detects regions, copies the image unchanged).
+- 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
+- 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
+- 🗂️ **Strips metadata** from JPEG / PNG / PDF / DOCX / HTML — pixel-preserving, byte-level
+- 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
+- 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
+- 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
+- 🐳 **Hosts as a microservice** — built-in HTTP API with auth, rate limiting, multipart uploads
 
-## Build & test
+> ⚠️ **Responsible use.** This tool is for cleaning content **you own** or have permission to
+> modify, for security research, and for forensic analysis. Removing watermarks from
+> third-party content to evade attribution may violate terms of service or law. See
+> [SECURITY.md → Responsible use](./SECURITY.md#responsible-use).
+
+---
+
+## 📑 Table of contents
+
+- [🚀 Quick start](#-quick-start)
+- [📦 Installation](#-installation)
+- [🧠 How it works](#-how-it-works)
+  - [Text — three layers](#text--three-layers)
+  - [Markdown](#markdown)
+  - [Metadata](#metadata)
+  - [Image](#image)
+- [🛠️ CLI reference](#-cli-reference)
+- [🌐 HTTP API (`serve`)](#-http-api-serve)
+- [🐳 Docker](#-docker)
+- [⚙️ Configuration](#-configuration)
+- [🧪 Build & test](#-build--test)
+- [🗺️ Solution layout](#-solution-layout)
+- [🇷🇺 Поддержка русского языка / Russian language support](#-поддержка-русского-языка--russian-language-support)
+- [📚 Documentation](#-documentation)
+- [🗓️ Roadmap](#-roadmap)
+- [🤝 Contributing](#-contributing)
+- [🔐 Security](#-security)
+- [📜 License](#-license)
+- [💖 Acknowledgements](#-acknowledgements)
+
+---
+
+## 🚀 Quick start
 
 ```bash
-dotnet build            # 0 warnings, 0 errors (warnings-as-errors on all src projects)
-dotnet test             # 62 tests across Text / Metadata / Image
+# 1. Clone & build (one-time, needs .NET 10 SDK)
+git clone https://github.com/techbuzzz/ai-watermark-remover.git
+cd ai-watermark-remover
+dotnet build
+
+# 2. Strip invisible characters from a text blob
+dotnet run --project src/WatermarkRemover.CLI -- clean-text "Hello‍‎world"   # ZWSP, ZWJ, LRM
+# → "Helloworld"
+
+# 3. Strip metadata from a folder of photos (recursive)
+dotnet run --project src/WatermarkRemover.CLI -- clean-file ./photos --recursive
+
+# 4. Remove a visual watermark from an image (auto-detected mask + LaMa inpainting)
+dotnet run --project src/WatermarkRemover.CLI -- download-model
+dotnet run --project src/WatermarkRemover.CLI -- clean-image photo.png -o clean.png
+
+# 5. Spin up the HTTP API on :5080
+dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080 --api-key s3cret
 ```
 
-## Running the CLI
+---
 
-The produced executable is named `watermarkremover`. During development use `dotnet run`:
+## 📦 Installation
+
+Pick the path that fits your environment.
+
+### 1. Pre-built binary (recommended)
+
+Download the latest self-contained single-file executable for your platform from
+[GitHub Releases](https://github.com/techbuzzz/ai-watermark-remover/releases/latest).
+**No .NET runtime required.**
+
+| Platform    | Architecture | Asset                          |
+|-------------|--------------|--------------------------------|
+| 🐧 Linux    | x64          | `watermarkremover-linux-x64.zip`     |
+| 🐧 Linux    | ARM64        | `watermarkremover-linux-arm64.zip`   |
+| 🪟 Windows  | x64          | `watermarkremover-win-x64.zip`       |
+| 🍎 macOS    | x64          | `watermarkremover-osx-x64.zip`       |
 
 ```bash
-dotnet run --project src/WatermarkRemover.CLI -- <command> [options]
+# Linux / macOS
+unzip watermarkremover-linux-x64.zip
+sudo mv watermarkremover /usr/local/bin/
+watermarkremover --help
 ```
 
-Global options (available on every command): `--json`, `--verbose`/`-v`, `--dry-run`,
-`--output`/`-o <path>`, `--config`/`-c <path>`.
+```powershell
+# Windows (PowerShell)
+Expand-Archive .\watermarkremover-win-x64.zip
+Move-Item .\watermarkremover\watermarkremover.exe C:\Tools\
+& 'C:\Tools\watermarkremover.exe' --help
+```
+
+### 2. Docker
+
+```bash
+docker build -t watermarkremover .
+docker run --rm -p 5080:5080 -e WATERMARKREMOVER_API_KEY=s3cret watermarkremover
+```
+
+See [🐳 Docker](#-docker) and [`docker-compose.yml`](./docker-compose.yml).
+
+### 3. From source
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+
+```bash
+git clone https://github.com/techbuzzz/ai-watermark-remover.git
+cd ai-watermark-remover
+dotnet build
+dotnet run --project src/WatermarkRemover.CLI -- --help
+```
+
+### 4. As a library (planned)
+
+`WatermarkRemover.Core`, `.Text`, `.Metadata`, `.Image` will be published to NuGet
+once the package surface stabilises — see [BACKLOG.md → Distribution](./BACKLOG.md#distribution).
+Track progress on the [P1 board](https://github.com/techbuzzz/ai-watermark-remover/milestones).
+
+---
+
+## 🧠 How it works
+
+### Text — three layers
+
+The text pipeline runs three independent layers in order. Each can be toggled via
+[`config.yaml`](./src/config.yaml) or the CLI.
+
+- **Layer A · Unicode hygiene** — strips zero-width spaces / joiners, BOM, soft hyphens,
+  bidi controls, variation selectors; applies NFKC normalisation and homoglyph folding
+  *only* between Latin letters (so genuine Cyrillic text is never mangled).
+- **Layer B · Statistical rewrite** — swaps "green-list" tokens for synonyms using built-in
+  English **and** Russian dictionaries, or back-translates through an Ollama-compatible
+  LLM endpoint for higher-quality rewrites.
+- **Layer C · Vendor detectors** — best-effort heuristics for Claude, Gemini/SynthID and
+  OpenAI invisible-carrier patterns. These are **heuristic** because the underlying
+  schemes are key-based and not publicly verifiable.
+
+### Markdown
+
+20+ toggleable transforms; preserves fenced code blocks (only forced invisible-character
+cleanup runs inside them); strips AI-specific artifacts (frontmatter, "As an AI" lines,
+emoji-driven sign-offs) when enabled.
+
+### Metadata
+
+Byte-level, pixel-preserving cleaners:
+
+- **JPEG** — segment parser (APP0–APP15, COM); strips EXIF / XMP / IPTC / ICC / C2PA
+- **PNG** — chunk filter (tEXt, zTXt, iTXt, eXIf); preserves IHDR / IDAT / IEND
+- **PDF** — `PdfPig` rebuild without document info / XMP metadata
+- **DOCX** — OpenXML core/extended/custom properties + revision history
+- **HTML** — `<meta name="generator|author">` + `<!-- comments -->` + tracking scripts
+
+### Image
+
+`load → mask → resize → infer → blend → save`
+
+- **Mask generation** — alpha + colour-frequency heuristics with connected-component
+  extraction (auto-detects logos, text overlays, corner watermarks)
+- **Manual mask** — supply your own mask image or coordinates
+- **Inference** — `big-lama` ONNX model; degrades gracefully if the model is missing
+  (region detection still runs, the source image is copied unchanged)
+- **Blending** — alpha-blend the inpainted patch back to keep edges anti-aliased
+
+---
+
+## 🛠️ CLI reference
+
+The produced executable is named `watermarkremover`. During development use
+`dotnet run --project src/WatermarkRemover.CLI -- …`.
+
+### Global options (available on every command)
+
+| Flag                | Description                                      |
+|---------------------|--------------------------------------------------|
+| `--json`            | Emit structured JSON instead of pretty text     |
+| `--verbose` / `-v`  | Verbose logging (Debug+)                        |
+| `--dry-run`         | Show what *would* happen without touching files |
+| `--output` / `-o`   | Write result to a path instead of stdout        |
+| `--config` / `-c`   | Path to a custom `config.yaml`                  |
 
 ### Commands
 
-| Command            | Purpose                                                        |
-|--------------------|---------------------------------------------------------------|
-| `clean-text`       | Clean plain text (Layers A/B/C).                              |
-| `clean-markdown`   | Clean markdown, preserving fenced code blocks.                |
+| Command            | Purpose                                                         |
+|--------------------|-----------------------------------------------------------------|
+| `clean-text`       | Clean plain text (Layers A / B / C).                            |
+| `clean-markdown`   | Clean markdown, preserving fenced code blocks.                  |
 | `clean-file`       | Strip metadata from files (single / directory / `--recursive`). |
-| `clean-image`      | Remove visual watermarks via mask + LaMa inpainting.         |
-| `detect-text`      | Detect (not remove) watermark signatures in text.            |
-| `detect-markdown`  | Detect AI artifacts in markdown.                             |
-| `detect-watermark` | Detect visual watermark regions in an image.                |
-| `inspect-file`     | Report all metadata found in a file.                        |
-| `download-model`   | Download & extract the LaMa ONNX inpainting model.          |
-| `serve`            | Host the HTTP API (ASP.NET Core Minimal API).              |
+| `clean-image`      | Remove visual watermarks via mask + LaMa inpainting.            |
+| `detect-text`      | Detect (do not remove) watermark signatures in text.            |
+| `detect-markdown`  | Detect AI artifacts in markdown.                                |
+| `detect-watermark` | Detect visual watermark regions in an image.                    |
+| `inspect-file`     | Report all metadata found in a file.                            |
+| `download-model`   | Download & extract the LaMa ONNX inpainting model.              |
+| `serve`            | Host the HTTP API (ASP.NET Core Minimal API).                   |
 
 ### Examples
 
@@ -82,33 +260,44 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-markdown -i README.md --s
 # Strip metadata from a whole folder of files recursively
 dotnet run --project src/WatermarkRemover.CLI -- clean-file ./docs --recursive
 
-# Inspect a file's metadata
+# Inspect a file's metadata (JSON output)
 dotnet run --project src/WatermarkRemover.CLI -- inspect-file photo.jpg --json
 
 # Remove a visual watermark (auto-detected mask)
 dotnet run --project src/WatermarkRemover.CLI -- clean-image logo.png -o clean.png
+
+# Russian: synonym-aware rewriter is on by default with --statistical
+dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значимый результат." --statistical
+# → "Это существенный результат."
 ```
 
-## HTTP API (`serve`)
+---
+
+## 🌐 HTTP API (`serve`)
 
 ```bash
-dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080 --api-key "s3cret"
+watermarkremover serve --port 5080 --api-key s3cret
 ```
 
-- Binds `http://0.0.0.0:5080` by default (`--host`, `--port`).
+- Binds `http://0.0.0.0:5080` by default (override with `--host`, `--port`).
 - **Rate limiting:** fixed window, **100 requests / minute / IP** (HTTP 429 when exceeded).
-- **Auth:** when `--api-key` is supplied every endpoint (except `/health`) requires the
+- **Auth:** when `--api-key` is supplied, every endpoint except `/health` requires the
   `X-API-Key` header. Omit `--api-key` to run open.
 
-| Method & path      | Body                                    | Returns                    |
-|--------------------|-----------------------------------------|----------------------------|
-| `POST /clean/text` | `{ "text": "…" }`                       | `TextCleanResult` JSON     |
-| `POST /detect/text`| `{ "text": "…" }`                       | `WatermarkMatch[]` JSON    |
-| `POST /clean/file` | multipart file upload                   | cleaned file (octet-stream)|
-| `POST /inspect/file`| multipart file upload                  | `MetadataEntry[]` JSON     |
-| `POST /clean/image`| multipart image upload                  | cleaned image              |
-| `POST /detect/image`| multipart image upload                 | `DetectedRegion[]` JSON    |
-| `GET  /health`     | —                                       | `{ "status": "ok" }`       |
+### Endpoints
+
+| Method & path       | Body                                    | Returns                    |
+|---------------------|-----------------------------------------|----------------------------|
+| `POST /clean/text`  | `{ "text": "…" }`                       | `TextCleanResult` JSON     |
+| `POST /detect/text` | `{ "text": "…" }`                       | `WatermarkMatch[]` JSON    |
+| `POST /clean/markdown` | `{ "markdown": "…", "stripAll": false }` | `MarkdownCleanResult` JSON |
+| `POST /clean/file`  | multipart file upload                   | cleaned file (octet-stream)|
+| `POST /inspect/file`| multipart file upload                   | `MetadataEntry[]` JSON     |
+| `POST /clean/image` | multipart image upload                  | cleaned image              |
+| `POST /detect/image`| multipart image upload                  | `DetectedRegion[]` JSON    |
+| `GET  /health`      | —                                       | `{ "status": "ok" }`       |
+
+### Example
 
 ```bash
 curl -s -X POST http://localhost:5080/clean/text \
@@ -116,52 +305,91 @@ curl -s -X POST http://localhost:5080/clean/text \
   -d '{"text":"Пример текста"}'
 ```
 
-## How it works
+---
 
-### Text — three layers
-- **Layer A · Unicode hygiene** — removes zero-width spaces/joiners, BOM, soft hyphens,
-  bidi controls, variation selectors; applies NFKC normalisation and safe homoglyph folding.
-- **Layer B · Statistical rewrite** — swaps "green-list" tokens for synonyms (optional LLM
-  back-translation through an Ollama-compatible endpoint). English **and** Russian dictionaries.
-- **Layer C · Vendor detectors** — best-effort heuristics for Claude, Gemini/SynthID and OpenAI
-  invisible-carrier patterns. These are heuristic (the underlying schemes are key-based and not
-  publicly verifiable) and are documented as such.
+## 🐳 Docker
 
-### Markdown
-Preserves fenced code blocks (only forced invisible-character cleanup runs inside them) while
-applying 20 toggleable transforms and removing AI-specific artifacts and frontmatter.
+Pre-built images will be published to GHCR / Docker Hub after the first release; until
+then, build locally:
 
-### Metadata
-Byte-level, pixel-preserving cleaners: **JPEG** (segment parser), **PNG** (chunk filter),
-**PDF** (PdfPig rebuild without document info/XMP), **DOCX** (OpenXML core/extended/custom
-properties + revisions), **HTML** (generator/author meta + comments).
+```bash
+docker build -t watermarkremover .
+docker run --rm -p 5080:5080 watermarkremover
+# or with API-key auth + a model volume:
+docker run --rm -p 5080:5080 \
+  -e WATERMARKREMOVER_API_KEY=s3cret \
+  -v $(pwd)/models:/app/models \
+  watermarkremover
+```
 
-### Image
-`load → mask → resize → infer → blend → save`. Masks are auto-generated (alpha + colour-frequency
-heuristics with connected-component extraction) or supplied via `--mask`. Inference uses the
-`big-lama` ONNX model; when it is missing the pipeline degrades gracefully.
+A single-service [`docker-compose.yml`](./docker-compose.yml) is provided for the common
+dev loop (build, mount `./models`, expose `:5080`).
 
-## Configuration
-
-Copy and edit [`config.yaml`](./config.yaml). Resolution order: `--config <path>` →
-`./config.yaml` in the working directory → next to the executable → built-in defaults.
-CLI flags always override config values.
+The `Dockerfile` is **multi-stage**, runs as a **non-root user**, and ships with a
+**HEALTHCHECK** that hits `/health`.
 
 ---
 
-## Поддержка русского языка / Russian language support
+## ⚙️ Configuration
+
+Copy [`src/config.yaml`](./src/config.yaml) and edit it. Resolution order:
+
+1. `--config <path>` (CLI flag)
+2. `./config.yaml` in the working directory
+3. `config.yaml` next to the executable
+4. Built-in defaults
+
+CLI flags always override config values. See the [Configuration reference](./docs/CONFIGURATION.md)
+for every key.
+
+---
+
+## 🧪 Build & test
+
+```bash
+dotnet build            # 0 warnings, 0 errors (warnings-as-errors on all src projects)
+dotnet test             # 62 tests across Text (35) / Metadata (18) / Image (9)
+```
+
+Continuous integration runs on every push / PR to `main` across
+**Ubuntu + Windows** runners — see
+[`.github/workflows/build-and-test.yml`](./.github/workflows/build-and-test.yml).
+Coverage is collected in `cobertura` format and uploaded as a workflow artifact.
+
+---
+
+## 🗺️ Solution layout
+
+```
+WatermarkRemover.sln
+├── src/
+│   ├── WatermarkRemover.Core        # Models, interfaces, configuration, DI contracts
+│   ├── WatermarkRemover.Text        # Layer A (Unicode) / B (statistical) / C (vendor) + Markdown
+│   ├── WatermarkRemover.Metadata    # JPEG / PNG / PDF / DOCX / HTML metadata cleaners
+│   ├── WatermarkRemover.Image       # Mask generation + LaMa ONNX inpainting pipeline
+│   └── WatermarkRemover.CLI         # Spectre.Console CLI + ASP.NET Core HTTP API (serve)
+└── src/tests/
+    ├── WatermarkRemover.Text.Tests       (35 tests)
+    ├── WatermarkRemover.Metadata.Tests   (18 tests)
+    └── WatermarkRemover.Image.Tests       (9 tests)
+```
+
+---
+
+## 🇷🇺 Поддержка русского языка / Russian language support
 
 Приложение полностью поддерживает **русский язык**:
 
 - **Слой A (Unicode)** одинаково безопасно очищает латиницу и кириллицу. Нормализация
-  омоглифов (похожих символов) срабатывает **только** когда подозрительный символ стоит между
-  латинскими буквами, поэтому настоящие русские слова (например, «Привет мир») никогда не
-  портятся.
+  омоглифов (похожих символов) срабатывает **только** когда подозрительный символ стоит
+  между латинскими буквами, поэтому настоящие русские слова (например, «Привет мир»)
+  никогда не портятся.
 - **Слой B (статистический рерайт)** содержит встроенный русский словарь синонимов
-  (`SynonymDictionary`) — например, «значимый» → «существенный», «использовать» → «применять».
-  Включается флагом `--statistical`.
+  (`SynonymDictionary`) — например, «значимый» → «существенный»,
+  «использовать» → «применять». Включается флагом `--statistical`.
 - **Слой C (детекторы вендоров)** и **очистка метаданных** не зависят от языка.
-- CLI и HTTP API принимают и корректно обрабатывают текст в кодировке UTF-8 на русском языке.
+- CLI и HTTP API принимают и корректно обрабатывают текст в кодировке UTF-8 на русском
+  языке.
 
 Пример:
 
@@ -171,14 +399,108 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 ```
 
 Соответствующие юнит-тесты (`StatisticalWatermarkRewriterTests`, `UnicodeHygieneCleanerTests`,
-`MarkdownCleanerTests`, `VendorDetectorTests`) проверяют сохранность и корректную обработку
-русского текста.
+`MarkdownCleanerTests`, `VendorDetectorTests`) проверяют сохранность и корректную
+обработку русского текста.
 
-## Notes & limitations
+---
 
-- Vendor watermark detectors are **heuristic** and best-effort by design.
-- The LaMa ONNX model is not bundled; image inpainting requires `download-model` (the upstream
-  Hugging Face artifact is a PyTorch checkpoint — the downloader extracts any bundled `.onnx`
-  and reports clearly if none is present).
-- Test suites are fully self-contained: image tests use a fake inpainting backend, so **no ONNX
-  model is required to build or test**.
+## 📚 Documentation
+
+- 📘 [docs/FAQ.md](./docs/FAQ.md) — frequently asked questions
+- ⚖️ [docs/COMPARISON.md](./docs/COMPARISON.md) — how this tool differs from
+  `exiftool`, `mat2`, `exiv2`, `sd-webui-watermark`, etc.
+- 🏛️ [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — module boundaries, data flow,
+  extension points
+- ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
+- 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
+- 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
+- 📝 [TODO.md](./TODO.md) — current sprint
+
+---
+
+## 🗓️ Roadmap
+
+The active roadmap lives in [BACKLOG.md](./BACKLOG.md). Highlights:
+
+**P0 — Release readiness**
+- [x] CI matrix on Windows + Linux
+- [x] Release workflow (self-contained binaries for 4 RIDs)
+- [x] Multi-stage Docker image
+- [x] Issue / PR templates, CODEOWNERS, CODE_OF_CONDUCT, SECURITY, CHANGELOG
+
+**P1 — Core features (v1.0)**
+- [ ] More metadata formats (WebP, TIFF, HEIF, AVIF, EPUB, RTF, MP4)
+- [ ] DeepSeek / Grok / Mistral vendor detectors
+- [ ] Synonym dictionary: EN → 400+, RU → 200+
+- [ ] Image batch processing + GPU inference
+- [ ] OpenAPI / Swagger UI for the HTTP API
+
+**P2 — Platform & UX**
+- [ ] `clean-all` auto-routing command
+- [ ] Shell completion (PowerShell / bash / zsh / fish)
+- [ ] Web UI (vanilla JS drag-and-drop)
+- [ ] Configurable rate-limit + CORS + `/metrics`
+
+**P3 — Quality & reliability**
+- [ ] CLI integration test project (`WebApplicationFactory`)
+- [ ] Property-based tests (FsCheck) for Unicode hygiene
+- [ ] BenchmarkDotNet regression suite in CI
+- [ ] Polly resilience for LLM back-translation
+
+**P4 — Ecosystem**
+- [ ] Homebrew / Scoop / Winget / APT packages
+- [ ] Python + Node.js bindings
+- [ ] Browser + VS Code extensions
+- [ ] NuGet packages
+
+See [BACKLOG.md](./BACKLOG.md) for the full list with status indicators.
+
+---
+
+## 🤝 Contributing
+
+We love PRs. Start with [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, code style,
+commit conventions, and the review process. The short version:
+
+1. Fork & branch from `main` (`feat/<short-topic>` or `fix/<short-topic>`).
+2. `dotnet build` and `dotnet test` must pass — warnings are errors.
+3. Add a unit test for any new behavior; keep the test pyramid balanced.
+4. Run `dotnet format` before pushing.
+5. Open a PR using the [template](./.github/PULL_REQUEST_TEMPLATE.md); reference any
+   related issue with `Closes #N`.
+
+First-time contributors: look for issues tagged
+[`good first issue`](https://github.com/techbuzzz/ai-watermark-remover/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) — be kind, be constructive.
+
+---
+
+## 🔐 Security
+
+For vulnerabilities, please **do not** file a public issue — see
+[SECURITY.md](./SECURITY.md) for the responsible-disclosure channel and our
+[responsible-use policy](./SECURITY.md#responsible-use).
+
+---
+
+## 📜 License
+
+[MIT](./LICENSE) — Copyright (c) 2026 Victor Buzin.
+
+---
+
+## 💖 Acknowledgements
+
+- [LaMa](https://github.com/advimman/lama) — LaMa inpainting model (Samsung AI Center)
+- [PdfPig](https://github.com/UglyToad/PdfPig) — PDF metadata stripping
+- [Spectre.Console](https://spectreconsole.net/) — beautiful CLI
+- [ONNX Runtime](https://onnxruntime.ai/) — cross-platform inference
+- [FluentAssertions](https://fluentassertions.com/) — readable tests
+- Every contributor and stargazer ⭐
+
+---
+
+<div align="center">
+  <sub>If WatermarkRemover saved you time, a ⭐ is the easiest way to say thanks.</sub>
+</div>

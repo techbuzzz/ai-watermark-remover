@@ -1,0 +1,81 @@
+# Dependabot configuration.
+# - Scans the solution for outdated NuGet references and opens PRs weekly.
+# - Scans `.github/workflows` for outdated GitHub Actions versions.
+# - Skips major-version updates for NuGet to avoid surprise API breaks
+#   (we still want the PRs; we just want a human in the loop).
+# - Auto-merge for patch updates is enabled below — change to `false` if
+#   you prefer to review every PR.
+#
+# Reference: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # NuGet — `dotnet` ecosystem
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "nuget"
+    directory: "/src"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "deps"
+      - "area: build"
+    # Let Dependabot auto-merge patch-level bumps after CI passes.
+    # Edit / remove this block if you'd rather merge manually.
+    # NOTE: `enable-auto-merge` requires the "Allow auto-merge" setting
+    # to be enabled for the repository.
+    # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    # Skip major versions — those need a human eye.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps(nuget)"
+      prefix-development: "deps(nuget)"
+      include: "scope"
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions — keep workflow `uses:` tags current
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "deps"
+      - "area: ci"
+    commit-message:
+      prefix: "ci(actions)"
+      prefix-development: "ci(actions)"
+      include: "scope"
+
+  # ---------------------------------------------------------------------------
+  # Docker — when the repo starts publishing images and tracking a base image
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "deps"
+      - "area: docker"
+    commit-message:
+      prefix: "build(docker)"
+      prefix-development: "build(docker)"
+      include: "scope"

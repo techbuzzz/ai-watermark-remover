@@ -1,0 +1,100 @@
+# docker-compose.yml — single-service dev loop for the WatermarkRemover
+# HTTP API. Use `docker compose up --build` to build the image and start
+# the server. Use `docker compose run --rm watermarkremover <command>` to
+# invoke a one-off CLI command inside the same image.
+#
+# Why this exists:
+#   - Bind-mount `./models` so downloaded ONNX weights persist on the host.
+#   - Allow mounting a custom `config.yaml` without rebuilding the image.
+#   - Pass an API key via env without leaking it into the shell history.
+#   - Provide a named log volume so the rolling-file logger writes somewhere
+#     the operator can `docker compose logs` against.
+#
+# Reference: https://docs.docker.com/compose/compose-file/
+
+name: watermarkremover
+
+services:
+  watermarkremover:
+    # Build the image from the local Dockerfile. Override `image:` here
+    # once the project starts publishing prebuilt tags to GHCR / Docker Hub.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: techbuzzz/watermarkremover:local
+    container_name: watermarkremover
+    restart: unless-stopped
+
+    # Bind the HTTP API on :5080 by default. The Dockerfile's HEALTHCHECK
+    # probes /health on 127.0.0.1:5080; the published port must match.
+    ports:
+      - "5080:5080"
+
+    # The image runs as the unprivileged `wr` user (uid:gid 10001).
+    # Read-only root filesystem + tmpfs for /tmp is the recommended
+    # hardening posture for an API server. The writable mounts are
+    # limited to the explicitly declared volumes below.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+    # Environment variables consumed by the server:
+    #   WATERMARKREMOVER_API_KEY    — enables X-API-Key auth (omit to run open)
+    #   WATERMARKREMOVER_HOST       — default 0.0.0.0 (set to 127.0.0.1 to bind locally)
+    #   WATERMARKREMOVER_PORT       — default 5080
+    #   DOTNET_*                    — passed through for .NET runtime tweaks
+    #
+    # The .NET configuration loader does not yet consume env vars directly
+    # (see BACKLOG → P2). For now, pass CLI flags via `command:` below.
+    environment:
+      WATERMARKREMOVER_API_KEY: ${WATERMARKREMOVER_API_KEY:-}
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+    command:
+      - "serve"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "5080"
+      # Forward the API key to the CLI when one is supplied. The empty-string
+      # fallback makes the conditional `WATERMARKREMOVER_API_KEY=` skip the flag.
+      - "--api-key"
+      - "${WATERMARKREMOVER_API_KEY:-disabled}"
+
+    volumes:
+      # Persist downloaded LaMa ONNX weights across container restarts.
+      - ./models:/app/models:rw
+      # Optional: mount a custom config.yaml to override built-in defaults
+      # without rebuilding the image. Uncomment to enable.
+      # - ./config.yaml:/app/config.yaml:ro
+      # Named volume for the rolling log files written by Serilog
+      # (`logs/watermarkremover-<date>.log`).
+      - logs:/app/logs
+
+    # Match the Dockerfile's HEALTHCHECK to give compose the same view of
+    # container health that standalone `docker run` has.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits are intentionally generous — bump up if you serve
+    # many concurrent image jobs (LaMa is a memory-hungry model).
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  models:
+    driver: local
+  logs:
+    driver: local

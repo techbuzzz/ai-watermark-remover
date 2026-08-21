@@ -1,0 +1,103 @@
+name: ✨ Feature request
+description: Suggest a new feature, a new file format, or a new vendor detector for WatermarkRemover.
+title: "[feat]: "
+labels: ["type: feature", "status: triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! We use a lightweight "problem → solution → scope"
+        format so we can evaluate the request consistently against the
+        [BACKLOG](https://github.com/techbuzzz/ai-watermark-remover/blob/main/BACKLOG.md).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does this feature belong?
+      options:
+        - New text layer or vendor detector
+        - New metadata format
+        - New image format / inpainting backend
+        - New CLI command or flag
+        - New HTTP endpoint
+        - Performance / quality
+        - Developer experience (CI, build, packaging)
+        - Distribution (NuGet / Homebrew / Docker / etc.)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: "What pain point are you trying to solve? \"I'm always frustrated when…\""
+      placeholder: |
+        I'm migrating a corpus of TIFF scans into our DAM. The TIFF files
+        contain EXIF + XMP + IPTC that leaks the original photographer and
+        GPS coordinates. `clean-file` doesn't accept `.tif` / `.tiff` and I
+        don't want to write a one-off script.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? A sketch, a CLI invocation, or a sample API call is ideal.
+      placeholder: |
+        - New `TIFFMetadataCleaner` registered in `FileCleanerRouter` for `.tif` and `.tiff`.
+        - `clean-file photo.tif` strips EXIF + XMP + IPTC + ICC, preserving pixel data.
+        - Round-trip unit tests build a synthetic TIFF and assert the keys are gone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh? Why is the proposed solution better?
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Estimated scope
+      description: "How big is this? (rough line count, number of new tests, breaking changes?)"
+      placeholder: |
+        ~200 LOC + 4–6 tests. No breaking changes. New public type in
+        `WatermarkRemover.Metadata`.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: category
+    attributes:
+      label: Category
+      description: Pick the closest backlog bucket so we can prioritise consistently.
+      options:
+        - label: P0 — release readiness (blocks v1.0)
+        - label: P1 — core features
+        - label: P2 — platform & UX
+        - label: P3 — quality & reliability
+        - label: P4 — ecosystem & reach
+        - label: P5 — long-term vision
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to submit a PR for this.
+        - label: I'd like to be assigned to this issue.
+        - label: I just want to track the discussion.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, screenshots, mockups, prior art — anything that helps.
