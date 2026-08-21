@@ -176,3 +176,51 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [ ] WR-P504 — **Web dashboard** — full React/Blazor WASM frontend with batch processing, history, and settings (the current Astro "box" is the minimal v1; this is the v2)
 - [ ] WR-P505 — **Telemetry opt-in** — anonymous usage stats (which layers used, file types processed) to guide development priorities
 - [ ] WR-P506 — **Multilingual CLI** — localize CLI help strings (Russian, German, Chinese, Japanese)
+
+---
+
+## P6 — Agent integration (MCP, skills, plugins)
+
+The goal of this phase is to make WatermarkRemover a **first-class tool
+inside AI coding assistants and agent runtimes**, not just a standalone
+CLI / HTTP service. Three pillars:
+
+1. **MCP server** — expose the full pipeline as Model Context Protocol
+   tools so any MCP-compatible agent (Claude Code, OpenCode, MiniMax Code,
+   Cursor, Continue, etc.) can call `clean_text`, `clean_markdown`,
+   `clean_file`, `clean_image`, `detect_text`, `inspect_file` directly
+   without shelling out to the CLI.
+2. **Agent skills** — drop-in skill packages (`SKILL.md` + scripts) that
+   teach agents *when* and *how* to use the tool, installable via a single
+   copy/clone into the agent's skills directory.
+3. **IDE/agent plugins** — native extensions for the most popular agent
+   hosts (OpenCode, MiniMax Code, Claude Code) that wire the tool into the
+   editor context menu, slash commands, and agentic workflows.
+
+### MCP server
+- [ ] WR-P601 — **MCP server core** — new `WatermarkRemover.Mcp` project exposing the pipeline as MCP tools over stdio (primary) and HTTP/SSE (secondary, reusing the existing `serve` host). Tools: `clean_text`, `clean_markdown`, `clean_file`, `clean_image`, `detect_text`, `detect_markdown`, `inspect_file`, `detect_watermark`. Uses the official `ModelContextProtocol` C# SDK. Each tool maps 1:1 to the existing `ITextCleaningPipeline` / `IMarkdownCleaner` / `IFileCleanerRouter` / `IImageCleaningPipeline` methods — no new business logic, just a thin MCP transport adapter. Registers in DI via `AddWatermarkRemoverMcp()`.
+- [ ] WR-P602 — **MCP `serve-mcp` CLI command** — new `serve-mcp` command in `WatermarkRemover.CLI` that boots the MCP server over stdio (for local agent integration) or `--transport http --port 5090` (for remote). Registered alongside the existing `serve` command. `--transport stdio|http|sse`. Documented in README "Commands" table.
+- [ ] WR-P603 — **MCP server config** — add `mcp:` section to `config.yaml` (`transport`, `port`, `api_key`, `rate_limit`) and `McpConfig` to `AppConfig.cs`. Defaults: stdio transport, no auth (local agent), inherits `server.rate_limit` when not set.
+- [ ] WR-P604 — **MCP server tests** — `WatermarkRemover.Mcp.Tests` project. Tests: each tool returns the expected result shape for a known input; stdio transport handshake (initialize → tools/list → tools/call); error mapping (invalid input → JSON-RPC error with `ErrorResult` code). At least 10 tests.
+- [ ] WR-P605 — **MCP server docs** — new `docs/MCP.md` with: architecture diagram, tool schemas (request/response JSON for all 8 tools), transport options, and configuration reference. Linked from README.
+
+### Agent skills (drop-in `SKILL.md` + scripts)
+- [ ] WR-P611 — **Skill: `watermark-clean-text`** — `skills/clean-text/SKILL.md` teaching agents: "when the user pastes AI-generated text or asks to remove watermarks / invisible characters, call the `clean_text` MCP tool or pipe through `watermarkremover clean-text`". Includes a `run.sh` / `run.ps1` wrapper script and examples for EN + RU text. Installable by copying the folder into the agent's skills directory.
+- [ ] WR-P612 — **Skill: `watermark-clean-markdown`** — `skills/clean-markdown/SKILL.md` for markdown-specific cleanup: strip AI signatures, frontmatter, invisible chars inside code blocks, but preserve code structure. Includes before/after examples.
+- [ ] WR-P613 — **Skill: `watermark-clean-file`** — `skills/clean-file/SKILL.md` for metadata stripping: "when the user uploads a JPEG/PNG/PDF/DOCX/HTML/WebP file, call `clean_file` or `inspect_file` to strip EXIF/XMP/C2PA before sharing". Includes a file-type → cleaner mapping table.
+- [ ] WR-P614 — **Skill: `watermark-clean-image`** — `skills/clean-image/SKILL.md` for visual watermark removal: "when the user asks to remove a logo/watermark from an image, call `detect_watermark` first, then `clean_image`". Includes mask guidance and LaMa model setup instructions.
+- [ ] WR-P615 — **Skill: `watermark-detect`** — `skills/detect/SKILL.md` for detection-only workflows: "when the user wants to *check* if text has AI watermarks without modifying it, call `detect_text` / `detect_markdown`". Includes interpretation guidance for the `WatermarkMatch[]` result.
+- [ ] WR-P616 — **Skills installer** — `skills/install.ps1` + `skills/install.sh` script that copies the relevant skill folders into the target agent's skills directory (auto-detects Claude Code `~/.claude/skills/`, OpenCode `.opencode/skills/`, generic `./skills/`). `--agent claude|opencode|minimax|generic` flag. Documented in `docs/SKILLS.md`.
+- [ ] WR-P617 — **Skills repo / registry** — publish the `skills/` directory as a standalone installable unit (git submodule, npm package, or just a `git clone` + `install.sh`). Versioned in lockstep with the CLI. Listed in the README "Installation" section.
+
+### IDE / agent plugins
+- [ ] WR-P621 — **OpenCode plugin** — `.opencode/plugin/watermark-remover/` with: `plugin.json` manifest, slash commands (`/wr-clean-text`, `/wr-clean-file`, `/wr-detect`), MCP server auto-start config, and a `SKILL.md` so the OpenCode agent learns the tool. Registered in the OpenCode plugin registry. Works with both local stdio MCP and the `serve` HTTP API.
+- [ ] WR-P622 — **Claude Code integration** — `.claude/skills/watermark-remover/` with `SKILL.md` + `mcp-config.json` pointing at the stdio MCP server. Installable via `claude mcp add watermarkremover -- dotnet run --project src/WatermarkRemover.CLI -- serve-mcp`. Includes a `hooks.json` snippet for auto-cleaning pasted text. Documented in `docs/CLAUDE-CODE.md`.
+- [ ] WR-P623 — **MiniMax Code integration** — `minimax-code/watermark-remover/` plugin with: `manifest.json`, MCP server registration, slash commands, and a skill file. Follows the MiniMax Code extension format. Documented in `docs/MINIMAX-CODE.md`.
+- [ ] WR-P624 — **Cursor / Continue MCP config** — prebuilt `mcp-config.json` snippets for Cursor (`~/.cursor/mcp.json`) and Continue (`~/.continue/config.json`) that register the WatermarkRemover MCP server. No plugin code needed — just the config template + install instructions in `docs/MCP.md`.
+- [ ] WR-P625 — **VS Code extension (MCP-based)** — lightweight VS Code extension that: (1) auto-starts the MCP server, (2) registers `cleanText` / `cleanFile` / `detectText` as VS Code commands, (3) adds a context-menu "Clean AI watermarks" on selected text and files, (4) ships the skills folder. Uses the `vscode-languageclient` + MCP transport. Published to the VS Code Marketplace.
+
+### Packaging & distribution for agent integrations
+- [ ] WR-P631 — **`watermarkremover serve-mcp` in release binaries** — ensure the `serve-mcp` command and MCP transport are included in the single-file self-contained release binaries (no extra runtime deps). Verified in the release workflow.
+- [ ] WR-P632 — **npm package `@watermarkremover/mcp`** — thin Node.js wrapper that spawns the MCP server binary and exposes it as an npm-installable MCP server (`npx @watermarkremover/mcp`). For agents that prefer npm-based MCP registration. Includes `bin` entry, `package.json`, and a postinstall script that downloads the platform-appropriate binary from GitHub Releases.
+- [ ] WR-P633 — **Docker image for MCP** — extend the Dockerfile to expose the MCP HTTP transport on a second port (`5090`). `docker run watermarkremover serve-mcp --transport http --port 5090`. Documented in `docs/MCP.md`.
