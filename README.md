@@ -413,6 +413,11 @@ official [`ModelContextProtocol` C# SDK](https://github.com/modelcontextprotocol
 watermarkremover serve-mcp
 # register with Claude Code
 claude mcp add watermarkremover -- watermarkremover serve-mcp
+# OpenCode — the project ships `.opencode/opencode.jsonc` pre-wired
+# with a `watermarkremover` MCP entry (default `enabled: false`).
+# Install the binary, flip the flag, restart OpenCode. Three slash
+# commands (`/wr-clean-text`, `/wr-clean-file`, `/wr-detect`) appear
+# automatically — no extra wiring. See docs/MCP.md → OpenCode.
 
 # Streamable HTTP (stateless) — remote agents / Docker
 watermarkremover serve-mcp --transport http --port 5090 --api-key s3cret
@@ -449,6 +454,17 @@ WatermarkRemover. Each skill is a self-contained folder with a
 | `watermark-clean-file`     | `clean-file`     | Strip EXIF / XMP / IPTC / C2PA / XMP-pdf / DOCX core props / HTML meta. |
 | `watermark-clean-image`    | `clean-image`    | Detect + inpaint a visual watermark with LaMa. |
 | `watermark-detect`         | `detect-*`       | Read-only AI provenance check. |
+
+**OpenCode users get the integration pre-wired.** The project ships
+the master `watermark-remover` skill under
+[`.opencode/skills/watermark-remover/SKILL.md`](./.opencode/skills/watermark-remover/SKILL.md)
+plus three slash commands under
+[`.opencode/commands/`](./.opencode/commands/) — `/wr-clean-text`,
+`/wr-clean-file`, `/wr-detect` — so the agent learns the
+integration as soon as you open the repo. The only step left is to
+enable the MCP server entry in
+[`.opencode/opencode.jsonc`](./.opencode/opencode.jsonc) after
+installing the binary. See [`docs/MCP.md → OpenCode`](./docs/MCP.md#opencode).
 
 Install for your agent in one command:
 

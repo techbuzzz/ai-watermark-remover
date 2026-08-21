@@ -425,7 +425,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   files generic enough to work across all three.
 - **Backlog ref:** WR-P611..WR-P617
 
-### WR-S15. [~] OpenCode plugin
+### WR-S15. [x] OpenCode plugin
 
 - **Why:** WR-P621 — native OpenCode plugin with slash commands and MCP
   auto-start.
@@ -576,6 +576,24 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S15 — OpenCode integration (`.opencode/` + slash commands)** —
+      the project now ships a first-class OpenCode integration
+      pre-wired into the repo: new
+      `.opencode/skills/watermark-remover/SKILL.md` (master skill with
+      routing table, CLI fallback, error contract), three slash
+      commands under `.opencode/commands/` (`/wr-clean-text`,
+      `/wr-clean-file`, `/wr-detect`), and a `watermarkremover`
+      MCP entry in `.opencode/opencode.jsonc` (default
+      `enabled: false`, matching the existing `github` pattern).
+      The `permission.skill` allowlist now allows `watermark-remover`
+      and the five per-format skills. `docs/MCP.md → OpenCode` is
+      rewritten to match the actual OpenCode spec (MCP-via
+      `opencode.jsonc`, skills under `.opencode/skills/`, commands
+      under `.opencode/commands/`, markdown commands with
+      `$ARGUMENTS`); the old `.opencode/mcp-config.json` recipe was
+      not a real OpenCode file. README's MCP and Agent skills
+      sections gain parallel OpenCode callouts. CHANGELOG updated
+      under [Unreleased] → Added.
 - [x] **WR-S14 — Agent skills (`skills/` + installer + `docs/SKILLS.md`)** —
       new top-level `skills/` directory that ships five drop-in skill
       packages (`watermark-clean-text`, `watermark-clean-markdown`,

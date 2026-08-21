@@ -644,23 +644,107 @@ show `connected` once the agent starts.
 
 ### OpenCode
 
-Add an entry to `.opencode/mcp-config.json` (create the file if it
-does not exist):
+OpenCode's actual discovery model is different from a flat
+`mcp-config.json`. **MCP servers** are registered in
+`opencode.jsonc` (project) or `~/.config/opencode/opencode.json`
+(global) under the `mcp` key. **Skills** live as
+`<name>/SKILL.md` folders under `.opencode/skills/`. **Slash
+commands** are individual `<name>.md` files under
+`.opencode/commands/` — they auto-appear in the TUI as
+`/<filename>`.
 
-```json
+This project ships the skill + the three slash commands pre-wired
+under `.opencode/`, so the agent learns the integration as soon as
+you open the repo. You only need to:
+
+1. Install the `watermarkremover` binary (see
+   [README → Installation](../README.md#-installation)).
+2. Flip the MCP entry to `enabled: true` in `.opencode/opencode.jsonc`.
+
+Concretely, the project's `.opencode/opencode.jsonc` contains a
+`watermarkremover` MCP entry (commented explanation inline):
+
+```jsonc
 {
-  "mcpServers": {
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "watermarkremover": {
+      "type": "local",
       "command": "watermarkremover",
-      "args": ["serve-mcp"]
+      "args": ["serve-mcp"],
+      "enabled": false   // flip to true after installing the binary
     }
   }
 }
 ```
 
-If OpenCode is configured to start servers from source instead of a
-binary, swap the `command` + `args` for
-`dotnet run --project src/WatermarkRemover.CLI -- serve-mcp`.
+> **Why `enabled: false` by default?** The `watermarkremover` binary
+> may not be on `$PATH` for every contributor. Keeping it disabled
+> means a fresh clone boots cleanly; once the binary is installed,
+> flip the flag and restart OpenCode.
+
+**Skills.** The project ships
+`.opencode/skills/watermark-remover/SKILL.md` — the master skill
+that teaches the agent when to call the tools. The five per-format
+skills (`watermark-clean-text`, `watermark-clean-markdown`,
+`watermark-clean-file`, `watermark-clean-image`, `watermark-detect`)
+live under [`skills/`](../skills/) and are auto-discovered by
+OpenCode when copied into `.opencode/skills/`. The fastest way to
+install them on a *different* project is:
+
+```bash
+./skills/install.sh --agent opencode
+# or, on Windows
+./skills/install.ps1 -Agent opencode
+```
+
+**Slash commands.** The project ships three commands under
+`.opencode/commands/`:
+
+- `/wr-clean-text <text>` — strip invisible chars + AI watermarks
+- `/wr-clean-file <path>` — strip metadata from a file
+- `/wr-detect <text>` — detect watermarks without modifying
+
+OpenCode auto-discovers them; they appear in the TUI slash-command
+picker without any extra wiring.
+
+**For a different project** (not this one), copy the same
+artifacts into your own `.opencode/` directory:
+
+```bash
+mkdir -p .opencode/skills .opencode/commands
+
+# Master skill
+cp -R ../ai-watermark-remover/.opencode/skills/watermark-remover \
+      .opencode/skills/
+
+# Per-format skills (the installer above does all five at once)
+./skills/install.sh --agent opencode --target .opencode/skills
+
+# Slash commands
+cp ../ai-watermark-remover/.opencode/commands/wr-*.md .opencode/commands/
+```
+
+Then add the `watermarkremover` block to that project's
+`opencode.jsonc` (or `~/.config/opencode/opencode.json` for a
+global install).
+
+**Source-mode install.** If you don't have a release binary and
+want OpenCode to build on demand, swap the `command` + `args` for:
+
+```jsonc
+"command": "dotnet",
+"args": [
+  "run",
+  "--project",
+  "/absolute/path/to/ai-watermark-remover/src/WatermarkRemover.CLI",
+  "--",
+  "serve-mcp"
+]
+```
+
+The first invocation will be slow (build) but subsequent ones are
+fast.
 
 ### MiniMax Code
 

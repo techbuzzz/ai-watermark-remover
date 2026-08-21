@@ -18,6 +18,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OpenCode integration (`.opencode/` + slash commands, WR-S15 / WR-P621)** —
+  the project now ships a first-class OpenCode integration pre-wired
+  into the repo so the agent learns WatermarkRemover as soon as
+  `.opencode/opencode.jsonc` is opened. New
+  `.opencode/skills/watermark-remover/SKILL.md` is the master skill
+  — it teaches the agent the routing table (text → `clean_text`,
+  metadata → `clean_file`, inpaint → `clean_image`, forensic check
+  → `detect_text` / `detect_markdown`, etc.), the CLI fallback
+  shape, the error-handling contract, and points at the five
+  per-format skills under `skills/`. Three new slash commands under
+  `.opencode/commands/` — `/wr-clean-text <text>` (strip invisible
+  characters + AI watermarks), `/wr-clean-file <path>` (strip
+  metadata from a file, preserve pixels), and `/wr-detect <text>`
+  (forensic read-only check that returns a `WatermarkMatch[]` with
+  `vendor` / `kind` / `evidence`) — appear in the TUI slash-command
+  picker without any extra wiring because OpenCode auto-discovers
+  `.opencode/commands/<name>.md`. The project-level
+  `.opencode/opencode.jsonc` gains a `watermarkremover` MCP entry
+  under the `mcp` key, default `enabled: false` (matches the
+  existing `github` pattern — the binary may not be on `$PATH` for
+  every contributor); an inline comment explains how to enable it
+  and how to swap the command for `dotnet run --project
+  src/WatermarkRemover.CLI -- serve-mcp` for source-mode
+  development. The `permission.skill` allowlist adds
+  `watermark-remover` plus the five per-format skills so the
+  OpenCode permission system does not gate them. `docs/MCP.md →
+  OpenCode` is rewritten to match the actual OpenCode spec
+  (MCP-via-`opencode.jsonc`, skills under `.opencode/skills/`,
+  commands under `.opencode/commands/`, slash-command markdown
+  format with `$ARGUMENTS`) — replaces the old
+  `.opencode/mcp-config.json` recipe, which was not a real
+  OpenCode file. The section now also documents: pre-shipped
+  artifacts in this repo, install onto a *different* project via
+  `cp -R` or `skills/install.sh --agent opencode --target
+  .opencode/skills`, source-mode `dotnet run` swap, and the
+  rationale for `enabled: false` default. README's `## 🤖 MCP
+  server (serve-mcp)` block gets a parallel OpenCode one-liner
+  next to the existing `claude mcp add` line, and the `## 🧠
+  Agent skills` block grows an "OpenCode users get the
+  integration pre-wired" callout pointing at
+  `.opencode/skills/watermark-remover/SKILL.md` and
+  `.opencode/commands/`.
 - **Agent skills (`skills/` directory + installer, WR-S14 / WR-P611..WR-P617)** —
   new top-level `skills/` directory that ships five drop-in skill
   packages — `watermark-clean-text`, `watermark-clean-markdown`,

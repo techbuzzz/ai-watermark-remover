@@ -14,6 +14,22 @@
       "url": "https://api.githubcopilot.com/mcp/",
       "oauth": {},
       "enabled": false
+    },
+    // WatermarkRemover — strip AI watermarks (text / markdown / metadata
+    // / image) and run detection-only checks. Disabled by default so
+    // users without the `watermarkremover` binary on $PATH don't hit a
+    // connect error at agent startup. After installing the binary
+    // (see README → Installation), flip `enabled` to `true` and restart
+    // OpenCode to register the 8 MCP tools (clean_text, clean_markdown,
+    // clean_file, clean_image, detect_text, detect_markdown,
+    // inspect_file, detect_watermark). For source-mode development
+    // swap `command` for `dotnet run --project
+    // src/WatermarkRemover.CLI -- serve-mcp`.
+    "watermarkremover": {
+      "type": "local",
+      "command": "watermarkremover",
+      "args": ["serve-mcp"],
+      "enabled": false
     }
   },
   "permission": {
@@ -23,6 +39,12 @@
       "tdd": "allow",
       "security-audit": "allow",
       "git-flow": "allow",
+      "watermark-remover": "allow",
+      "watermark-clean-text": "allow",
+      "watermark-clean-markdown": "allow",
+      "watermark-clean-file": "allow",
+      "watermark-clean-image": "allow",
+      "watermark-detect": "allow",
       "*": "allow"
     }
   },
