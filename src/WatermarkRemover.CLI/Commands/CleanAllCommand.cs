@@ -55,7 +55,13 @@ public sealed class CleanAllCommand(
         var skipped = new List<SkippedFile>();
         var failed = new List<(string Path, string Error)>();
 
-        void Process(string file)
+        // ProcessOne is async because CleanFile (text/markdown paths) does
+        // async file I/O. The previous implementation blocked on it with
+        // .GetAwaiter().GetResult() inside a synchronous void delegate —
+        // a synchronous-over-async anti-pattern that risks deadlocks on
+        // UI threads and stalls the CLI thread. The whole method is now
+        // async and awaited through both the JSON/progress code paths.
+        async Task ProcessOneAsync(string file)
         {
             CleanAllClassifier.Pipeline pipeline = CleanAllClassifier.Classify(file, _router);
 
@@ -69,7 +75,7 @@ public sealed class CleanAllCommand(
             {
                 FileOutcome outcome = settings.DryRun
                     ? PlanDryRun(file, pipeline)
-                    : CleanFile(file, pipeline, settings, ct).GetAwaiter().GetResult();
+                    : await CleanFile(file, pipeline, settings, ct).ConfigureAwait(false);
 
                 succeeded.Add(outcome);
             }
@@ -83,23 +89,23 @@ public sealed class CleanAllCommand(
         {
             foreach (string file in files)
             {
-                Process(file);
+                await ProcessOneAsync(file).ConfigureAwait(false);
             }
         }
         else
         {
-            AnsiConsole.Progress()
+            await AnsiConsole.Progress()
                 .Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new RemainingTimeColumn())
-                .Start(ctx =>
+                .StartAsync(async ctx =>
                 {
                     ProgressTask task = ctx.AddTask("[green]Cleaning files[/]", maxValue: files.Count);
                     foreach (string file in files)
                     {
                         task.Description = $"[green]{Markup.Escape(Path.GetFileName(file))}[/]";
-                        Process(file);
+                        await ProcessOneAsync(file).ConfigureAwait(false);
                         task.Increment(1);
                     }
-                });
+                }).ConfigureAwait(false);
         }
 
         if (settings.Json)
