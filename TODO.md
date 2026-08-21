@@ -395,7 +395,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
 - **Risks:** None — documentation only.
 - **Backlog ref:** WR-P605
 
-### WR-S14. [~] Agent skills (`skills/` directory + installer)
+### WR-S14. [x] Agent skills (`skills/` directory + installer)
 
 - **Why:** WR-P611..WR-P617 — drop-in skill packages that teach agents
   when and how to use WatermarkRemover. Installable by copying a folder.
@@ -576,6 +576,30 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S14 — Agent skills (`skills/` + installer + `docs/SKILLS.md`)** —
+      new top-level `skills/` directory that ships five drop-in skill
+      packages (`watermark-clean-text`, `watermark-clean-markdown`,
+      `watermark-clean-file`, `watermark-clean-image`, `watermark-detect`),
+      each as a self-contained folder with `SKILL.md` (YAML-frontmatter
+      trigger description + usage guide), POSIX `run.sh` and Windows
+      `run.ps1` wrappers. Each `SKILL.md` covers trigger conditions,
+      the canonical MCP tool call, the CLI fallback, 2-3 worked
+      examples (EN + RU for text, before/after for markdown, file-type
+      mapping table for file, mask guidance for image, vendor/kind
+      interpretation for detect), error handling, language notes.
+      New `skills/install.sh` and `skills/install.ps1` install any
+      subset with one command (auto-detect probes CWD for
+      `.opencode/`/`.claude/`/`.minimax/`, falls back to
+      `~/.config/watermarkremover/skills/`; env overrides pin
+      individual agents). The shell scripts and the new C#
+      `SkillsInstallerTargetResolver` share the same resolution rules
+      — 30 new xUnit tests cover every agent name + alias, home
+      fallback, every env-override path, auto-detect probe, and
+      argument validation. New `docs/SKILLS.md` is the full reference
+      (resolution matrix, per-skill deep-dive, MCP-vs-skill,
+      troubleshooting). README gains a new `## 🧠 Agent skills`
+      section and a `docs/SKILLS.md` row. Build clean (0 warnings),
+      321 tests total, all green.
 - [x] **WR-S13 — `docs/MCP.md` reference** — new end-user-and-developer
       reference for the `serve-mcp` command. Architecture diagram
       (agent → transport → `WatermarkRemover.Mcp` → existing pipeline
