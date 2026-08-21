@@ -29,7 +29,7 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
-### WR-S3. [ ] `clean-all` auto-routing command
+### WR-S3. [~] `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
   and have the right pipeline (text / markdown / metadata / image) chosen

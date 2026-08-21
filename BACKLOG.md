@@ -90,7 +90,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 
 ### CLI experience
 - [ ] WR-P2110 — `watermarkremover --version` command (→ TODO WR-S9)
-- [ ] WR-P211 — `clean-all` command (→ TODO WR-S3)
+- [~] WR-P211 — `clean-all` command (→ TODO WR-S3)
 - [ ] WR-P212 — `batch` command — process a JSON/CSV manifest file with list of inputs + desired outputs (for automated pipelines)
 - [ ] WR-P213 — `POST /detect/markdown` endpoint (→ TODO WR-S8)
 - [ ] WR-P214 — `--quiet` / `-q` global option (suppress all output except errors; useful for scripting)
