@@ -22,12 +22,30 @@ public sealed class MaskGenerator : IMaskGenerator
         }
 
         using Image<Rgba32> image = SixLabors.ImageSharp.Image.Load<Rgba32>(imagePath);
-        (bool[,] mask, _) = BuildMask(image);
-        return ExtractRegions(mask, image.Width, image.Height, threshold);
+        (_, _, IReadOnlyList<DetectedRegion> regions) = BuildMaskWithRegions(image, threshold);
+        return regions;
     }
 
     /// <summary>Build a boolean watermark mask for an already-loaded image.</summary>
     internal static (bool[,] Mask, int Count) BuildMask(Image<Rgba32> image)
+    {
+        (_, int count, _) = BuildMaskWithRegions(image, threshold: 0.0);
+        // Return the mask + count only; the threshold 0.0 suppresses region
+        // extraction so this overload stays allocation-light for callers
+        // that only want the boolean mask (e.g. the unit test).
+        (bool[,] mask, _, _) = BuildMaskWithRegions(image, threshold: 0.0);
+        return (mask, count);
+    }
+
+    /// <summary>
+    /// Build a boolean watermark mask *and* the detected regions in a single
+    /// pass. This is the allocation-friendly entry point for the cleaning
+    /// pipeline: previously the pipeline called <see cref="BuildMask"/> and
+    /// then re-scanned the whole 2D bool array to derive bounding boxes,
+    /// duplicating the work <see cref="ExtractRegions"/> already did here.
+    /// </summary>
+    /// <param name="threshold">Confidence threshold; pass 0.0 to skip region extraction.</param>
+    internal static (bool[,] Mask, int Count, IReadOnlyList<DetectedRegion> Regions) BuildMaskWithRegions(Image<Rgba32> image, double threshold)
     {
         int width = image.Width;
         int height = image.Height;
@@ -61,7 +79,13 @@ public sealed class MaskGenerator : IMaskGenerator
             count = CountMask(mask, width, height);
         }
 
-        return (mask, count);
+        // Region extraction is expensive (BFS over the whole mask); only
+        // do it when the caller actually wants regions (threshold > 0).
+        IReadOnlyList<DetectedRegion> regions = threshold > 0
+            ? ExtractRegions(mask, width, height, threshold)
+            : [];
+
+        return (mask, count, regions);
     }
 
     private static void ColorFrequencyPass(Image<Rgba32> image, bool[,] mask)
@@ -69,6 +93,11 @@ public sealed class MaskGenerator : IMaskGenerator
         int width = image.Width;
         int height = image.Height;
         var histogram = new Dictionary<int, int>();
+
+        // Track the dominant colour while building the histogram in a single
+        // pass — avoids a second O(N) MaxBy sweep over the dictionary.
+        int backgroundKey = 0;
+        int backgroundCount = -1;
 
         // Quantize to 5-bit per channel to make the histogram robust.
         image.ProcessPixelRows(accessor =>
@@ -85,7 +114,13 @@ public sealed class MaskGenerator : IMaskGenerator
                     }
 
                     int key = ((p.R >> 3) << 10) | ((p.G >> 3) << 5) | (p.B >> 3);
-                    histogram[key] = histogram.GetValueOrDefault(key) + 1;
+                    int newCount = histogram.GetValueOrDefault(key) + 1;
+                    histogram[key] = newCount;
+                    if (newCount > backgroundCount)
+                    {
+                        backgroundCount = newCount;
+                        backgroundKey = key;
+                    }
                 }
             }
         });
@@ -96,15 +131,21 @@ public sealed class MaskGenerator : IMaskGenerator
         }
 
         int total = width * height;
-        // The dominant colour is treated as the background.
-        int backgroundKey = histogram.MaxBy(kv => kv.Value).Key;
 
         // Candidate overlay colours: light-ish, moderately frequent, not the background.
-        var candidates = histogram
-            .Where(kv => kv.Key != backgroundKey)
-            .Where(kv => kv.Value > total * 0.005 && kv.Value < total * 0.25)
-            .Select(kv => kv.Key)
-            .ToHashSet();
+        var candidates = new HashSet<int>();
+        foreach (KeyValuePair<int, int> kv in histogram)
+        {
+            if (kv.Key == backgroundKey)
+            {
+                continue;
+            }
+
+            if (kv.Value > total * 0.005 && kv.Value < total * 0.25)
+            {
+                candidates.Add(kv.Key);
+            }
+        }
 
         if (candidates.Count == 0)
         {

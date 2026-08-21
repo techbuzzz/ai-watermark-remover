@@ -111,65 +111,31 @@ public sealed class ImageCleaningPipeline(
             return (loaded, [region]);
         }
 
-        (bool[,] boolMask, int count) = MaskGenerator.BuildMask(original);
+        // Single pass: build the boolean mask and extract regions together.
+        // The previous code called MaskGenerator.BuildMask (which internally
+        // ran ExtractRegions and threw the result away) and then re-scanned
+        // the whole 2D bool array here to derive bounding boxes — doubling
+        // the O(W*H) work on every image.
+        (bool[,] boolMask, _, IReadOnlyList<DetectedRegion> regions) =
+            MaskGenerator.BuildMaskWithRegions(original, options.AutoDetectThreshold);
+
         var mask = new Image<L8>(original.Width, original.Height);
-        if (count > 0)
+        mask.ProcessPixelRows(accessor =>
         {
-            mask.ProcessPixelRows(accessor =>
+            for (int y = 0; y < accessor.Height; y++)
             {
-                for (int y = 0; y < accessor.Height; y++)
+                Span<L8> row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
                 {
-                    Span<L8> row = accessor.GetRowSpan(y);
-                    for (int x = 0; x < row.Length; x++)
+                    if (boolMask[y, x])
                     {
-                        if (boolMask[y, x])
-                        {
-                            row[x] = new L8(255);
-                        }
+                        row[x] = new L8(255);
                     }
                 }
-            });
-        }
-
-        IReadOnlyList<DetectedRegion> regions = _maskGeneratorRegions(boolMask, original.Width, original.Height, options.AutoDetectThreshold);
-        return (mask, regions);
-    }
-
-    private IReadOnlyList<DetectedRegion> _maskGeneratorRegions(bool[,] mask, int width, int height, double threshold)
-    {
-        // Reuse MaskGenerator's region extraction indirectly by writing a temp? Instead, do a
-        // lightweight bounding box of the whole masked area when present.
-        int minX = width, minY = height, maxX = -1, maxY = -1, area = 0;
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                if (!mask[y, x])
-                {
-                    continue;
-                }
-
-                area++;
-                if (x < minX) { minX = x; }
-                if (y < minY) { minY = y; }
-                if (x > maxX) { maxX = x; }
-                if (y > maxY) { maxY = y; }
             }
-        }
+        });
 
-        if (area == 0)
-        {
-            return [];
-        }
-
-        double fill = (double)area / ((maxX - minX + 1) * (maxY - minY + 1));
-        double confidence = Math.Min(1.0, 0.5 + (fill * 0.5));
-        if (confidence < threshold)
-        {
-            return [];
-        }
-
-        return [new DetectedRegion(minX, minY, maxX - minX + 1, maxY - minY + 1, Math.Round(confidence, 3))];
+        return (mask, regions);
     }
 
     private static Image<L8> BuildBlendMask(Image<L8> mask, bool softEdges)
@@ -186,20 +152,27 @@ public sealed class ImageCleaningPipeline(
     private static Image<Rgba32> Blend(Image<Rgba32> original, Image<Rgb24> inpainted, Image<L8> blendMask)
     {
         var result = original.Clone();
-        result.ProcessPixelRows(accessor =>
+        // ProcessPixelRows has an overload that synchronises row access across
+        // multiple images in one call — far cheaper than calling `image[x,y]`
+        // per pixel, which does a per-access row-lock + coordinate clamp. We
+        // pass the result, the inpainted source and the blend mask together so
+        // each iteration only touches stack spans.
+        result.ProcessPixelRows(inpainted, blendMask, (acc, inpAcc, maskAcc) =>
         {
-            for (int y = 0; y < accessor.Height; y++)
+            for (int y = 0; y < acc.Height; y++)
             {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
+                Span<Rgba32> row = acc.GetRowSpan(y);
+                ReadOnlySpan<Rgb24> inpRow = inpAcc.GetRowSpan(y);
+                ReadOnlySpan<L8> maskRow = maskAcc.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    float a = blendMask[x, y].PackedValue / 255f;
+                    float a = maskRow[x].PackedValue / 255f;
                     if (a <= 0f)
                     {
                         continue;
                     }
 
-                    Rgb24 rep = inpainted[x, y];
+                    Rgb24 rep = inpRow[x];
                     Rgba32 orig = row[x];
                     row[x] = new Rgba32(
                         (byte)Math.Clamp((orig.R * (1 - a)) + (rep.R * a), 0, 255),

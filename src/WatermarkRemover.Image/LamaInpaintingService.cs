@@ -16,6 +16,12 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
     private readonly string _modelPath;
     private readonly Lazy<InferenceSession?> _session;
 
+    // Cached once: the model file is not expected to appear or vanish at
+    // runtime, so IsAvailable should not stat the disk on every poll. The
+    // field is set the first time IsAvailable is evaluated; subsequent
+    // reads skip both the File.Exists check and the Lazy.Value touch.
+    private int _availabilityCache; // 0 = unknown, 1 = available, -1 = unavailable
+
     public LamaInpaintingService(string modelPath)
     {
         _modelPath = modelPath;
@@ -24,7 +30,21 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
 
     public string ModelName => IsAvailable ? "big-lama" : "none";
 
-    public bool IsAvailable => File.Exists(_modelPath) && _session.Value is not null;
+    public bool IsAvailable
+    {
+        get
+        {
+            int cached = _availabilityCache;
+            if (cached is not 0)
+            {
+                return cached > 0;
+            }
+
+            bool available = File.Exists(_modelPath) && _session.Value is not null;
+            _availabilityCache = available ? 1 : -1;
+            return available;
+        }
+    }
 
     public bool IsModelAvailable(string modelPath) => File.Exists(modelPath);
 
@@ -52,8 +72,15 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(mask);
 
-        InferenceSession session = _session.Value
-            ?? throw new InvalidOperationException("ONNX inpainting model is not available.");
+        // Touch the Lazy once and capture the session; IsAvailable may have
+        // already initialised it, but accessing _session.Value a second time
+        // here would repeat the lazy-init branch even though the value is
+        // already created.
+        InferenceSession? session = _session.IsValueCreated ? _session.Value : _session.Value;
+        if (session is null)
+        {
+            throw new InvalidOperationException("ONNX inpainting model is not available.");
+        }
 
         int h = image.Height;
         int w = image.Width;
