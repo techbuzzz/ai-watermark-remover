@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
@@ -114,7 +113,6 @@ public sealed class UnicodeHygieneCleaner : IUnicodeHygieneCleaner
         var sb = new StringBuilder(input.Length);
         var removed = new List<RemovedItem>();
 
-        var enumerator = StringInfo.GetTextElementEnumerator(input);
         int index = 0;
         while (index < input.Length)
         {
@@ -153,7 +151,6 @@ public sealed class UnicodeHygieneCleaner : IUnicodeHygieneCleaner
             index += charLen;
         }
 
-        _ = enumerator; // Text-element enumeration reserved for future grapheme-aware handling.
         return (sb.ToString(), removed);
     }
 

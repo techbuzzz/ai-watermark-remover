@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using System.Text.RegularExpressions;
 using WatermarkRemover.Core.Interfaces;
@@ -15,13 +16,20 @@ public sealed partial class MarkdownCleaner : IMarkdownCleaner
     private readonly UnicodeHygieneCleaner _unicode = new();
 
     /// <summary>Invisible characters force-stripped everywhere (including code blocks).</summary>
-    private static readonly char[] ForcedInvisible =
-    [
-        '\u200B', '\u200C', '\u200D', '\u200E', '\u200F', '\u2060', '\uFEFF',
-        '\u2061', '\u2062', '\u2063', '\u2064', '\u00AD', '\u061C', '\u180E',
-        '\u202A', '\u202B', '\u202C', '\u202D', '\u202E',
-        '\u2066', '\u2067', '\u2068', '\u2069',
-    ];
+    /// <remarks>
+    /// <see cref="SearchValues{Char}"/> is a purpose-built, vectorised read-only set lookup
+    /// that beats <see cref="Array.IndexOf{T}"/> on every call site — the hot paths in
+    /// <see cref="ForceStripInvisible"/> and <see cref="DetectInvisibleInCode"/> each
+    /// iterate per character, so this matters for large markdown documents.
+    /// </remarks>
+    private static readonly SearchValues<char> ForcedInvisible =
+        SearchValues.Create(
+        [
+            '\u200B', '\u200C', '\u200D', '\u200E', '\u200F', '\u2060', '\uFEFF',
+            '\u2061', '\u2062', '\u2063', '\u2064', '\u00AD', '\u061C', '\u180E',
+            '\u202A', '\u202B', '\u202C', '\u202D', '\u202E',
+            '\u2066', '\u2067', '\u2068', '\u2069',
+        ]);
 
     /// <inheritdoc />
     public MarkdownCleanResult Clean(string markdown, MarkdownCleanOptions? options = null)
@@ -163,7 +171,7 @@ public sealed partial class MarkdownCleaner : IMarkdownCleaner
     {
         for (int i = 0; i < code.ContentLines.Count; i++)
         {
-            if (code.ContentLines[i].Any(c => Array.IndexOf(ForcedInvisible, c) >= 0))
+            if (code.ContentLines[i].Any(c => ForcedInvisible.Contains(c)))
             {
                 artifacts.Add(new AiArtifact("code-block-invisible", "Invisible/bidi character inside code block", lineOffset + i + 2, 0));
             }
@@ -368,7 +376,7 @@ public sealed partial class MarkdownCleaner : IMarkdownCleaner
         var sb = new StringBuilder(input.Length);
         foreach (char c in input)
         {
-            if (Array.IndexOf(ForcedInvisible, c) >= 0)
+            if (ForcedInvisible.Contains(c))
             {
                 stripped++;
                 continue;

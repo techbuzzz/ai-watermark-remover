@@ -33,6 +33,13 @@ public sealed partial class StatisticalWatermarkRewriter(HttpClient? httpClient 
 
         var removed = new List<RemovedItem>();
 
+        // Count words once, up-front, against the original input — the
+        // confidence score divides removed-item count by total words, so
+        // it must reflect what was actually in the input, not what survives
+        // after substitution. Computing it before the rewrite also avoids
+        // a redundant full-text regex pass.
+        int totalWords = WordRegex().Matches(input).Count;
+
         // 1. Green-list token detection + synonym substitution.
         string rewritten = SwapGreenListTokens(input, removed);
 
@@ -53,7 +60,6 @@ public sealed partial class StatisticalWatermarkRewriter(HttpClient? httpClient 
             rewritten = HeuristicParaphrase(rewritten, removed);
         }
 
-        int totalWords = WordRegex().Matches(input).Count;
         double confidence = totalWords == 0 ? 0.0 : Math.Min(1.0, (double)removed.Count / totalWords * 3.0);
         return new TextCleanResult(input, rewritten, removed, [], confidence);
     }
