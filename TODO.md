@@ -22,7 +22,7 @@ Status legend:
 - [x] **.dockerignore** — exclude `bin/ obj/ .vs/ models/ logs/`.
 - [x] **docker-compose.yml** — dev service with model volume + API-key env.
 
-- [ ] **Publish profiles** — self-contained single-file `dotnet publish` config.
+- [x] **Publish profiles** — self-contained single-file `dotnet publish` config (linux-x64, linux-arm64, win-x64, osx-x64).
 
 - [x] **CONTRIBUTING.md** — build/test, code style, PR process, commit conventions.
 - [x] **SECURITY.md** — responsible disclosure + responsible-use policy.

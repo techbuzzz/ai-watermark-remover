@@ -25,7 +25,7 @@ Status legend:
 - [ ] `docker-compose.yml` (single-service dev compose; volume for models, env for `--api-key`)
 
 ### Distribution
-- [ ] `dotnet publish` publish profiles for self-contained single-file executables (`PublishSingleFile=true`, `SelfContained=true`, `RuntimeIdentifier`, `EnableCompressionInSingleFile=true`)
+- [x] `dotnet publish` publish profiles for self-contained single-file executables (`PublishSingleFile=true`, `SelfContained=true`, `RuntimeIdentifier`, `EnableCompressionInSingleFile=true`) — `src/WatermarkRemover.CLI/Properties/PublishProfiles/{linux-x64,linux-arm64,win-x64,osx-x64}.pubxml`
 - [ ] NuGet packaging: mark `WatermarkRemover.Core` / `.Text` / `.Metadata` / `.Image` as `IsPackable=true`, set `PackageId` / `PackageVersion`, `PackageReadmeFile`, `PackageIcon`, create `.snk` for strong naming
 - [ ] `dotnet tool` packaging for a potential global tool install (`dotnet tool install -g watermarkremover`)
 
