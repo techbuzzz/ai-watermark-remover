@@ -426,6 +426,11 @@ transport routes **all** logging to stderr so the JSON-RPC stream
 on stdout stays clean, per the [MCP stdio spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio).
 ```
 
+> **Full reference:** [📘 docs/MCP.md](./docs/MCP.md) — architecture diagram, all 8
+> tool schemas (request/response JSON), transport options, configuration keys, and
+> install recipes for Claude Code, OpenCode, MiniMax Code, Cursor, Continue, and
+> Docker.
+
 ---
 
 ## 🐳 Docker
@@ -535,6 +540,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - 🌐 [docs/WEB-UI.md](./docs/WEB-UI.md) — the plug-and-play Astro web UI
 - ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
+- 🤖 [docs/MCP.md](./docs/MCP.md) — `serve-mcp` for Claude Code, OpenCode, MiniMax Code, Cursor, Continue (MCP server architecture, tool schemas, install recipes)
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
 - 📝 [TODO.md](./TODO.md) — current sprint
 

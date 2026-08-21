@@ -18,6 +18,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MCP server docs (`docs/MCP.md`, WR-S13 / WR-P605)** — new
+  end-user-and-developer reference for the `serve-mcp` command.
+  Sections: architecture diagram (agent → transport → `WatermarkRemover.Mcp`
+  → existing pipeline interfaces); transports (stdio default, Streamable
+  HTTP stateless, legacy SSE noted as "not currently shipped"); tool
+  reference for all 8 tools (`clean_text`, `clean_markdown`,
+  `clean_file`, `clean_image`, `detect_text`, `detect_markdown`,
+  `inspect_file`, `detect_watermark`) with full parameter tables,
+  request/response JSON examples, and the output-block conventions
+  (`TextContentBlock`, `EmbeddedResourceBlock` with `BlobResourceContents`,
+  `ImageContentBlock`); configuration (`mcp:` block in `config.yaml`,
+  CLI flag reference, resolution order CLI > config > default);
+  install recipes for Claude Code (`claude mcp add`), OpenCode
+  (`.opencode/mcp-config.json`), MiniMax Code, Cursor
+  (`~/.cursor/mcp.json`), Continue (`~/.continue/config.json`), and
+  Docker (`docker run -p 5090:5090 … serve-mcp --transport http`),
+  plus a JSON-RPC `tools/list` / `tools/call` smoke-test recipe; a
+  troubleshooting table for the most common install / runtime issues
+  (model missing, port in use, API key 401, rate-limit 429, etc.);
+  and the canonical SDK reference links
+  (https://github.com/modelcontextprotocol/csharp-sdk and
+  https://csharp.sdk.modelcontextprotocol.io/) with the relevant
+  entry points (`AddMcpServer`, `WithStdioServerTransport`,
+  `WithHttpTransport`, `WithToolsFromAssembly`,
+  `[McpServerToolType]` / `[McpServerTool]` attributes, the MCP
+  transports spec, the tools spec). README "🤖 MCP server" section
+  gets a "Full reference: docs/MCP.md" pointer; the
+  "📚 Documentation" section gains a dedicated `docs/MCP.md` row.
+  Build clean (0 warnings, 0 errors), 289 tests still green.
 - **MCP server integration tests (WR-S12 / WR-P604)** — new
   `JsonRpcIntegrationTests` fixture in `WatermarkRemover.Mcp.Tests`
   that hosts a real `McpServer` in-process (the same composition root

@@ -355,7 +355,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   `.AsStream()` if the API expects `Stream`.
 - **Backlog ref:** WR-P604
 
-### WR-S13. [~] MCP server docs (`docs/MCP.md`)
+### WR-S13. [x] MCP server docs (`docs/MCP.md`)
 
 - **Why:** WR-P605 — document the MCP integration for agent developers
   and end users.
@@ -576,6 +576,28 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S13 — `docs/MCP.md` reference** — new end-user-and-developer
+      reference for the `serve-mcp` command. Architecture diagram
+      (agent → transport → `WatermarkRemover.Mcp` → existing pipeline
+      interfaces); transports (stdio default, Streamable HTTP
+      stateless, legacy SSE noted as "not currently shipped"); tool
+      reference for all 8 tools with full parameter tables,
+      request/response JSON examples, and the output-block
+      conventions (`TextContentBlock`, `EmbeddedResourceBlock` with
+      `BlobResourceContents`, `ImageContentBlock`); configuration
+      (`mcp:` block in `config.yaml`, CLI flag reference, resolution
+      order CLI > config > default); install recipes for Claude Code
+      (`claude mcp add`), OpenCode (`.opencode/mcp-config.json`),
+      MiniMax Code, Cursor (`~/.cursor/mcp.json`), Continue
+      (`~/.continue/config.json`), and Docker (`docker run -p 5090
+      … serve-mcp --transport http`); troubleshooting table; and the
+      canonical SDK reference links
+      (https://github.com/modelcontextprotocol/csharp-sdk and
+      https://csharp.sdk.modelcontextprotocol.io/) with the relevant
+      entry points. README "🤖 MCP server" section gets a
+      "Full reference: docs/MCP.md" pointer; the "📚 Documentation"
+      section gains a dedicated `docs/MCP.md` row. Build clean (0
+      warnings, 0 errors), 289 tests still green.
 - [x] **WR-S12 — MCP server integration tests** — new
       `JsonRpcIntegrationTests` fixture in `WatermarkRemover.Mcp.Tests`
       wires a real `McpServer` host (the same composition root the
