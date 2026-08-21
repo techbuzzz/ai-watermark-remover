@@ -51,6 +51,7 @@ try
         cfg.AddCommand<CleanMarkdownCommand>("clean-markdown").WithDescription("Clean markdown, preserving code blocks.");
         cfg.AddCommand<CleanFileCommand>("clean-file").WithDescription("Strip metadata from files (batch capable).");
         cfg.AddCommand<CleanImageCommand>("clean-image").WithDescription("Remove visual watermarks via inpainting.");
+        cfg.AddCommand<CleanAllCommand>("clean-all").WithDescription("Auto-route a path: dispatches each file to text, markdown, or metadata pipeline by extension.");
         cfg.AddCommand<DetectTextCommand>("detect-text").WithDescription("Detect watermark signatures in text.");
         cfg.AddCommand<DetectMarkdownCommand>("detect-markdown").WithDescription("Detect AI artifacts in markdown.");
         cfg.AddCommand<DetectWatermarkCommand>("detect-watermark").WithDescription("Detect visual watermark regions in an image.");

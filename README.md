@@ -316,6 +316,7 @@ The produced executable is named `watermarkremover`. During development use
 | `clean-markdown`   | Clean markdown, preserving fenced code blocks.                  |
 | `clean-file`       | Strip metadata from files (single / directory / `--recursive`). |
 | `clean-image`      | Remove visual watermarks via mask + LaMa inpainting.            |
+| `clean-all`        | Auto-route a path — dispatches each file to text / markdown / metadata pipeline by extension (use `--recursive`, `--dry-run`). |
 | `detect-text`      | Detect (do not remove) watermark signatures in text.            |
 | `detect-markdown`  | Detect AI artifacts in markdown.                                |
 | `detect-watermark` | Detect visual watermark regions in an image.                    |
@@ -338,6 +339,10 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-markdown -i README.md --s
 
 # Strip metadata from a whole folder of files recursively
 dotnet run --project src/WatermarkRemover.CLI -- clean-file ./docs --recursive
+
+# Point one command at a mixed directory: .md → markdown, .jpg → metadata,
+# .txt → text, .bin → skipped. Use --dry-run to preview.
+dotnet run --project src/WatermarkRemover.CLI -- clean-all ./mixed-dir --recursive
 
 # Inspect a file's metadata (JSON output)
 dotnet run --project src/WatermarkRemover.CLI -- inspect-file photo.jpg --json

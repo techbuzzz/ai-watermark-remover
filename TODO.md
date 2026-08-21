@@ -29,7 +29,7 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
-### WR-S3. [~] `clean-all` auto-routing command
+### WR-S3. [x] `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
   and have the right pipeline (text / markdown / metadata / image) chosen
@@ -576,6 +576,20 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S3 — `clean-all` auto-routing command** — new CLI command
+      `clean-all <path>` walks a file or directory and dispatches each file
+      to the right pipeline: `.md`/`.markdown` → markdown cleaner,
+      router-supported extensions (JPEG/PNG/PDF/DOCX/HTML/WebP) → metadata
+      cleaner, `.txt`/`.text`/`.log` and no-extension files → text pipeline
+      (Layers A/B/C). Unknown binary extensions (`.bin`, `.exe`, `.mp4`, …)
+      are skipped with a warning rather than being fed to the text
+      pipeline. Supports `--recursive` and `--dry-run`; honours the global
+      `--json`. New `CleanAllClassifier` (pure routing decision) +
+      `CleanAllCommand`; new `WatermarkRemover.CLI.Tests` project with
+      33 tests (classifier unit + end-to-end command with temp fixtures
+      covering happy path, recursive flag, dry-run, single-file mode,
+      binary-skip, missing path, ordering, null guards). 127 tests total,
+      all green.
 - [x] **WR-S1 — Configurable HTTP rate-limit** — `server.rate_limit.{permit_limit,
       window_seconds, queue_limit}` in `config.yaml` (defaults 100/60/0),
       CLI overrides `--rate-limit` / `--rate-window` on `serve`. New

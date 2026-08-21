@@ -18,6 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`clean-all` CLI command** — new `watermarkremover clean-all <path>`
+  dispatches a single file or directory to the right pipeline per file:
+  `.md`/`.markdown` → markdown cleaner, router-supported extensions
+  (JPEG/PNG/PDF/DOCX/HTML/WebP) → metadata cleaner, `.txt`/`.text`/`.log`
+  and no-extension files → text pipeline (Layers A/B/C). Unknown binary
+  extensions (`.bin`, `.exe`, `.mp4`, …) are skipped with a warning
+  rather than being fed to the text pipeline by mistake. Supports
+  `--recursive` and `--dry-run`; honours the global `--json` flag. New
+  `CleanAllClassifier` (pure routing decision) +
+  `CleanAllCommand`; new `WatermarkRemover.CLI.Tests` project (the
+  foundation for WR-S4) with 33 tests covering the classifier (markdown
+  / router / text / no-extension / binary / null guards / ordering) and
+  the full command (happy path on a mixed dir, recursive flag, dry-run,
+  single-file mode, binary-skip, missing path). 127 tests total, all
+  green.
 - **File size limit enforcement** — multipart uploads to `/clean/file`,
   `/clean/image`, `/inspect/file`, and `/detect/image` are now rejected
   with HTTP 413 (`PAYLOAD_TOO_LARGE`) *before* the body is streamed to
