@@ -13,15 +13,15 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Serilog" Version="4.0.0" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
-    <PackageReference Include="Spectre.Console" Version="0.49.0" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.49.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.1" />
-    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
-    <PackageReference Include="YamlDotNet" Version="16.0.0" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="Spectre.Console.Cli" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="YamlDotNet" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />

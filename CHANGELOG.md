@@ -93,6 +93,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   coverage (see `src/WatermarkRemover.Text/SynonymDictionary.cs`).
 
 ### Changed
+- **Central package management (NuGet CPM)** — package versions are now
+  declared in one place. New `src/Directory.Packages.props` lists every
+  external package (Serilog, Spectre.Console, SixLabors.ImageSharp,
+  OnnxRuntime, Swashbuckle, xunit, etc.); `Version="..."` is removed
+  from every `<PackageReference>` in the 7 csprojs. Central management
+  is activated via `<ManagePackageVersionsCentrally>true</
+  ManagePackageVersionsCentrally>` in `Directory.Build.props`. Bumping
+  a dependency now means editing one line. Verified: stray `Version`
+  attributes correctly raise `NU1008`; build still 0 warnings; 70/70
+  tests pass.
 - README now uses badges, emoji-led section headings, and a TOC for faster
   navigation.
 

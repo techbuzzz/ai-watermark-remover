@@ -27,7 +27,7 @@ Status legend:
 - [x] GitHub Actions workflow: `build-and-test.yml` (restore, build, test on push/PR; matrix: windows + ubuntu; `dotnet test --logger trx --collect:"XPlat Code Coverage"`; upload coverage to codecov)
 - [x] GitHub Actions workflow: `release.yml` (on tag `v*` — Node 22 + `npm run build` step builds the web UI; `dotnet publish -c Release -r {linux-x64,win-x64,osx-x64,linux-arm64}` self-contained single-file, with `IncludeAllContentForSelfExtract=true` so `wwwroot/` is embedded; zip artifacts; create GitHub Release with attached binaries)
 - [x] `global.json` pinning the SDK version (`10.0.400`) for reproducible builds
-- [ ] `Directory.Packages.props` for central package management — see [TODO #5](./TODO.md#5-directorypackagesprops-for-central-package-management)
+- [x] `Directory.Packages.props` for central package management — see [TODO #5](./TODO.md#5-directorypackagesprops-for-central-package-management)
 - [x] Dependabot config (`.github/dependabot.yml`) for NuGet + GitHub Actions + Docker
 
 ### Containerization

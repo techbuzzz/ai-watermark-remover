@@ -1,5 +1,17 @@
 <Project>
 
+  <PropertyGroup Label="Central package management">
+    <!--
+      Activates NuGet's central package management (CPM). With this on,
+      every <PackageReference Include="X" /> in any csproj in this tree
+      must have its version declared in src/Directory.Packages.props
+      (or any other Directory.Packages.props above it). Version
+      attributes on individual <PackageReference> elements are
+      rejected and produce a NU1008 error.
+    -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
   <PropertyGroup Label="Build conventions">
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>

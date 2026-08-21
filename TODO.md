@@ -138,29 +138,7 @@ in this list unless it already covers one of the lower ones.
   top-level `class Program` with `Main` — should still work, but if not,
   extract the host setup into a static method on `Program`.
 
-### 5. `Directory.Packages.props` for central package management
-
-- **Why:** BACKLOG P0 — today, `WatermarkRemover.CLI.csproj` pins
-  `Serilog 4.0.0` and `Spectre.Console 0.49.0`; the other csprojs each
-  have their own versions. Bumping requires touching many files.
-- **Scope:** All `.csproj` files + new `src/Directory.Packages.props`
-- **Files to touch:**
-  - New `src/Directory.Packages.props` — central `<PackageVersion>` for
-    every package currently in any csproj
-  - Each `src/**/*.csproj` — change `<PackageReference Include="X"
-    Version="..." />` to `<PackageReference Include="X" />` (the
-    version lives in `Directory.Packages.props`)
-  - `src/WatermarkRemover.sln` — usually no change needed
-- **Acceptance:**
-  - `dotnet restore` succeeds
-  - `dotnet build` still 0 warnings / 0 errors
-  - `dotnet test` still 70/70 green
-  - Only one place to bump a version
-- **Risks:** C# SDK has to be .NET 8+ for `Directory.Packages.props` to
-  be supported (we're on .NET 10, fine). The feature requires
-  `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`
-  in `Directory.Build.props` (which already exists at repo root — add the
-  property there if missing).
+### 5. `Directory.Packages.props` for central package management — see [BACKLOG P0](./BACKLOG.md#p0--release-readiness-must-have-before-v10) (moved to [Recently done](#recently-done))
 
 ### 6. Shell completion scripts
 
@@ -263,6 +241,15 @@ in this list unless it already covers one of the lower ones.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **`Directory.Packages.props` for central package management** —
+      new `src/Directory.Packages.props` listing 20 packages
+      (Serilog, Spectre.Console, SixLabors.ImageSharp, OnnxRuntime,
+      Swashbuckle, etc.). `Version="..."` removed from every
+      `<PackageReference>` in all 7 csprojs. Central management
+      activated via `<ManagePackageVersionsCentrally>true</
+      ManagePackageVersionsCentrally>` in `Directory.Build.props`.
+      Verified: NU1008 fires for stray `Version`; clean build still
+      0 warnings; 70/70 tests pass.
 - [x] **OpenAPI / Swagger UI at `/swagger`** — interactive UI at
       `/swagger` and OpenAPI 3.0 spec at `/swagger/v1/swagger.json` for all
       8 endpoints (text, markdown, file, image, health). Generated from the

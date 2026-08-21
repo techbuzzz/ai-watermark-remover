@@ -1,0 +1,44 @@
+<Project>
+
+  <!--
+    Central package version management.
+
+    All <PackageReference Include="..." /> elements in the solution's
+    .csproj files are bound to versions declared here. Bumping a
+    dependency means editing one line in this file rather than chasing
+    the same version across multiple projects.
+
+    To add a new package:
+      1. Add a <PackageVersion Include="Name" Version="x.y.z" /> below.
+      2. Add <PackageReference Include="Name" /> in the consuming csproj
+         (no Version attribute).
+
+    To opt a single csproj out of central management, set
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    inside its <PropertyGroup>.
+  -->
+
+  <ItemGroup>
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
+    <PackageVersion Include="HtmlAgilityPack" Version="1.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.19.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageVersion Include="PdfPig" Version="0.1.15" />
+    <PackageVersion Include="Serilog" Version="4.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageVersion Include="Spectre.Console" Version="0.49.0" />
+    <PackageVersion Include="Spectre.Console.Cli" Version="0.49.0" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.1" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="YamlDotNet" Version="16.0.0" />
+  </ItemGroup>
+
+</Project>
