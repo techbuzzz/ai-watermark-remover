@@ -55,7 +55,7 @@ in this list.
   as text.
 - **Backlog ref:** WR-P211
 
-### WR-S4. [ ] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
+### WR-S4. [~] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
 
 - **Why:** BACKLOG P3 — the .NET test suite is 94 tests but **zero** cover
   the HTTP API or any command wiring. A regression in `ServeCommand`
