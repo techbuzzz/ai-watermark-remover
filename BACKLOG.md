@@ -27,7 +27,7 @@ Status legend:
 - [x] GitHub Actions workflow: `build-and-test.yml` (restore, build, test on push/PR; matrix: windows + ubuntu; `dotnet test --logger trx --collect:"XPlat Code Coverage"`; upload coverage to codecov)
 - [x] GitHub Actions workflow: `release.yml` (on tag `v*` — Node 22 + `npm run build` step builds the web UI; `dotnet publish -c Release -r {linux-x64,win-x64,osx-x64,linux-arm64}` self-contained single-file, with `IncludeAllContentForSelfExtract=true` so `wwwroot/` is embedded; zip artifacts; create GitHub Release with attached binaries)
 - [x] `global.json` pinning the SDK version (`10.0.400`) for reproducible builds
-- [ ] `Directory.Packages.props` for central package management — see [TODO #6](./TODO.md#6-directorypackagesprops-for-central-package-management)
+- [ ] `Directory.Packages.props` for central package management — see [TODO #5](./TODO.md#5-directorypackagesprops-for-central-package-management)
 - [x] Dependabot config (`.github/dependabot.yml`) for NuGet + GitHub Actions + Docker
 
 ### Containerization
@@ -85,29 +85,29 @@ Status legend:
 ## P2 — Platform & UX (v1.x)
 
 ### CLI experience
-- [ ] `watermarkremover --version` command — see [TODO #10](./TODO.md#10-watermark-version-command--version)
-- [ ] `clean-all` command — see [TODO #4](./TODO.md#4-clean-all-auto-routing-command)
+- [ ] `watermarkremover --version` command — see [TODO #9](./TODO.md#9-watermark-version-command--version)
+- [ ] `clean-all` command — see [TODO #3](./TODO.md#3-clean-all-auto-routing-command)
 - [ ] `batch` command — process a JSON/CSV manifest file with list of inputs + desired outputs (for automated pipelines)
 - [ ] `--quiet` / `-q` global option (suppress all output except errors; useful for scripting)
 - [ ] `--no-color` global option (disable Spectre ANSI; auto-detect non-TTY)
 - [ ] Exit codes documentation (`0` success, `1` input error, `2` detections found, `3` unsupported format, `4` model missing`)
-- [ ] Shell completion scripts generation — see [TODO #7](./TODO.md#7-shell-completion-scripts)
+- [ ] Shell completion scripts generation — see [TODO #6](./TODO.md#6-shell-completion-scripts)
 
 ### HTTP API enhancements
 - [x] `POST /clean/markdown` endpoint — exists; **note**: the BACKLOG item here
       used to say "missing" but `ServeCommand.cs:148-158` already implements it.
       Closed.
-- [ ] `POST /detect/markdown` endpoint — see [TODO #9](./TODO.md#9-post-detectmarkdown-endpoint)
-- [ ] OpenAPI / Swagger UI at `/swagger` — see [TODO #1](./TODO.md#1-openapi--swagger-ui-at-swagger)
+- [ ] `POST /detect/markdown` endpoint — see [TODO #8](./TODO.md#8-post-detectmarkdown-endpoint)
+- [x] OpenAPI / Swagger UI at `/swagger` — completed 2026-08-21; spec at `/swagger/v1/swagger.json`, interactive UI at `/swagger/`
 - [x] CORS support (configurable allowed origins via `--cors-origins`)
-- [ ] Configurable rate-limit via `config.yaml` — see [TODO #2](./TODO.md#2-configurable-rate-limit-via-configyaml)
-- [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB) — see [TODO #3](./TODO.md#3-file-size-limit-enforcement-server-side-max_upload_mb)
+- [ ] Configurable rate-limit via `config.yaml` — see [TODO #1](./TODO.md#1-configurable-rate-limit-via-configyaml)
+- [ ] File size limit enforcement (configurable `max_upload_mb`, default 100 MB) — see [TODO #2](./TODO.md#2-file-size-limit-enforcement-server-side-max_upload_mb)
 - [ ] `/metrics` endpoint (Prometheus: request count, latency histogram, model availability)
 - [x] Web UI (Astro "box") — single-page plug-and-play dashboard at `/` with Text / Markdown / File / Image tabs. Astro 5.x static output, no UI framework, code-split per tab. Co-located with the .NET binary via `UseStaticFiles` (single-file releases embed the bundle via `IncludeAllContentForSelfExtract`). Standalone deploys (Vercel / Netlify / GH Pages / nginx) also supported. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
 
 ### Configuration
 - [ ] Environment variable overrides (`WATERMARKREMOVER__TEXT__STATISTICAL=true`, double-underscore notation like ASP.NET config)
-- [ ] Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced) — see [TODO #8](./TODO.md#8-expose-all-21-markdowncleanoptions-toggles-in-configyaml)
+- [ ] Full markdown config surface — expose all 21 `MarkdownCleanOptions` toggles in `config.yaml` (only 12 are currently surfaced) — see [TODO #7](./TODO.md#7-expose-all-21-markdowncleanoptions-toggles-in-configyaml)
 - [ ] Config validation — fail fast with clear error on unknown keys / invalid values
 
 ---
@@ -115,7 +115,7 @@ Status legend:
 ## P3 — Quality & reliability (ongoing)
 
 ### Test coverage
-- [ ] `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints — see [TODO #5](./TODO.md#5-watermarkremoverclitests-project-webapplicationfactory-for-http)
+- [ ] `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints — see [TODO #4](./TODO.md#4-watermarkremoverclitests-project-webapplicationfactory-for-http)
 - [ ] Integration tests — end-to-end: create temp files with known watermarks → run CLI → assert cleaned output
 - [ ] `WatermarkRemover.Core.Tests` project — test `ConfigLoader`, `AppConfig.Default`, `ErrorResult`
 - [ ] Property-based tests (FsCheck) for Unicode hygiene — random insertion of invisible chars into arbitrary text, assert all removed

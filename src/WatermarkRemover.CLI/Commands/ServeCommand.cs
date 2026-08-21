@@ -8,7 +8,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi;
 using Spectre.Console.Cli;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using WatermarkRemover.CLI.Infrastructure;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
@@ -89,6 +91,37 @@ public sealed class ServeCommand(
             });
         });
 
+        // OpenAPI / Swagger — machine-readable schema + interactive UI at /swagger.
+        // Mounted in dev/test/debug builds; left in place for release too because
+        // the docs URL is useful for anyone consuming the API.
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(c =>
+        {
+            c.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "WatermarkRemover HTTP API",
+                Version = "v1",
+                Description =
+                    "HTTP surface of the `watermarkremover` CLI. " +
+                    "Auth: when the server is started with `--api-key`, every endpoint " +
+                    "except `/health` requires an `X-API-Key` header. " +
+                    "Uploads use `multipart/form-data`; everything else is JSON.",
+            });
+
+            // Document the X-API-Key header so it shows up in the UI.
+            c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.ApiKey,
+                In = ParameterLocation.Header,
+                Name = "X-API-Key",
+                Description = "API key configured with --api-key on the server.",
+            });
+            c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("ApiKey", document)] = new List<string>(),
+            });
+        });
+
         // CORS — only enabled when the user (or env var) provides origins. The
         // browser UI needs to call the API cross-origin in dev (Astro's dev
         // server runs on :4321 by default).
@@ -144,6 +177,21 @@ public sealed class ServeCommand(
         }
 
         MapEndpoints(app);
+
+        // Serve the OpenAPI spec at /swagger/v1/swagger.json and the interactive
+        // UI at /swagger. Mounted before the static-file middleware so the
+        // SPA-style fallback below doesn't accidentally swallow the spec.
+        app.UseSwagger(c =>
+        {
+            c.RouteTemplate = "swagger/{documentName}/swagger.{json|yaml}";
+        });
+        app.UseSwaggerUI(c =>
+        {
+            c.RoutePrefix = "swagger";
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "WatermarkRemover HTTP API v1");
+            c.DocumentTitle = "WatermarkRemover HTTP API";
+            c.DisplayRequestDuration();
+        });
 
         // Bundle the Astro web UI (built by `npm run build` in /web) on the
         // same port. Skipped when the user passes --no-ui or when the
@@ -417,7 +465,11 @@ public sealed class ServeCommand(
         }
     }
 
-    private sealed record TextRequest(string Text, bool? EnableUnicode, bool? EnableStatistical, bool? EnableVendorSpecific);
+    /// <summary>JSON body for <c>POST /clean/text</c> and <c>POST /detect/text</c>.</summary>
+    /// <remarks>Public so Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
+    public sealed record TextRequest(string Text, bool? EnableUnicode, bool? EnableStatistical, bool? EnableVendorSpecific);
 
-    private sealed record MarkdownRequest(string Markdown, bool? StripAll);
+    /// <summary>JSON body for <c>POST /clean/markdown</c>.</summary>
+    /// <remarks>Public so Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
+    public sealed record MarkdownRequest(string Markdown, bool? StripAll);
 }

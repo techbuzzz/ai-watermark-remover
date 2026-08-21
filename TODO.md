@@ -22,33 +22,7 @@ extension points the tick should read first.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list unless it already covers one of the lower ones.
 
-### 1. OpenAPI / Swagger UI at `/swagger`
-
-- **Why:** API discoverability. The README already documents 8 endpoints but
-  they have no machine-readable schema; a tick can generate it.
-- **Scope:** `src/WatermarkRemover.CLI/`
-- **Files to touch:**
-  - `src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj` — add
-    `Swashbuckle.AspNetCore` package reference
-  - `src/WatermarkRemover.CLI/Commands/ServeCommand.cs` — add
-    `builder.Services.AddEndpointsApiExplorer()`, `AddSwaggerGen()`, and
-    `app.UseSwagger() + app.UseSwaggerUI()` after `MapEndpoints`. Mount at
-    `/swagger` (also at `/swagger/v1/swagger.json`)
-  - `src/tests/` (new) — optional smoke test that `/swagger/v1/swagger.json`
-    returns 200 and contains the strings `cleanText`, `cleanMarkdown`,
-    `cleanFile`, `inspectFile`, `cleanImage`, `detectImage`
-- **Acceptance:**
-  - `dotnet run --project src/WatermarkRemover.CLI -- serve` → `GET /swagger`
-    returns the HTML UI; `GET /swagger/v1/swagger.json` returns JSON listing
-    all 8 endpoints with request/response schemas
-  - `dotnet build` and `dotnet test` still 0 warnings / 0 errors / green
-  - Document the new endpoint in `docs/WEB-UI.md` "Endpoints" list and the
-    README "HTTP API" table
-- **Risks:** Swashbuckle 6.x is for .NET 9+; ensure 6.5+ for .NET 10. If
-  schema generation has trouble with the multipart endpoints, use
-  `[Consumes("multipart/form-data")]` and `[RequestSizeLimit]` attributes.
-
-### 2. Configurable rate-limit via `config.yaml`
+### 1. Configurable rate-limit via `config.yaml`
 
 - **Why:** Currently `ServeCommand.cs:58-71` hard-codes `PermitLimit = 100`
   and `Window = TimeSpan.FromMinutes(1)`. Operators want to tune this
@@ -74,7 +48,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** Keep `GlobalSettings` precedence clean. Don't break the existing
   rate limiter behavior when the new keys are absent.
 
-### 3. File size limit enforcement (server-side, `max_upload_mb`)
+### 2. File size limit enforcement (server-side, `max_upload_mb`)
 
 - **Why:** `ServeCommand.cs` accepts any-size multipart uploads. The web UI
   already pre-checks 100 MB on the client (see
@@ -102,7 +76,7 @@ in this list unless it already covers one of the lower ones.
   attribute. The middleware approach is cleaner because it gives a proper
   ErrorResult response, not just a generic Kestrel 413.
 
-### 4. `clean-all` auto-routing command
+### 3. `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
   and have the right pipeline (text / markdown / metadata / image) chosen
@@ -130,7 +104,7 @@ in this list unless it already covers one of the lower ones.
   (don't send binary files to the text pipeline). Reject `.png`/`.jpg`
   as text.
 
-### 5. `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
+### 4. `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
 
 - **Why:** BACKLOG P3 — currently the .NET test suite is 70 tests but
   **zero** cover the HTTP API or any command wiring. A regression in
@@ -164,7 +138,7 @@ in this list unless it already covers one of the lower ones.
   top-level `class Program` with `Main` — should still work, but if not,
   extract the host setup into a static method on `Program`.
 
-### 6. `Directory.Packages.props` for central package management
+### 5. `Directory.Packages.props` for central package management
 
 - **Why:** BACKLOG P0 — today, `WatermarkRemover.CLI.csproj` pins
   `Serilog 4.0.0` and `Spectre.Console 0.49.0`; the other csprojs each
@@ -188,7 +162,7 @@ in this list unless it already covers one of the lower ones.
   in `Directory.Build.props` (which already exists at repo root — add the
   property there if missing).
 
-### 7. Shell completion scripts
+### 6. Shell completion scripts
 
 - **Why:** BACKLOG P2 — operators scripting against `watermarkremover` have
   to type full option names; tab-completion is the standard expectation.
@@ -211,7 +185,7 @@ in this list unless it already covers one of the lower ones.
   the Spectre docs first before hand-rolling; using the built-in path is
   much less work.
 
-### 8. Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
+### 7. Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
 
 - **Why:** BACKLOG P2 — `MarkdownCleanOptions` has 21 boolean flags; only
   ~12 are currently surfaced in `src/config.yaml`. Users can't disable
@@ -233,7 +207,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** Default values must match the C# defaults or users will get
   a surprise behaviour change.
 
-### 9. `POST /detect/markdown` endpoint
+### 8. `POST /detect/markdown` endpoint
 
 - **Why:** BACKLOG P2 — README documents 8 endpoints but only 7 exist;
   `/detect/markdown` is missing. The C# `IDetectMarkdownCommand` /
@@ -252,7 +226,7 @@ in this list unless it already covers one of the lower ones.
 - **Risks:** None — small, well-scoped. Done in 30 minutes once you read
   the existing `/detect/text` mapping as a template.
 
-### 10. Watermark version command (`--version`)
+### 9. Watermark version command (`--version`)
 
 - **Why:** BACKLOG P2 — currently `--version` doesn't print the assembly
   version. Operators want to confirm what they're running.
@@ -289,6 +263,12 @@ in this list unless it already covers one of the lower ones.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **OpenAPI / Swagger UI at `/swagger`** — interactive UI at
+      `/swagger` and OpenAPI 3.0 spec at `/swagger/v1/swagger.json` for all
+      8 endpoints (text, markdown, file, image, health). Generated from the
+      live endpoint map via Swashbuckle.AspNetCore 10.1.1; `X-API-Key` is
+      declared in the security section. Pinned `Microsoft.OpenApi` to 2.7.5
+      to avoid the GHSA-v5pm-xwqc-g5wc (CVE-2026-49451) DoS advisory.
 - [x] **Web UI (Astro "box")** — single-page plug-and-play dashboard with
       Text / Markdown / File / Image tabs. See [`docs/WEB-UI.md`](./docs/WEB-UI.md).
       Includes: `/web` Astro project, CORS middleware in `ServeCommand`,

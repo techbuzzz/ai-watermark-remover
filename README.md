@@ -375,6 +375,8 @@ watermarkremover serve --port 5080 --api-key s3cret
 | `POST /clean/image` | multipart image upload                  | cleaned image              |
 | `POST /detect/image`| multipart image upload                  | `DetectedRegion[]` JSON    |
 | `GET  /health`      | —                                       | `{ "status": "ok" }`       |
+| `GET  /swagger`     | —                                       | interactive Swagger UI (HTML) |
+| `GET  /swagger/v1/swagger.json` | —                          | OpenAPI 3.0 spec (JSON)    |
 
 ### Example
 

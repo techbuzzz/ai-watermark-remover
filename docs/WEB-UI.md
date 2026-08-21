@@ -64,6 +64,13 @@ Tabs follow the WAI-ARIA tabs pattern: `←` / `→` keys move between them,
 `Home` / `End` jump to the first / last. The last-active tab is restored on
 reload via `localStorage`.
 
+> **🧰 API reference.** A machine-readable OpenAPI 3.0 spec for every HTTP
+> endpoint is served at **`/swagger/v1/swagger.json`**, and an interactive
+> Swagger UI is mounted at **`/swagger/`** — useful for `curl` callers, code
+> generators (`openapi-generator`, `nswag`), and anyone who wants to try the
+> API without reading the README. The `X-API-Key` requirement is documented
+> in the security section of the spec.
+
 The page respects `prefers-color-scheme` (light / dark) and is fully
 responsive (down to 360 px wide).
 

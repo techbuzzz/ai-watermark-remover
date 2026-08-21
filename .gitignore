@@ -431,3 +431,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Stray working notes — left behind by tick workers when they prepare a
+# commit message but forget to delete the file. The `.gitignore-this` name
+# is the convention: anything matching this pattern is local scratch.
+.gitignore-this
+*.scratch.txt
