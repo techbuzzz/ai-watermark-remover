@@ -395,7 +395,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
 - **Risks:** None — documentation only.
 - **Backlog ref:** WR-P605
 
-### WR-S14. [ ] Agent skills (`skills/` directory + installer)
+### WR-S14. [~] Agent skills (`skills/` directory + installer)
 
 - **Why:** WR-P611..WR-P617 — drop-in skill packages that teach agents
   when and how to use WatermarkRemover. Installable by copying a folder.
