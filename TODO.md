@@ -425,7 +425,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   files generic enough to work across all three.
 - **Backlog ref:** WR-P611..WR-P617
 
-### WR-S15. [ ] OpenCode plugin
+### WR-S15. [~] OpenCode plugin
 
 - **Why:** WR-P621 — native OpenCode plugin with slash commands and MCP
   auto-start.
