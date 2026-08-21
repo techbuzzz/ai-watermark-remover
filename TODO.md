@@ -55,7 +55,7 @@ in this list.
   as text.
 - **Backlog ref:** WR-P211
 
-### WR-S4. [~] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
+### WR-S4. [x] `WatermarkRemover.CLI.Tests` project (WebApplicationFactory for HTTP)
 
 - **Why:** BACKLOG P3 — the .NET test suite is 94 tests but **zero** cover
   the HTTP API or any command wiring. A regression in `ServeCommand`
@@ -576,6 +576,26 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S4 — `WatermarkRemover.CLI.Tests` HTTP coverage** — the
+      `serve` command's HTTP surface now has end-to-end coverage via
+      `Microsoft.AspNetCore.TestHost` (`Microsoft.AspNetCore.Mvc.Testing
+      10.0.11`). The eight endpoints were extracted out of
+      `ServeCommand` into a new public static
+      `ServeEndpointMapper` (with companion `MountSwagger` and
+      `MountStaticUi` helpers) so tests can host them in-memory without
+      binding Kestrel. 11 new tests in `HttpEndpointTests`: `/health`
+      200 + status body, `/clean/text` happy path (Layer A strips
+      U+200B), `/clean/text` 400 on empty body, `/clean/text` 401 when
+      `--api-key` is set and `X-API-Key` is missing, `/clean/text` 200
+      with the right key, `/health` exempt from the key check, Swagger
+      UI HTML at `/swagger/index.html`, OpenAPI JSON at
+      `/swagger/v1/swagger.json`, `/` 200 with bundled `wwwroot/`,
+      `/` 404 when `--no-ui`, `/` 404 when `wwwroot/` is absent.
+      `TextRequest` and `MarkdownRequest` moved to top-level types in
+      `WatermarkRemover.CLI.Commands` so the mapper and tests can
+      reference them. `WatermarkRemover.CLI` now also takes
+      `ILogger<ServeCommand>` for the static-UI mount warnings.
+      138 tests total, all green.
 - [x] **WR-S3 — `clean-all` auto-routing command** — new CLI command
       `clean-all <path>` walks a file or directory and dispatches each file
       to the right pipeline: `.md`/`.markdown` → markdown cleaner,

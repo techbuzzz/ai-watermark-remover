@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
 using Spectre.Console.Cli;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -24,13 +25,15 @@ public sealed class ServeCommand(
     IMarkdownCleaner markdownCleaner,
     IFileCleanerRouter fileRouter,
     IImageCleaningPipeline imagePipeline,
-    AppConfig config) : AsyncCommand<ServeCommand.Settings>
+    AppConfig config,
+    ILogger<ServeCommand> logger) : AsyncCommand<ServeCommand.Settings>
 {
     private readonly ITextCleaningPipeline _textPipeline = textPipeline;
     private readonly IMarkdownCleaner _markdownCleaner = markdownCleaner;
     private readonly IFileCleanerRouter _fileRouter = fileRouter;
     private readonly IImageCleaningPipeline _imagePipeline = imagePipeline;
     private readonly AppConfig _config = config;
+    private readonly ILogger<ServeCommand> _logger = logger;
 
     /// <summary>Default CORS origins when the API runs open (no --api-key).</summary>
     private const string DefaultCorsOriginsOpen = "*";
@@ -242,22 +245,18 @@ public sealed class ServeCommand(
             });
         }
 
-        MapEndpoints(app);
+        ServeEndpointMapper.MapEndpoints(
+            app,
+            _textPipeline,
+            _markdownCleaner,
+            _fileRouter,
+            _imagePipeline,
+            _config);
 
         // Serve the OpenAPI spec at /swagger/v1/swagger.json and the interactive
         // UI at /swagger. Mounted before the static-file middleware so the
         // SPA-style fallback below doesn't accidentally swallow the spec.
-        app.UseSwagger(c =>
-        {
-            c.RouteTemplate = "swagger/{documentName}/swagger.{json|yaml}";
-        });
-        app.UseSwaggerUI(c =>
-        {
-            c.RoutePrefix = "swagger";
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "WatermarkRemover HTTP API v1");
-            c.DocumentTitle = "WatermarkRemover HTTP API";
-            c.DisplayRequestDuration();
-        });
+        ServeEndpointMapper.MountSwagger(app);
 
         // Bundle the Astro web UI (built by `npm run build` in /web) on the
         // same port. Skipped when the user passes --no-ui or when the
@@ -265,29 +264,14 @@ public sealed class ServeCommand(
         string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         bool webRootPresent = Directory.Exists(webRoot) &&
                               File.Exists(Path.Combine(webRoot, "index.html"));
-        if (!settings.NoUi && webRootPresent)
+        IFileProvider? webRootProvider = webRootPresent
+            ? new PhysicalFileProvider(webRoot)
+            : null;
+        ServeEndpointMapper.MountStaticUi(app, webRootProvider, settings.NoUi, _logger);
+
+        if (webRootProvider is not null)
         {
-            // Serve index.html on directory hits, static files for everything else.
-            app.UseDefaultFiles(new DefaultFilesOptions
-            {
-                DefaultFileNames = { "index.html" },
-                FileProvider = new PhysicalFileProvider(webRoot),
-            });
-            app.UseStaticFiles(new StaticFileOptions
-            {
-                FileProvider = new PhysicalFileProvider(webRoot),
-            });
-            // SPA-style fallback: any non-API path that didn't match a static
-            // file or an API route returns index.html so client-side tab
-            // routing (and direct deep links like /#file) keep working.
-            app.MapFallback(() => Results.File(Path.Combine(webRoot, "index.html"), "text/html"));
             OutputFormatter.Success($"Web UI bundle mounted at http://{settings.Host}:{settings.Port}/");
-        }
-        else if (!settings.NoUi)
-        {
-            OutputFormatter.Warning(
-                "Web UI bundle not found (expected wwwroot/index.html next to the binary). " +
-                "Run `npm run build` in /web to bundle it, or pass --no-ui to silence this warning.");
         }
 
         OutputFormatter.Success($"WatermarkRemover API listening on http://{settings.Host}:{settings.Port}");
@@ -368,210 +352,14 @@ public sealed class ServeCommand(
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToArray();
     }
-
-    private void MapEndpoints(WebApplication app)
-    {
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-
-        // POST /clean/text
-        app.MapPost("/clean/text", async (TextRequest req, CancellationToken ct) =>
-        {
-            if (string.IsNullOrEmpty(req.Text))
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Field 'text' is required."));
-            }
-
-            TextCleanOptions options = new()
-            {
-                EnableUnicode = req.EnableUnicode ?? _config.Text.Layers.Unicode,
-                EnableStatistical = req.EnableStatistical ?? _config.Text.Layers.Statistical,
-                EnableVendorSpecific = req.EnableVendorSpecific ?? _config.Text.Layers.VendorSpecific,
-                LlmEndpoint = _config.Text.LlmEndpoint,
-                LlmModel = _config.Text.LlmModel,
-            };
-            TextCleanResult result = await _textPipeline.CleanAsync(req.Text, options, ct).ConfigureAwait(false);
-            return Results.Ok(result);
-        });
-
-        // POST /detect/text
-        app.MapPost("/detect/text", (TextRequest req) =>
-        {
-            if (string.IsNullOrEmpty(req.Text))
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Field 'text' is required."));
-            }
-
-            IReadOnlyList<WatermarkMatch> matches = _textPipeline.Detect(req.Text);
-            return Results.Ok(matches);
-        });
-
-        // POST /clean/markdown
-        app.MapPost("/clean/markdown", (MarkdownRequest req) =>
-        {
-            if (string.IsNullOrEmpty(req.Markdown))
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Field 'markdown' is required."));
-            }
-
-            MarkdownCleanOptions options = req.StripAll == true ? MarkdownCleanOptions.StripAll() : new MarkdownCleanOptions();
-            MarkdownCleanResult result = _markdownCleaner.Clean(req.Markdown, options);
-            return Results.Ok(result);
-        });
-
-        // POST /clean/file  (multipart upload)
-        app.MapPost("/clean/file", async (HttpRequest request, CancellationToken ct) =>
-        {
-            if (!request.HasFormContentType || request.Form.Files.Count == 0)
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Upload a file via multipart/form-data."));
-            }
-
-            IFormFile file = request.Form.Files[0];
-            if (!_fileRouter.IsSupported(file.FileName))
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.UnsupportedFormat, $"Unsupported file type: {Path.GetExtension(file.FileName)}"));
-            }
-
-            string tmpIn = Path.Combine(Path.GetTempPath(), $"wr-in-{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}");
-            string tmpOut = Path.Combine(Path.GetTempPath(), $"wr-out-{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}");
-            try
-            {
-                await using (FileStream fs = File.Create(tmpIn))
-                {
-                    await file.CopyToAsync(fs, ct).ConfigureAwait(false);
-                }
-
-                FileCleanResult result = _fileRouter.Clean(tmpIn, tmpOut, new MetadataCleanOptions());
-                byte[] bytes = await File.ReadAllBytesAsync(tmpOut, ct).ConfigureAwait(false);
-                return Results.File(bytes, "application/octet-stream", $"cleaned-{file.FileName}");
-            }
-            finally
-            {
-                TryDelete(tmpIn);
-                TryDelete(tmpOut);
-            }
-        });
-
-        // GET /inspect/file  (multipart upload via POST is more natural, but spec lists inspect under file ops)
-        app.MapPost("/inspect/file", async (HttpRequest request, CancellationToken ct) =>
-        {
-            if (!request.HasFormContentType || request.Form.Files.Count == 0)
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Upload a file via multipart/form-data."));
-            }
-
-            IFormFile file = request.Form.Files[0];
-            if (!_fileRouter.IsSupported(file.FileName))
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.UnsupportedFormat, $"Unsupported file type: {Path.GetExtension(file.FileName)}"));
-            }
-
-            string tmpIn = Path.Combine(Path.GetTempPath(), $"wr-ins-{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}");
-            try
-            {
-                await using (FileStream fs = File.Create(tmpIn))
-                {
-                    await file.CopyToAsync(fs, ct).ConfigureAwait(false);
-                }
-
-                IReadOnlyList<MetadataEntry> entries = _fileRouter.Inspect(tmpIn);
-                return Results.Ok(entries);
-            }
-            finally
-            {
-                TryDelete(tmpIn);
-            }
-        });
-
-        // POST /clean/image  (multipart upload)
-        app.MapPost("/clean/image", async (HttpRequest request, CancellationToken ct) =>
-        {
-            if (!request.HasFormContentType || request.Form.Files.Count == 0)
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Upload an image via multipart/form-data."));
-            }
-
-            IFormFile file = request.Form.Files[0];
-            string ext = Path.GetExtension(file.FileName);
-            string tmpIn = Path.Combine(Path.GetTempPath(), $"wr-img-in-{Guid.NewGuid():N}{ext}");
-            string tmpOut = Path.Combine(Path.GetTempPath(), $"wr-img-out-{Guid.NewGuid():N}{ext}");
-            try
-            {
-                await using (FileStream fs = File.Create(tmpIn))
-                {
-                    await file.CopyToAsync(fs, ct).ConfigureAwait(false);
-                }
-
-                ImageCleanOptions options = new()
-                {
-                    ModelPath = _config.Image.ModelPath,
-                    AutoDetectThreshold = _config.Image.AutoDetectThreshold,
-                    BlendEdges = _config.Image.BlendEdges,
-                };
-                ImageCleanResult result = await _imagePipeline.CleanAsync(tmpIn, tmpOut, options, ct).ConfigureAwait(false);
-                byte[] bytes = await File.ReadAllBytesAsync(tmpOut, ct).ConfigureAwait(false);
-                return Results.File(bytes, "application/octet-stream", $"cleaned-{file.FileName}");
-            }
-            finally
-            {
-                TryDelete(tmpIn);
-                TryDelete(tmpOut);
-            }
-        });
-
-        // POST /detect/image  (multipart upload)
-        app.MapPost("/detect/image", async (HttpRequest request, CancellationToken ct) =>
-        {
-            if (!request.HasFormContentType || request.Form.Files.Count == 0)
-            {
-                return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Upload an image via multipart/form-data."));
-            }
-
-            IFormFile file = request.Form.Files[0];
-            string ext = Path.GetExtension(file.FileName);
-            string tmpIn = Path.Combine(Path.GetTempPath(), $"wr-img-det-{Guid.NewGuid():N}{ext}");
-            try
-            {
-                await using (FileStream fs = File.Create(tmpIn))
-                {
-                    await file.CopyToAsync(fs, ct).ConfigureAwait(false);
-                }
-
-                ImageCleanOptions options = new()
-                {
-                    ModelPath = _config.Image.ModelPath,
-                    AutoDetectThreshold = _config.Image.AutoDetectThreshold,
-                };
-                IReadOnlyList<DetectedRegion> regions = _imagePipeline.Detect(tmpIn, options);
-                return Results.Ok(regions);
-            }
-            finally
-            {
-                TryDelete(tmpIn);
-            }
-        });
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch (IOException)
-        {
-            // best-effort cleanup
-        }
-    }
-
-    /// <summary>JSON body for <c>POST /clean/text</c> and <c>POST /detect/text</c>.</summary>
-    /// <remarks>Public so Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
-    public sealed record TextRequest(string Text, bool? EnableUnicode, bool? EnableStatistical, bool? EnableVendorSpecific);
-
-    /// <summary>JSON body for <c>POST /clean/markdown</c>.</summary>
-    /// <remarks>Public so Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
-    public sealed record MarkdownRequest(string Markdown, bool? StripAll);
 }
+
+/// <summary>JSON body for <c>POST /clean/text</c> and <c>POST /detect/text</c>.</summary>
+/// <remarks>Top-level so <c>ServeEndpointMapper</c> (and integration tests) can
+/// reference it without going through the nested-type path. Public so
+/// Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
+public sealed record TextRequest(string Text, bool? EnableUnicode, bool? EnableStatistical, bool? EnableVendorSpecific);
+
+/// <summary>JSON body for <c>POST /clean/markdown</c>.</summary>
+/// <remarks>Public so Swashbuckle can reflect on the schema for OpenAPI generation.</remarks>
+public sealed record MarkdownRequest(string Markdown, bool? StripAll);

@@ -18,6 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **HTTP endpoint tests for `serve`** — the eight endpoints
+  (`/health`, `POST /clean/text`, `POST /clean/markdown`,
+  `POST /clean/file`, `POST /clean/image`, `POST /detect/text`,
+  `POST /detect/image`, `POST /inspect/file`) plus the Swagger UI, the
+  OpenAPI JSON, and the `wwwroot/` static-UI mount are now exercised
+  end-to-end via `Microsoft.AspNetCore.TestHost`
+  (`Microsoft.AspNetCore.Mvc.Testing 10.0.11`). 11 new tests in
+  `HttpEndpointTests` cover: `/health` returns 200 + `{"status":"ok"}`;
+  `/clean/text` strips U+200B (Layer A); `/clean/text` returns 400
+  (`INVALID_INPUT`) on empty body; `/clean/text` returns 401 when
+  `--api-key` is set and `X-API-Key` is missing; `/clean/text` returns
+  200 with the right key; `/health` stays open even with auth on;
+  `/swagger/index.html` returns the Swashbuckle UI HTML;
+  `/swagger/v1/swagger.json` returns the OpenAPI 3.0 spec; `GET /`
+  returns 200 with the bundled UI when `wwwroot/index.html` is shipped;
+  `GET /` returns 404 when `--no-ui` is set; `GET /` returns 404 when
+  `wwwroot/` is absent. The eight endpoints, the Swagger mount, and
+  the static-UI mount were extracted out of `ServeCommand` into a new
+  public static `ServeEndpointMapper` (with `MapEndpoints`,
+  `MountSwagger`, and `MountStaticUi` helpers) so the test host can
+  spin them up in-memory without binding Kestrel. `TextRequest` and
+  `MarkdownRequest` are now top-level types in
+  `WatermarkRemover.CLI.Commands` so the mapper (and tests) can
+  reference them. 138 tests total, all green; 0 build warnings.
 - **`clean-all` CLI command** — new `watermarkremover clean-all <path>`
   dispatches a single file or directory to the right pipeline per file:
   `.md`/`.markdown` → markdown cleaner, router-supported extensions

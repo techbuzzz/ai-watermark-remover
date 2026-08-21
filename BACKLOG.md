@@ -118,7 +118,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 ## P3 — Quality & reliability (ongoing)
 
 ### Test coverage
-- [~] WR-P311 — `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints (→ TODO WR-S4)
+- [x] WR-P311 — `WatermarkRemover.CLI.Tests` project — test CLI commands with `WebApplicationFactory` for HTTP endpoints (→ TODO WR-S4)
 - [ ] WR-P312 — Integration tests — end-to-end: create temp files with known watermarks → run CLI → assert cleaned output
 - [x] WR-P313 — `WatermarkRemover.Core.Tests` project — test `ConfigLoader`, `AppConfig.Default`, `ErrorResult` — created with 24 tests covering `AppConfig` defaults, `RateLimitConfig`, `MaxUploadMB`
 - [ ] WR-P314 — Property-based tests (FsCheck) for Unicode hygiene — random insertion of invisible chars into arbitrary text, assert all removed
