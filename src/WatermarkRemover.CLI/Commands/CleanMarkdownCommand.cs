@@ -2,15 +2,17 @@ using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using WatermarkRemover.CLI.Infrastructure;
+using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
 
 namespace WatermarkRemover.CLI.Commands;
 
 /// <summary>Cleans a markdown document while preserving code blocks.</summary>
-public sealed class CleanMarkdownCommand(IMarkdownCleaner cleaner) : AsyncCommand<CleanMarkdownCommand.Settings>
+public sealed class CleanMarkdownCommand(IMarkdownCleaner cleaner, AppConfig config) : AsyncCommand<CleanMarkdownCommand.Settings>
 {
     private readonly IMarkdownCleaner _cleaner = cleaner;
+    private readonly AppConfig _config = config;
 
     public sealed class Settings : GlobalSettings
     {
@@ -48,10 +50,13 @@ public sealed class CleanMarkdownCommand(IMarkdownCleaner cleaner) : AsyncComman
 
         MarkdownCleanOptions options = settings.StripAll
             ? MarkdownCleanOptions.StripAll()
-            : new MarkdownCleanOptions
+            : MarkdownCleanOptions.From(_config.Markdown) with
             {
-                StripCodeFences = settings.StripCodeFences,
-                StripLinks = settings.StripLinks,
+                // CLI flags override the config on the two toggles
+                // the command exposes. The `with` expression makes
+                // the override the only thing that can change.
+                StripCodeFences = settings.StripCodeFences || _config.Markdown.StripCodeFences,
+                StripLinks = settings.StripLinks || _config.Markdown.StripLinks,
             };
 
         MarkdownCleanResult result = _cleaner.Clean(input, options);

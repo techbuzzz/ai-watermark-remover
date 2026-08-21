@@ -215,20 +215,7 @@ public sealed class CleanAllCommand(
         return new FileOutcome(file, outputPath, $"dry-run:{label}");
     }
 
-    private MarkdownCleanOptions BuildMarkdownOptions() => new()
-    {
-        StripHeadings = _config.Markdown.StripHeadings,
-        StripCodeFences = _config.Markdown.StripCodeFences,
-        StripInlineCode = _config.Markdown.StripInlineCode,
-        StripLinks = _config.Markdown.StripLinks,
-        StripImages = _config.Markdown.StripImages,
-        StripHtml = _config.Markdown.StripHtml,
-        StripFrontmatter = _config.Markdown.StripFrontmatter,
-        StripAiSignatures = _config.Markdown.StripAiSignatures,
-        StripMentions = _config.Markdown.StripMentions,
-        StripUnicodeMd = _config.Markdown.StripUnicodeMd,
-        StripTrailingWs = _config.Markdown.StripTrailingWs,
-    };
+    private MarkdownCleanOptions BuildMarkdownOptions() => MarkdownCleanOptions.From(_config.Markdown);
 
     private List<string> ResolveFiles(Settings settings)
     {

@@ -15,18 +15,34 @@ text:
   llm_model: "llama3"
 
 markdown:
-  strip_headings: true
-  strip_code_fences: false      # code blocks are preserved by default
-  strip_inline_code: false
-  strip_links: false
-  strip_images: true
-  strip_html: true
-  strip_frontmatter: true
-  strip_ai_signatures: true
-  strip_mentions: true
-  strip_unicode_md: true
-  strip_trailing_ws: true
-  preserve_code_blocks: true
+  # Every key below maps 1:1 to a property on MarkdownCleanOptions.
+  # The default values here MUST match the C# defaults — see
+  # WatermarkRemover.Core/Configuration/AppConfig.cs (MarkdownConfig).
+  # Unknown keys are ignored, so it's safe to add new ones in the future.
+  strip_headings: true           # drop # / ## / … heading markers
+  strip_code_fences: false       # drop the ``` fences (content preserved)
+  strip_inline_code: false       # unwrap backtick `code` spans
+  strip_links: false             # unwrap [text](url) links
+  strip_images: true             # drop ![alt](src) images
+  strip_bold_italic: false       # unwrap **bold** / *italic* / __ / _ markers
+  strip_blockquotes: false       # drop the leading "> " on each line
+  strip_hr: true                 # drop --- / *** / ___ horizontal-rule lines
+  strip_html: true               # drop raw <tag>…</tag> blocks
+  strip_comments: true           # drop <!-- … --> and [//]: # (…) comments
+  strip_task_lists: false        # convert "- [ ] foo" → "- foo" / drop empty
+  strip_table_syntax: false      # rewrite | a | b | rows to plain text columns
+  normalize_lists: true          # convert "* item" / "+ item" → "- item"
+  unwrap_empty_lists: true       # drop list items that have no content
+  strip_xml_tags: true           # drop <foo/> / <bar>…</bar> (broader than strip_html)
+  strip_frontmatter: true        # drop the leading --- … --- YAML block
+  strip_ai_signatures: true      # drop "Generated with Claude/GPT/…" footer lines
+  strip_mentions: true           # drop @user / #channel mentions
+  strip_unicode_md: true         # strip invisible code points from prose
+  strip_trailing_ws: true        # trim end-of-line whitespace
+  apply_unicode_layer_a: true    # run the Layer A Unicode hygiene pass on prose
+  preserve_code_blocks: true     # legacy knob — the cleaner always preserves
+                                 # fenced code unless strip_code_fences is true;
+                                 # kept for backward compatibility
 
 image:
   model_path: "./models/big_lama_regular_inpaint.onnx"

@@ -89,7 +89,13 @@ public static class ServeEndpointMapper
                 return Results.BadRequest(new ErrorResult(ErrorCodes.InvalidInput, "Field 'markdown' is required."));
             }
 
-            MarkdownCleanOptions options = req.StripAll == true ? MarkdownCleanOptions.StripAll() : new MarkdownCleanOptions();
+            // Honour config.yaml as the baseline. --strip-all (per-request)
+            // overrides every toggle. There is no per-key override surface
+            // on the HTTP request — operators wanting fine-grained
+            // control should edit config.yaml or use the CLI.
+            MarkdownCleanOptions options = req.StripAll == true
+                ? MarkdownCleanOptions.StripAll()
+                : MarkdownCleanOptions.From(config.Markdown);
             MarkdownCleanResult result = markdownCleaner.Clean(req.Markdown, options);
             return Results.Ok(result);
         });

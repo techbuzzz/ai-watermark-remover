@@ -18,6 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Full markdown config surface** — every public toggle on
+  `MarkdownCleanOptions` is now reachable from `config.yaml`. The
+  previous 12-key surface grew to all 21 (`strip_bold_italic`,
+  `strip_blockquotes`, `strip_hr`, `strip_comments`, `strip_task_lists`,
+  `strip_table_syntax`, `normalize_lists`, `unwrap_empty_lists`,
+  `strip_xml_tags`, `apply_unicode_layer_a`); the legacy
+  `preserve_code_blocks` knob is kept for backward compatibility. New
+  `MarkdownCleanOptions.From(MarkdownConfig)` static factory in
+  `WatermarkRemover.Core.Models` is the single source of truth for the
+  binding — `clean-markdown`, `clean-all`, and the HTTP
+  `POST /clean/markdown` endpoint all consume it. `clean-markdown` now
+  reads the full config baseline; CLI flags (`--strip-all`,
+  `--strip-code-fences`, `--strip-links`) override on a per-key basis.
+  `docs/CONFIGURATION.md` documents every key with its default and
+  one-line description. 30 new tests in `MarkdownConfigTests` and
+  `ConfigYamlMarkdownTests` cover: every public boolean on
+  `MarkdownCleanOptions` is surfaced in `MarkdownConfig`, the
+  `MarkdownConfig` defaults equal the `MarkdownCleanOptions` defaults
+  (so deleting a key from `config.yaml` is a no-op), `From()` round-trips
+  every toggle, `--strip-all` enables every toggle, and a smoke test
+  loads `src/config.yaml` and asserts all 21 keys are present.
 - **Shell completion scripts** — new `completions --shell <bash|zsh|powershell|fish>`
   CLI command emits a static completion script for the requested shell,
   covering every sub-command and a curated set of common flags per

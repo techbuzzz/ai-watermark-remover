@@ -114,7 +114,7 @@ in this list.
   much less work.
 - **Backlog ref:** WR-P217
 
-### WR-S7. [~] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
+### WR-S7. [x] Expose all 21 `MarkdownCleanOptions` toggles in `config.yaml`
 
 - **Why:** BACKLOG P2 — `MarkdownCleanOptions` has 21 boolean flags; only
   ~12 are currently surfaced in `src/config.yaml`. Users can't disable
@@ -576,6 +576,23 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-S7 — Full markdown config surface** — every public toggle
+      on `MarkdownCleanOptions` is now reachable from `config.yaml`
+      (the previous 12-key surface grew to all 21). New
+      `MarkdownCleanOptions.From(MarkdownConfig)` static factory in
+      `WatermarkRemover.Core.Models` is the single source of truth for
+      the binding — `clean-markdown`, `clean-all`, and the HTTP
+      `POST /clean/markdown` endpoint all consume it. `clean-markdown`
+      now reads the full config baseline; CLI flags
+      (`--strip-all` / `--strip-code-fences` / `--strip-links`) override
+      on a per-key basis. `docs/CONFIGURATION.md` documents every key
+      with its default and one-line description. 30 new tests in
+      `MarkdownConfigTests` and `ConfigYamlMarkdownTests` cover: every
+      public boolean on `MarkdownCleanOptions` is surfaced in
+      `MarkdownConfig`, the defaults stay in lockstep, `From()`
+      round-trips every toggle, `--strip-all` enables every toggle,
+      and a smoke test loads `src/config.yaml` and asserts all 21 keys
+      are present. 187 tests total, all green.
 - [x] **WR-S6 — Shell completion scripts** — new `completions --shell
       <bash|zsh|powershell|fish>` command emits a static completion script
       for the requested shell. `ShellCompletionScripts` (Infrastructure)

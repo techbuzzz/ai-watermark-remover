@@ -1,3 +1,5 @@
+using WatermarkRemover.Core.Configuration;
+
 namespace WatermarkRemover.Core.Models;
 
 /// <summary>Toggleable options for the markdown cleaner. Defaults follow the specification.</summary>
@@ -50,6 +52,40 @@ public record MarkdownCleanOptions
         StripTrailingWs = true,
         ApplyUnicodeLayerA = true,
     };
+
+    /// <summary>
+    /// Materialise an options record from a <see cref="MarkdownConfig"/>. Every
+    /// toggle in <paramref name="config"/> has a 1:1 mapping; CLI commands
+    /// can layer their own overrides on top of the result.
+    /// </summary>
+    public static MarkdownCleanOptions From(MarkdownConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        return new MarkdownCleanOptions
+        {
+            StripHeadings = config.StripHeadings,
+            StripCodeFences = config.StripCodeFences,
+            StripInlineCode = config.StripInlineCode,
+            StripLinks = config.StripLinks,
+            StripImages = config.StripImages,
+            StripBoldItalic = config.StripBoldItalic,
+            StripBlockquotes = config.StripBlockquotes,
+            StripHr = config.StripHr,
+            StripHtml = config.StripHtml,
+            StripComments = config.StripComments,
+            StripTaskLists = config.StripTaskLists,
+            StripTableSyntax = config.StripTableSyntax,
+            NormalizeLists = config.NormalizeLists,
+            UnwrapEmptyLists = config.UnwrapEmptyLists,
+            StripXmlTags = config.StripXmlTags,
+            StripFrontmatter = config.StripFrontmatter,
+            StripAiSignatures = config.StripAiSignatures,
+            StripMentions = config.StripMentions,
+            StripUnicodeMd = config.StripUnicodeMd,
+            StripTrailingWs = config.StripTrailingWs,
+            ApplyUnicodeLayerA = config.ApplyUnicodeLayerA,
+        };
+    }
 }
 
 /// <summary>Result of cleaning a markdown document.</summary>

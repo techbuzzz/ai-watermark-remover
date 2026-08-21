@@ -29,17 +29,39 @@ public sealed class TextLayersConfig
 
 public sealed class MarkdownConfig
 {
+    // Every property below maps 1:1 to a boolean toggle on
+    // WatermarkRemover.Core.Models.MarkdownCleanOptions. The defaults here
+    // MUST match the record's defaults — the docs, the config.yaml
+    // canonical example, and the xUnit smoke tests all assert that. A
+    // drift here means users who delete a key from config.yaml silently
+    // get a different behaviour than users who set it explicitly.
+    //
+    // PreserveCodeBlocks is the only property that does not map to
+    // MarkdownCleanOptions directly — it's a legacy CLI knob that
+    // operators still expect; the cleaner always preserves fences unless
+    // StripCodeFences is on, so the two interact. Kept here for
+    // backward compatibility.
     public bool StripHeadings { get; set; } = true;
     public bool StripCodeFences { get; set; }
     public bool StripInlineCode { get; set; }
     public bool StripLinks { get; set; }
     public bool StripImages { get; set; } = true;
+    public bool StripBoldItalic { get; set; }
+    public bool StripBlockquotes { get; set; }
+    public bool StripHr { get; set; } = true;
     public bool StripHtml { get; set; } = true;
+    public bool StripComments { get; set; } = true;
+    public bool StripTaskLists { get; set; }
+    public bool StripTableSyntax { get; set; }
+    public bool NormalizeLists { get; set; } = true;
+    public bool UnwrapEmptyLists { get; set; } = true;
+    public bool StripXmlTags { get; set; } = true;
     public bool StripFrontmatter { get; set; } = true;
     public bool StripAiSignatures { get; set; } = true;
     public bool StripMentions { get; set; } = true;
     public bool StripUnicodeMd { get; set; } = true;
     public bool StripTrailingWs { get; set; } = true;
+    public bool ApplyUnicodeLayerA { get; set; } = true;
     public bool PreserveCodeBlocks { get; set; } = true;
 }
 

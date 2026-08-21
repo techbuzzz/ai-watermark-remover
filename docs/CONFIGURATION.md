@@ -62,45 +62,67 @@ text:
 
 ## `markdown`
 
-Twenty-plus toggleable transforms applied by `MarkdownCleaner`. The
-default profile strips AI-specific artifacts but leaves the document
-structure intact.
+Every public toggle on `MarkdownCleanOptions` is reachable from
+`config.yaml`. The default profile strips AI-specific artifacts but
+leaves the document structure intact.
 
 | Key                          | Type      | Default | Description |
 |------------------------------|-----------|---------|-------------|
 | `markdown.strip_headings`    | `bool`    | `true`  | Strip `#`-prefixed headings. |
-| `markdown.strip_code_fences` | `bool`    | `false` | Strip fenced code blocks (```…```). **Ignored** when `preserve_code_blocks = true`. |
-| `markdown.strip_inline_code` | `bool`    | `false` | Strip backtick-wrapped inline code. |
-| `markdown.strip_links`       | `bool`    | `false` | Strip `[text](url)` links. |
+| `markdown.strip_code_fences` | `bool`    | `false` | Drop the ``` fence markers (content preserved). **Ignored** when `preserve_code_blocks = true`. |
+| `markdown.strip_inline_code` | `bool`    | `false` | Unwrap backtick-wrapped inline code spans. |
+| `markdown.strip_links`       | `bool`    | `false` | Unwrap `[text](url)` links (text kept, URL dropped). |
 | `markdown.strip_images`      | `bool`    | `true`  | Strip `![alt](src)` images. |
-| `markdown.strip_html`        | `bool`    | `true`  | Strip raw `<tag>…</tag>` blocks. |
-| `markdown.strip_frontmatter` | `bool`    | `true`  | Strip YAML frontmatter at the top of the document. |
-| `markdown.strip_ai_signatures` | `bool`  | `true`  | Strip "As an AI language model…", emoji sign-offs, etc. |
-| `markdown.strip_mentions`    | `bool`    | `true`  | Strip `@user` mentions. |
-| `markdown.strip_unicode_md`  | `bool`    | `true`  | Strip invisible Unicode code points (same as text Layer A). |
+| `markdown.strip_bold_italic` | `bool`    | `false` | Unwrap `**bold**` / `*italic*` / `__bold__` / `_italic_` markers. |
+| `markdown.strip_blockquotes` | `bool`    | `false` | Drop the leading `> ` blockquote marker on each line. |
+| `markdown.strip_hr`          | `bool`    | `true`  | Drop horizontal-rule lines (`---`, `***`, `___`). |
+| `markdown.strip_html`        | `bool`    | `true`  | Strip raw `<tag>…</tag>` HTML blocks. |
+| `markdown.strip_comments`    | `bool`    | `true`  | Strip `<!-- … -->` and `[//]: # (…)` comments. |
+| `markdown.strip_task_lists`  | `bool`    | `false` | Convert `- [ ] todo` → `- todo`; drop empty task items entirely. |
+| `markdown.strip_table_syntax`| `bool`    | `false` | Rewrite `\| a \| b \|` rows to plain-text columns; drop `\| --- \| --- \|` separator rows. |
+| `markdown.normalize_lists`   | `bool`    | `true`  | Convert `* item` / `+ item` bullet markers to `- item`. |
+| `markdown.unwrap_empty_lists`| `bool`    | `true`  | Drop list items that have no content after the bullet. |
+| `markdown.strip_xml_tags`    | `bool`    | `true`  | Drop arbitrary `<foo/>` / `<bar>…</bar>` (broader than `strip_html`). |
+| `markdown.strip_frontmatter` | `bool`    | `true`  | Strip the leading `--- … ---` YAML frontmatter block. |
+| `markdown.strip_ai_signatures` | `bool`  | `true`  | Strip "Generated with Claude/GPT/…", "Co-Authored-By: …", emoji sign-offs. |
+| `markdown.strip_mentions`    | `bool`    | `true`  | Strip `@user` and `#channel` mentions. |
+| `markdown.strip_unicode_md`  | `bool`    | `true`  | Strip invisible Unicode code points (same code path as text Layer A). |
 | `markdown.strip_trailing_ws` | `bool`    | `true`  | Strip trailing whitespace per line. |
-| `markdown.preserve_code_blocks` | `bool` | `true`  | **Force** preserve fenced code blocks regardless of other settings. |
+| `markdown.apply_unicode_layer_a` | `bool`| `true`  | Run the Layer A Unicode hygiene pass over prose (set to `false` to skip normalisation entirely). |
+| `markdown.preserve_code_blocks` | `bool` | `true`  | **Force** preserve fenced code blocks regardless of other settings. The cleaner always preserves fences unless `strip_code_fences = true`; this key is a legacy CLI knob kept for backward compatibility. |
 
 ### Example
 
 ```yaml
 markdown:
-  strip_headings: false         # keep the structure
+  strip_headings: false         # keep the document structure
   strip_code_fences: false
   strip_inline_code: false
   strip_links: false
   strip_images: true            # but kill embedded images
+  strip_bold_italic: false
+  strip_blockquotes: false
+  strip_hr: true
   strip_html: true
+  strip_comments: true
+  strip_task_lists: false
+  strip_table_syntax: false
+  normalize_lists: true
+  unwrap_empty_lists: true
+  strip_xml_tags: true
   strip_frontmatter: true
   strip_ai_signatures: true
   strip_mentions: true
   strip_unicode_md: true
   strip_trailing_ws: true
+  apply_unicode_layer_a: true
   preserve_code_blocks: true
 ```
 
 Use the `--strip-all` CLI flag to enable *every* transform at once
-(effectively a "kill everything but the prose" mode).
+(effectively a "kill everything but the prose" mode). The HTTP
+endpoint `POST /clean/markdown` honours the same `strip_all: true`
+flag via the request body.
 
 ---
 
@@ -233,12 +255,22 @@ markdown:
   strip_inline_code: false
   strip_links: false
   strip_images: true
+  strip_bold_italic: false
+  strip_blockquotes: false
+  strip_hr: true
   strip_html: true
+  strip_comments: true
+  strip_task_lists: false
+  strip_table_syntax: false
+  normalize_lists: true
+  unwrap_empty_lists: true
+  strip_xml_tags: true
   strip_frontmatter: true
   strip_ai_signatures: true
   strip_mentions: true
   strip_unicode_md: true
   strip_trailing_ws: true
+  apply_unicode_layer_a: true
   preserve_code_blocks: true
 
 image:
