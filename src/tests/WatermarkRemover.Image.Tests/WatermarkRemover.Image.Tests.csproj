@@ -5,6 +5,16 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      The test assembly must be strong-name signed (with the same
+      key as WatermarkRemover.Image) so that InternalsVisibleTo
+      in WatermarkRemover.Image.csproj can match. PublicSign lets
+      us sign on non-Windows hosts without needing access to the
+      private key container service.
+    -->
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+    <AssemblyOriginatorKeyFile>..\..\tools\watermarkremover.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

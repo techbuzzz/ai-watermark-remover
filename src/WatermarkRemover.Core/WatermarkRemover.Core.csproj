@@ -4,10 +4,35 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>WatermarkRemover.Core</RootNamespace>
-    <IsPackable>false</IsPackable>
+    <AssemblyName>WatermarkRemover.Core</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NuGet packaging. The version is kept in lockstep with the CLI
+      (see src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj).
+      PublicSign lets us sign on non-Windows hosts without needing
+      access to the private key container service.
+    -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WatermarkRemover.Core</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
+    <PackageDescription>Core models, interfaces, and configuration shared by the WatermarkRemover family of libraries (text, metadata, image). Leaf project — no other WatermarkRemover dependencies.</PackageDescription>
+    <PackageTags>ai;watermark;metadata;cleaning;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+    <AssemblyOriginatorKeyFile>..\tools\watermarkremover.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\tools\watermarkremover-nuget-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>

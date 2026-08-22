@@ -4,12 +4,37 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>WatermarkRemover.Text</RootNamespace>
+    <AssemblyName>WatermarkRemover.Text</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NuGet packaging. Version kept in lockstep with the CLI.
+      PublicSign lets us sign on non-Windows hosts without needing
+      access to the private key container service.
+    -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WatermarkRemover.Text</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
+    <PackageDescription>Text-cleaning pipeline: invisible-character stripping (Layer A), statistical rewrite (Layer B), and vendor watermark detection for Claude / Gemini / OpenAI (Layer C). Also bundles the 21-toggle MarkdownCleaner.</PackageDescription>
+    <PackageTags>ai;watermark;text;markdown;cleaning;claude;gemini;openai;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+    <AssemblyOriginatorKeyFile>..\tools\watermarkremover.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\tools\watermarkremover-nuget-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>

@@ -27,7 +27,7 @@ public sealed class MaskGenerator : IMaskGenerator
     }
 
     /// <summary>Build a boolean watermark mask for an already-loaded image.</summary>
-    internal static (bool[,] Mask, int Count) BuildMask(Image<Rgba32> image)
+    public static (bool[,] Mask, int Count) BuildMask(Image<Rgba32> image)
     {
         (_, int count, _) = BuildMaskWithRegions(image, threshold: 0.0);
         // Return the mask + count only; the threshold 0.0 suppresses region
@@ -45,7 +45,7 @@ public sealed class MaskGenerator : IMaskGenerator
     /// duplicating the work <see cref="ExtractRegions"/> already did here.
     /// </summary>
     /// <param name="threshold">Confidence threshold; pass 0.0 to skip region extraction.</param>
-    internal static (bool[,] Mask, int Count, IReadOnlyList<DetectedRegion> Regions) BuildMaskWithRegions(Image<Rgba32> image, double threshold)
+    public static (bool[,] Mask, int Count, IReadOnlyList<DetectedRegion> Regions) BuildMaskWithRegions(Image<Rgba32> image, double threshold)
     {
         int width = image.Width;
         int height = image.Height;

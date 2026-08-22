@@ -437,3 +437,20 @@ FodyWeavers.xsd
 # is the convention: anything matching this pattern is local scratch.
 .gitignore-this
 *.scratch.txt
+
+# Tick-worker scratch directories — temporary one-off tool experiments
+# that verified a specific build step worked but don't belong in the
+# shipped source tree. The actual snkgen helper is kept under
+# scripts/SnkGen and tracked normally; the other Snk* directories are
+# local R&D that never made it past the verify-it-compiles stage.
+scripts/SnkBuildTest/
+scripts/SnkTest/
+scripts/SnkVerify/
+scripts/test-rsa.ps1
+
+# Tick-worker scratch under src/tools/ — the .publickey is a one-off
+# output of an early experiment with PublicSign + AssemblyOriginatorKeyFile;
+# the pubkey.txt is a debug dump. The shipped .snk + icon remain
+# tracked.
+src/tools/*.publickey
+src/tools/pubkey.txt

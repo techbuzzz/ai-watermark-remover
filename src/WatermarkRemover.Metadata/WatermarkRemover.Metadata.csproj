@@ -4,7 +4,28 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>WatermarkRemover.Metadata</RootNamespace>
+    <AssemblyName>WatermarkRemover.Metadata</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NuGet packaging. Version kept in lockstep with the CLI.
+      PublicSign lets us sign on non-Windows hosts without needing
+      access to the private key container service.
+    -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WatermarkRemover.Metadata</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
+    <PackageDescription>Byte-level metadata strippers for JPEG, PNG, PDF, DOCX, HTML, and WebP. The router dispatches on file extension; each cleaner implements IFileMetadataCleaner.</PackageDescription>
+    <PackageTags>ai;watermark;metadata;exif;xmp;c2pa;pdf;docx;png;jpg;webp;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+    <AssemblyOriginatorKeyFile>..\tools\watermarkremover.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp" />
@@ -15,5 +36,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\tools\watermarkremover-nuget-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>

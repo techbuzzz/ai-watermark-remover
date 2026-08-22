@@ -4,7 +4,28 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>WatermarkRemover.Image</RootNamespace>
+    <AssemblyName>WatermarkRemover.Image</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NuGet packaging. Version kept in lockstep with the CLI.
+      PublicSign lets us sign on non-Windows hosts without needing
+      access to the private key container service.
+    -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WatermarkRemover.Image</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
+    <PackageDescription>Image watermark removal pipeline: alpha + colour-frequency mask detection, then LaMa ONNX inpainting. IInpaintRunner is the seam for swapping inference backends (MAT, MI-GAN, LaMa-Plus, etc.).</PackageDescription>
+    <PackageTags>ai;watermark;image;inpainting;lama;onnx;mask;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+    <AssemblyOriginatorKeyFile>..\tools\watermarkremover.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
@@ -16,6 +37,7 @@
     <ProjectReference Include="..\WatermarkRemover.Core\WatermarkRemover.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="WatermarkRemover.Image.Tests" />
+    <None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\tools\watermarkremover-nuget-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>
