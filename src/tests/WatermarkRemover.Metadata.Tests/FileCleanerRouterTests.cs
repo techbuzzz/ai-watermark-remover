@@ -12,6 +12,7 @@ public class FileCleanerRouterTests
         new JpegMetadataCleaner(),
         new PngMetadataCleaner(),
         new WebPMetadataCleaner(),
+        new TiffMetadataCleaner(),
         new PdfMetadataCleaner(),
         new DocxMetadataCleaner(),
         new HtmlMetadataCleaner(),
@@ -22,10 +23,13 @@ public class FileCleanerRouterTests
     [InlineData("a.jpg")]
     [InlineData("a.jpeg")]
     [InlineData("a.webp")]
+    [InlineData("a.tif")]
+    [InlineData("a.tiff")]
     [InlineData("a.pdf")]
     [InlineData("a.docx")]
     [InlineData("a.html")]
     [InlineData("A.PNG")]
+    [InlineData("A.TIF")]
     public void IsSupported_KnownExtensions_ReturnsTrue(string path)
     {
         BuildRouter().IsSupported(path).Should().BeTrue();
@@ -55,8 +59,15 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_Tiff_ReturnsTiffCleaner()
+    {
+        BuildRouter().Resolve("photo.tif").Should().BeOfType<TiffMetadataCleaner>();
+        BuildRouter().Resolve("photo.tiff").Should().BeOfType<TiffMetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".pdf", ".docx", ".html"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".pdf", ".docx", ".html"]);
     }
 }

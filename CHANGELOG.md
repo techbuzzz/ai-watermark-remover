@@ -18,6 +18,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **TIFF metadata cleaner (`TiffMetadataCleaner`, WR-P101)** — the
+  project now ships a first-party TIFF (Tagged Image File Format)
+  metadata stripper registered alongside the existing JPEG / PNG /
+  WebP / PDF / DOCX / HTML cleaners. The cleaner loads the TIFF via
+  `SixLabors.ImageSharp`, clears the relevant `ImageMetadata`
+  profiles on every frame (`ExifProfile` when the profile carries
+  EXIF-specific content, `XmpProfile` for tag 0x02BC, `IptcProfile`
+  for the IPTC NAA block, `IccProfile` for tag 0x8773), and re-encodes
+  the image with the explicit `TiffEncoder` so the output is a
+  deterministic, decoupled-from-decoded-format TIFF. Both `II` and
+  `MM` byte-order markers are supported, classic TIFF (magic 42) and
+  BigTIFF (magic 43) are both accepted at the header-check stage,
+  multi-page TIFFs are walked frame-by-frame so every page loses its
+  metadata (not just the first), and ImageSharp's decode-time
+  exceptions (`ImageFormatException`, `InvalidImageContentException`,
+  `NotSupportedException`, `ArgumentException`) are translated into
+  the project-wide `MetadataStripException` so callers only have to
+  catch one type. The pixel-data round-trip is lossless for the
+  compression types ImageSharp emits natively (LZW / Deflate /
+  uncompressed). The package description and tags on
+  `WatermarkRemover.Metadata.csproj` now list TIFF alongside the
+  other formats. The router is wired up: `IFileMetadataCleaner`
+  registration in `AddWatermarkRemoverMetadata` is updated; the
+  `FileCleanerRouter` resolves `.tif` and `.tiff` to the new cleaner;
+  `IsSupported_KnownExtensions_ReturnsTrue` now covers both
+  extensions (plus the `.TIF` uppercase variant), and a new
+  `Resolve_Tiff_ReturnsTiffCleaner` test pins the dispatch. Because
+  ImageSharp's own TIFF encoder writes EXIF tags inline in IFD0
+  instead of using a sub-IFD pointed to by tag 0x8769 — so its
+  decoder can't read the EXIF back from ImageSharp-produced TIFFs
+  — the new `TestFixtures.BuildHandCraftedTiffWithExif` method
+  hand-rolls a spec-compliant little-endian 8-bit grayscale TIFF
+  (10 IFD0 entries including a proper `ExifIFD` pointer at 0x8769
+  pointing at a sub-IFD with the `Make` tag at 0x010F + "TestCam\0"
+  string) so the tests exercise the realistic EXIF IFD structure
+  the decoder does understand. **14 new xUnit tests** in
+  `WatermarkRemover.Metadata.Tests/MetadataCleanerTests`:
+  `Tiff_Inspect_FindsExifProfile` (verifies the hand-crafted
+  fixture surfaces the EXIF IFD), `Tiff_Clean_RemovesExifProfile_OutputIsValidTiff`
+  (cleaned output has no EXIF on re-inspect and starts with a
+  TIFF byte-order marker), `Tiff_Inspect_NoMetadata_ReturnsEmpty`
+  (a bare ImageSharp-produced TIFF has no non-structural EXIF
+  content to report), `Tiff_Clean_NoMetadata_NothingRemoved_OutputIsValidTiff`
+  (no-op clean produces a valid output), `Tiff_Clean_DefaultOptions_PreservesColorProfile`
+  (default `PreserveColorProfile = true` doesn't report an ICC
+  entry that was never present), `Tiff_CorruptFile_ThrowsMetadataStripException`
+  (8 random bytes are rejected), `Tiff_Header_NotTiff_Throws`
+  (a JPEG-headered file with a `.tif` extension is rejected at
+  the byte-marker check), `Tiff_Header_BigTiffMagic_Accepted`
+  (BigTIFF magic 43 passes the header check — the assertion is
+  that the exception message is *not* "Not a valid TIFF file"),
+  `Tiff_Cleaner_MissingFile_Throws`, and `Tiff_CanHandle_RecognisesExtensions`
+  (the cleaner accepts both extensions in both cases and rejects
+  `.png`). Build clean (0 warnings, 0 errors), **511 xUnit tests**
+  total (81 + 40 + 9 + 35 + 39 + 307) + 0 Node tests, all green.
 - **NuGet packaging for the four library projects (WR-P010)** — the
   core building blocks of the pipeline are now consumable as
   separately-versioned NuGet packages instead of having to clone the

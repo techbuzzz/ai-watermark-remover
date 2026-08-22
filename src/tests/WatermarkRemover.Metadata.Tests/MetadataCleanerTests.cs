@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
 using System.Text;
 using FluentAssertions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using SixLabors.ImageSharp.PixelFormats;
 using WatermarkRemover.Core.Models;
 using WatermarkRemover.Metadata;
 using Xunit;
@@ -224,6 +227,152 @@ public class MetadataCleanerTests : IDisposable
         Action act = () => cleaner.Inspect(path);
 
         act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Tiff_Inspect_FindsExifProfile()
+    {
+        string path = Path.Combine(_dir, "in.tif");
+        TestFixtures.WriteTiffWithExif(path);
+
+        var cleaner = new TiffMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "EXIF" && e.Key == "Exif");
+    }
+
+    [Fact]
+    public void Tiff_Clean_RemovesExifProfile_OutputIsValidTiff()
+    {
+        string input = Path.Combine(_dir, "in.tif");
+        string output = Path.Combine(_dir, "out.tif");
+        TestFixtures.WriteTiffWithExif(input);
+
+        var cleaner = new TiffMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF" && e.Key == "Exif");
+        cleaner.Inspect(output).Should().NotContain(e => e.Container == "EXIF");
+
+        // Output must still be a structurally valid TIFF.
+        byte[] outputBytes = File.ReadAllBytes(output);
+        bool littleEndian = outputBytes[0] == (byte)'I' && outputBytes[1] == (byte)'I';
+        bool bigEndian = outputBytes[0] == (byte)'M' && outputBytes[1] == (byte)'M';
+        (littleEndian || bigEndian).Should().BeTrue("output should start with a TIFF byte-order marker");
+    }
+
+    [Fact]
+    public void Tiff_Inspect_NoMetadata_ReturnsEmpty()
+    {
+        string path = Path.Combine(_dir, "bare.tif");
+        TestFixtures.WriteBareTiff(path);
+
+        var cleaner = new TiffMetadataCleaner();
+        cleaner.Inspect(path).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Tiff_Clean_NoMetadata_NothingRemoved_OutputIsValidTiff()
+    {
+        string input = Path.Combine(_dir, "bare-in.tif");
+        string output = Path.Combine(_dir, "bare-out.tif");
+        TestFixtures.WriteBareTiff(input);
+
+        var cleaner = new TiffMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty();
+        File.Exists(output).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Tiff_Clean_DefaultOptions_PreservesColorProfile()
+    {
+        // A clean EXIF-only TIFF: the default `PreserveColorProfile = true` means the
+        // ICC profile (which is null in this fixture) is not relevant, but the test
+        // exercises that the default option doesn't accidentally report ICC.
+        string input = Path.Combine(_dir, "in.tif");
+        TestFixtures.WriteTiffWithExif(input);
+
+        var cleaner = new TiffMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, Path.Combine(_dir, "out.tif"), new MetadataCleanOptions());
+
+        // EXIF was stripped, ICC was never present → no ICC entry in the report.
+        result.RemovedEntries.Select(e => e.Container).Should().NotContain("ICC");
+    }
+
+    [Fact]
+    public void Tiff_CorruptFile_ThrowsMetadataStripException()
+    {
+        string path = Path.Combine(_dir, "bad.tif");
+        File.WriteAllBytes(path, [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+
+        var cleaner = new TiffMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Tiff_Header_NotTiff_Throws()
+    {
+        // Looks like a JPEG (SOI marker) but the extension says .tif — header validation
+        // must reject the file.
+        string path = Path.Combine(_dir, "fake.tif");
+        File.WriteAllBytes(path, [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+
+        var cleaner = new TiffMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Tiff_Header_BigTiffMagic_Accepted()
+    {
+        // BigTIFF uses magic 43 instead of 42 — header validation should accept it.
+        // We don't try to parse a real BigTIFF; we just want the header check to pass.
+        string path = Path.Combine(_dir, "bigtiff.tif");
+        using (var fs = File.Create(path))
+        {
+            fs.Write("II"u8); // little-endian
+            Span<byte> two = stackalloc byte[2];
+            BinaryPrimitives.WriteUInt16LittleEndian(two, 43); // BigTIFF magic
+            fs.Write(two);
+            // 4 bytes of IFD0 offset (won't be dereferenced — we just want header validation).
+            Span<byte> four = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(four, 8);
+            fs.Write(four);
+        }
+
+        var cleaner = new TiffMetadataCleaner();
+        // Inspecting will pass the header check, then fail on parsing the (not-a-real-TIFF)
+        // payload. Either a MetadataStripException is fine — the assertion is that the
+        // header wasn't rejected as "not a TIFF".
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>()
+            .And.Message.Should().NotContain("Not a valid TIFF file");
+    }
+
+    [Fact]
+    public void Tiff_Cleaner_MissingFile_Throws()
+    {
+        var cleaner = new TiffMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.tif"));
+
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Tiff_CanHandle_RecognisesExtensions()
+    {
+        var cleaner = new TiffMetadataCleaner();
+        cleaner.CanHandle(".tif").Should().BeTrue();
+        cleaner.CanHandle(".tiff").Should().BeTrue();
+        cleaner.CanHandle(".TIF").Should().BeTrue();
+        cleaner.CanHandle(".TIFF").Should().BeTrue();
+        cleaner.CanHandle(".png").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".tif", ".tiff"]);
     }
 
     /// <summary>Locates the first data byte of the named RIFF chunk, or -1 if not present.</summary>

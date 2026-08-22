@@ -1,5 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace WatermarkRemover.Metadata.Tests;
 
@@ -151,6 +154,105 @@ internal static class TestFixtures
         Span<byte> sizeBytes = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(sizeBytes, (uint)(finalPos - 8));
         fs.Write(sizeBytes);
+    }
+
+    /// <summary>
+    /// Writes a minimal but valid TIFF file containing an EXIF profile (Make = "TestCam") to
+    /// <paramref name="path"/>. The image data is an 8x8 opaque RGBA block — pixel content is
+    /// not the focus, the metadata is.
+    /// </summary>
+    public static void WriteTiffWithExif(string path)
+    {
+        // ImageSharp's TIFF encoder writes EXIF tags inline in IFD0 (not as a sub-IFD
+        // pointed to by tag 0x8769), so its own decoder can't read them back. We hand-craft
+        // a spec-compliant TIFF with a proper EXIF sub-IFD that ImageSharp can parse.
+        File.WriteAllBytes(path, BuildHandCraftedTiffWithExif());
+    }
+
+    /// <summary>
+    /// Builds a minimal little-endian 8-bit grayscale TIFF with a proper EXIF sub-IFD
+    /// containing Make = "TestCam". Image data is an 8x8 block of zeros (strip-packed).
+    /// </summary>
+    public static byte[] BuildHandCraftedTiffWithExif()
+    {
+        // IFD0 layout (10 entries, all in ascending tag order):
+        //   0x0100 ImageWidth           SHORT  1  8
+        //   0x0101 ImageLength          SHORT  1  8
+        //   0x0102 BitsPerSample        SHORT  1  8
+        //   0x0103 Compression          SHORT  1  1   (no compression)
+        //   0x0106 PhotometricInterp    SHORT  1  1   (BlackIsZero)
+        //   0x0111 StripOffsets         LONG   1  <strip offset>
+        //   0x0115 SamplesPerPixel      SHORT  1  1
+        //   0x0116 RowsPerStrip         SHORT  1  8
+        //   0x0117 StripByteCounts      LONG   1  64
+        //   0x8769 ExifIFD              LONG   1  <exif ifd offset>
+        const int ifd0EntryCount = 10;
+        const int ifd0Size = 2 + (ifd0EntryCount * 12) + 4;
+        const int stripOffset = 8 + ifd0Size;
+        const int stripSize = 8 * 8; // 8x8 grayscale
+        const int exifIfdOffset = stripOffset + stripSize;
+        const int exifIfdEntryCount = 1;
+        const int exifIfdSize = 2 + (exifIfdEntryCount * 12) + 4;
+        const int makeStringOffset = exifIfdOffset + exifIfdSize;
+
+        var ms = new MemoryStream();
+        var bw = new BinaryWriter(ms);
+
+        // Header (8 bytes).
+        bw.Write((byte)'I');
+        bw.Write((byte)'I');
+        bw.Write((ushort)42);
+        bw.Write((uint)8);
+
+        // IFD0.
+        bw.Write((ushort)ifd0EntryCount);
+
+        WriteIfdEntry(bw, 0x0100, 3, 1, inline: 8);
+        WriteIfdEntry(bw, 0x0101, 3, 1, inline: 8);
+        WriteIfdEntry(bw, 0x0102, 3, 1, inline: 8);
+        WriteIfdEntry(bw, 0x0103, 3, 1, inline: 1);
+        WriteIfdEntry(bw, 0x0106, 3, 1, inline: 1);
+        WriteIfdEntry(bw, 0x0111, 4, 1, offset: (uint)stripOffset);
+        WriteIfdEntry(bw, 0x0115, 3, 1, inline: 1);
+        WriteIfdEntry(bw, 0x0116, 3, 1, inline: 8);
+        WriteIfdEntry(bw, 0x0117, 4, 1, inline: 64);
+        WriteIfdEntry(bw, 0x8769, 4, 1, offset: (uint)exifIfdOffset);
+
+        bw.Write((uint)0); // next IFD offset
+
+        // Strip data (64 bytes of zeros).
+        bw.Write(new byte[stripSize]);
+
+        // EXIF sub-IFD.
+        bw.Write((ushort)exifIfdEntryCount);
+        WriteIfdEntry(bw, 0x010F, 2, 8, offset: (uint)makeStringOffset); // Make, ASCII, 8 bytes
+        bw.Write((uint)0); // next IFD offset
+
+        // Make string (7 chars + null terminator).
+        bw.Write("TestCam\0"u8);
+
+        return ms.ToArray();
+    }
+
+    private static void WriteIfdEntry(BinaryWriter bw, ushort tag, ushort type, uint count, uint inline = 0, uint offset = 0)
+    {
+        // For SHORT/ASCII with count <= 2, the value fits in 4 bytes inline.
+        // For LONG with count == 1, the value fits in 4 bytes inline.
+        // Otherwise, the value is an offset (only `offset` is set in that case by the caller).
+        bw.Write(tag);
+        bw.Write(type);
+        bw.Write(count);
+        bw.Write(inline != 0 ? inline : offset);
+    }
+
+    /// <summary>
+    /// Writes a minimal but valid TIFF file with no metadata profiles attached. The image data
+    /// is an 8x8 opaque RGBA block.
+    /// </summary>
+    public static void WriteBareTiff(string path)
+    {
+        using var image = new Image<Rgba32>(8, 8);
+        image.SaveAsTiff(path);
     }
 
     private static void WriteRiffChunk(Stream stream, string fourcc, byte[] data)

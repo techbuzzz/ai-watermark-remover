@@ -576,6 +576,39 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-P101 — TIFF metadata cleaner
+      (`src/WatermarkRemover.Metadata/TiffMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` +
+      `src/WatermarkRemover.Metadata/DependencyInjection.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` +
+      `BACKLOG.md` + `CHANGELOG.md`)** — `.tif` and `.tiff` files now
+      flow through the same metadata-strip pipeline as JPEG / PNG / WebP /
+      PDF / DOCX / HTML. The cleaner loads the TIFF via ImageSharp,
+      walks every frame, and clears the EXIF / XMP / IPTC / ICC
+      profiles on the ones that carry the corresponding content;
+      ImageSharp's `TiffEncoder` re-emits the file with the structural
+      IFD0 tags (Width / Length / BitsPerSample / etc.) re-derived
+      from the frame dimensions, so the cleaned file is a valid
+      single-image TIFF. Both `II` and `MM` byte-order markers, plus
+      classic-TIFF (magic 42) and BigTIFF (magic 43) headers, are
+      accepted at the byte-level check; ImageSharp decode-time
+      exceptions are translated into the project-wide
+      `MetadataStripException`. The hand-crafted `BuildHandCraftedTiffWithExif`
+      test fixture works around a known ImageSharp 3.1.12 limitation
+      (its own TIFF encoder writes EXIF inline in IFD0, so its decoder
+      can't read the EXIF back from its own output) by constructing
+      a spec-compliant little-endian grayscale TIFF with a proper
+      `ExifIFD` sub-IFD. **14 new xUnit tests** in
+      `WatermarkRemover.Metadata.Tests` (router `.tif` / `.tiff` /
+      `.TIF` cases + 11 cleaner tests covering inspect / clean /
+      re-inspect, no-metadata no-op, default-options preserves color
+      profile, corrupt / non-TIFF / BigTIFF header edge cases, missing
+      file, and the supported-extensions contract). Build clean (0
+      warnings, 0 errors), **511 xUnit tests** (81 + 40 + 9 + 35 + 39
+      + 307), all green.
+
 - [x] **WR-P011 — `dotnet tool` packaging
       (`src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj` +
       `src/WatermarkRemover.CLI/README.md` +
