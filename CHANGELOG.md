@@ -18,6 +18,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MiniMax Code integration (`minimax-code/watermark-remover/` + `docs/MINIMAX-CODE.md`, WR-S17 / WR-P623)** —
+  the project now ships a first-class MiniMax Code integration
+  pre-wired into the repo as a V1 local plugin package. The plugin
+  lives at `minimax-code/watermark-remover/` with the canonical
+  layout: `.minimax-plugin/plugin.json` (schemaVersion 1, name
+  `watermark-remover`, category `Code`, 6 skills, 1 MCP server, 4
+  example queries, no apps, no `auth`/`oauth`/credentials);
+  `servers.mcp.json` declaring the stdio MCP server
+  `watermarkremover` that runs `watermarkremover serve-mcp` (30 s
+  timeout, `env: {}`); a 128 KB `icon.png` (validated PNG
+  signature 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A, picked from
+  the local MiniMax Code Code-category pool); six skills under
+  `skills/` — master `watermark-remover/SKILL.md` (routing table
+  + CLI fallback + worked examples, MiniMax-Code-specific — no
+  slash-command auto-discovery section, points at the MCP tools
+  directly) plus the five per-format skills re-shipped from
+  `skills/` (their `name` field matches their directory per the V1
+  spec, so the directory uses the longer `watermark-clean-text`
+  shape, not the shorter `clean-text`); three forward-looking
+  slash-command files under `commands/` (`wr-clean-text.md`,
+  `wr-clean-file.md`, `wr-detect.md`) — the V1 manifest does not
+  yet declare `commands` as a first-class capability, but the files
+  are present and will surface in any future MiniMax Code version
+  that auto-discovers `commands/*.md` the same way OpenCode does;
+  and a plugin-level `README.md` that documents the install +
+  prerequisites + what-the-agent-sees layout. `docs/MCP.md →
+  MiniMax Code` is rewritten to point at the new install method
+  (drop the folder into the MiniMax Code plugin directory, toggle
+  on, done) instead of the old hand-edited `mcp-config.json`
+  recipe. New `docs/MINIMAX-CODE.md` is the end-to-end reference
+  — package layout, install matrix (Linux / macOS / Windows +
+  source-mode swap for `dotnet run`), verify-the-install
+  walkthrough, slash-command status section explaining the
+  forward-looking `commands/` folder, MCP transport notes
+  (stdio default, Streamable HTTP swap with `servers.mcp.json`
+  edit, port 5090, 30 s timeout, stderr logging contract), full
+  CLI fallback list, a 10-row troubleshooting table, and an
+  "Assumptions and open questions" section that calls out where
+  the V1 spec is silent (icon auto-discovery, `commands/`
+  forwarding). README's `## 🧠 Agent skills` section gains a
+  parallel "MiniMax Code users get a parallel pre-wired
+  integration" callout with the OS-specific copy commands and
+  link to `docs/MINIMAX-CODE.md`; the docs-link footer adds a
+  `🧩 docs/MINIMAX-CODE.md` row. 25 new tests in
+  `MinimaxCodePluginManifestTests` cover: plugin folder presence,
+  manifest JSON validity, all 10 required V1 fields, schemaVersion
+  == 1, name in kebab-case regex + directory-name match, version
+  in SemVer, category in the 10-value whitelist, description
+  non-empty, every example query non-empty, `apps` is the empty
+  array, at least one effective capability (mcpServers ∪ skills),
+  no unknown / forbidden fields (`auth`, `oauth`, `client_id`,
+  `client_secret`, `token`, `apiKey`, `api_key`), every
+  `mcpServers` path resolves, every `skills` path resolves, the
+  `icon` file exists, the icon's first 8 bytes are the PNG
+  signature, the package contains no path escapes, the package
+  fits within V1 limits (≤ 1024 regular files, ≤ 2048 entries,
+  ≤ 64 MiB total, ≤ 16 MiB per file), no reparse points /
+  symlinks, README present, MCP config is valid JSON, MCP config
+  has `schemaVersion` + non-empty `mcpServers` object, every MCP
+  server uses a supported transport (`stdio` / `streamable-http`
+  / `sse`), stdio commands are slash-free / PATH-resolved,
+  remote URLs are `http(s)://`, every skill's frontmatter `name`
+  matches its directory, every skill has a non-empty
+  `description`, and the three forward-looking slash-command
+  files are present. Build clean (0 warnings, 0 errors); 346
+  tests total, all green; the new tests are the
+  +25 (131 → 156) jump in the `WatermarkRemover.CLI.Tests`
+  count. JSON validated with `node -e JSON.parse`; icon signature
+  validated with `[System.IO.File]::ReadAllBytes` byte
+  comparison.
 - **Claude Code integration (`.claude/` + `docs/CLAUDE-CODE.md`, WR-S16 / WR-P622)** —
   the project now ships a first-class Claude Code integration pre-wired
   into the repo. New `.claude/skills/watermark-remover/SKILL.md` is the

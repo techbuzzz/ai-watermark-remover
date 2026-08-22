@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "name": "watermark-remover",
+  "displayName": "WatermarkRemover",
+  "version": "1.0.0",
+  "description": "Strip AI-generated watermarks (invisible characters, vendor signatures, C2PA / EXIF / XMP metadata, and visual overlays) from text, markdown, documents, and images. Ships an MCP server with eight tools — clean_text, clean_markdown, clean_file, clean_image, detect_text, detect_markdown, inspect_file, detect_watermark — plus five per-format skills.",
+  "author": "techbuzzz",
+  "icon": "icon.png",
+  "category": "Code",
+  "exampleQueries": [
+    "Clean the invisible characters out of this text from Claude.",
+    "Strip EXIF and C2PA metadata from this JPEG before I share it.",
+    "Is this email AI-generated? Don't change it, just check.",
+    "Remove the watermark from this PNG."
+  ],
+  "apps": [],
+  "mcpServers": [
+    "servers.mcp.json"
+  ],
+  "skills": [
+    "skills/watermark-remover/SKILL.md",
+    "skills/watermark-clean-text/SKILL.md",
+    "skills/watermark-clean-markdown/SKILL.md",
+    "skills/watermark-clean-file/SKILL.md",
+    "skills/watermark-clean-image/SKILL.md",
+    "skills/watermark-detect/SKILL.md"
+  ]
+}

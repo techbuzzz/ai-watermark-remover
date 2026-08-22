@@ -487,6 +487,37 @@ project-local `SKILL.md` teaches the agent when to call them. See
 `mcp-config.json`, global `~/.claude/settings.json` merge, the
 auto-clean hook, and the troubleshooting table.
 
+**MiniMax Code users get a parallel pre-wired integration.** The
+project ships a V1 local plugin package at
+[`minimax-code/watermark-remover/`](./minimax-code/watermark-remover/) —
+drop-in
+[`.minimax-plugin/plugin.json`](./minimax-code/watermark-remover/.minimax-plugin/plugin.json)
+manifest, stdio MCP server entry in
+[`servers.mcp.json`](./minimax-code/watermark-remover/servers.mcp.json),
+and six skills under `skills/` (master + five per-format). Copy the
+folder into MiniMax Code's plugin directory and toggle the plugin on:
+
+```bash
+# Linux / macOS
+cp -R minimax-code/watermark-remover \
+      ~/.local/share/MiniMax/plugins/watermark-remover
+```
+
+```powershell
+# Windows PowerShell
+$dest = Join-Path $env:APPDATA 'MiniMax\plugins\watermark-remover'
+Copy-Item -Recurse -Force minimax-code/watermark-remover $dest
+```
+
+The MCP server (`watermarkremover serve-mcp`) auto-starts as a
+stdio child process and the agent gets the same eight tools as the
+other agents — `clean_text`, `clean_markdown`, `clean_file`,
+`clean_image`, `detect_text`, `detect_markdown`, `inspect_file`,
+`detect_watermark`. See
+[`docs/MINIMAX-CODE.md`](./docs/MINIMAX-CODE.md) for the full
+plugin reference, the HTTP-transport swap, the slash-command
+status, and the troubleshooting table.
+
 Install for your agent in one command:
 
 ```bash
@@ -617,6 +648,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
 - 🤖 [docs/MCP.md](./docs/MCP.md) — `serve-mcp` for Claude Code, OpenCode, MiniMax Code, Cursor, Continue (MCP server architecture, tool schemas, install recipes)
 - 🪝 [docs/CLAUDE-CODE.md](./docs/CLAUDE-CODE.md) — Claude Code-specific install (project-local `mcp-config.json`, `~/.claude/settings.json` merge, `claude mcp add` one-liner) and the optional `UserPromptSubmit` hook for auto-cleaning pasted text
+- 🧩 [docs/MINIMAX-CODE.md](./docs/MINIMAX-CODE.md) — MiniMax Code V1 local plugin (`minimax-code/watermark-remover/`), install paths per OS, MCP transport swap, slash-command status, troubleshooting
 - 🧠 [docs/SKILLS.md](./docs/SKILLS.md) — drop-in agent skills (`skills/`) for OpenCode, Claude Code, MiniMax Code, Cursor, Continue (install, resolution rules, per-skill reference)
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
 - 📝 [TODO.md](./TODO.md) — current sprint

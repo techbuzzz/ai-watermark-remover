@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "mcpServers": {
+    "watermarkremover": {
+      "type": "stdio",
+      "command": "watermarkremover",
+      "args": [
+        "serve-mcp"
+      ],
+      "env": {},
+      "description": "Eight MCP tools for stripping AI watermarks: clean_text, clean_markdown, clean_file, clean_image, detect_text, detect_markdown, inspect_file, detect_watermark. Also available over Streamable HTTP via `watermarkremover serve-mcp --transport http --port 5090`.",
+      "timeout": 30000
+    }
+  }
+}

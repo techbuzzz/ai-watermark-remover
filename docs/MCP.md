@@ -748,21 +748,27 @@ fast.
 
 ### MiniMax Code
 
-Add an entry to the plugin's `manifest.json` and the host's
-`mcp-config.json`:
+The project ships a **V1 local plugin package** under
+[`minimax-code/watermark-remover/`](../minimax-code/watermark-remover/).
+Copy the folder into MiniMax Code's plugin directory (e.g.
+`~/.local/share/MiniMax/plugins/watermark-remover/` on Linux) and
+toggle the plugin on in the Plugins pane. The MCP server entry in
+[`servers.mcp.json`](../minimax-code/watermark-remover/servers.mcp.json)
+is a stdio child process — `watermarkremover serve-mcp` — and the
+six skills under `skills/` are auto-discovered.
 
-```json
-{
-  "name": "watermarkremover",
-  "transport": "stdio",
-  "command": "watermarkremover",
-  "args": ["serve-mcp"]
-}
+For the full reference (plugin layout, transport notes, troubleshooting,
+slash-command status), see
+[`docs/MINIMAX-CODE.md`](./MINIMAX-CODE.md).
+
+For a remote / multi-user setup, swap the stdio transport for
+Streamable HTTP and run the server on the same host:
+
+```bash
+# Edit minimax-code/watermark-remover/servers.mcp.json to:
+#   { "watermarkremover": { "type": "streamable-http", "url": "http://localhost:5090/" } }
+watermarkremover serve-mcp --transport http --port 5090
 ```
-
-The exact file path is host-version-specific — check MiniMax Code's
-`~/.minimax/mcp.json` (or the equivalent for your build) for the
-correct location.
 
 ### Cursor
 
