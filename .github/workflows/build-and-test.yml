@@ -80,8 +80,12 @@ jobs:
           --logger "console;verbosity=normal"
           --collect:"XPlat Code Coverage"
           --results-directory ./coverage
-          --data-collection-run-settings-and-arguments
-          "DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura"
+        # Coverage format is cobertura by default for "XPlat Code Coverage"
+        # (coverlet.collector). The previous --data-collection-run-settings-and-arguments
+        # flag is a `dotnet vstest`-only switch that dotnet test does not accept
+        # when targeting a .sln — it routed through MSBuild's VSTest target and
+        # failed with MSB1001: Unknown switch. cobertura is already the default,
+        # so no format override is needed.
 
       - name: Upload test results (TRX)
         if: always()
