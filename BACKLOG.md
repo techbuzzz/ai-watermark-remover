@@ -53,7 +53,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 ## P1 — Core features (v1.0)
 
 ### New file format support
-- [ ] WR-P101 — **TIFF** metadata cleaner (`TIFFMetadataCleaner`) — strip EXIF, IPTC, XMP, ICC; preserve pixel data via `SixLabors.ImageSharp`
+- [~] WR-P101 — **TIFF** metadata cleaner (`TIFFMetadataCleaner`) — strip EXIF, IPTC, XMP, ICC; preserve pixel data via `SixLabors.ImageSharp`
 - [ ] WR-P102 — **HEIF/HEIC** metadata cleaner — strip EXIF/XMP from Apple's modern photo format
 - [x] WR-P103 — **WebP** metadata cleaner — byte-level chunk parser for VP8/VP8L/VP8X RIFF (strip EXIF, XMP, ICC chunks)
 - [ ] WR-P104 — **AVIF** metadata cleaner — ISOBMFF box parser for EXIF/XMP
