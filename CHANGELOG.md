@@ -92,6 +92,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (0 warnings, 0 errors), **536 xUnit tests** (81 + 65 + 9 + 35 +
   39 + 307), all green.
 
+- **AVIF metadata cleaner (`AvifMetadataCleaner`, WR-P104)** — the
+  project now ships a first-party AVIF (AV1 Image File Format,
+  ISO 23000-22) metadata stripper registered alongside the
+  existing JPEG / PNG / WebP / TIFF / PDF / DOCX / HTML / HEIF
+  cleaners. AVIF reuses the same ISO base media file format
+  (ISOBMFF / ISO 14496-12) container as HEIF; the new cleaner
+  is a focused `ftyp`-brand-specific variant that mirrors the
+  HEIF walker verbatim. It walks the top-level ISOBMFF boxes
+  (`ftyp` / `meta` / `mdat` / `free` / `skip`) and rebuilds the
+  `meta` FullBox child-by-child, stripping the same four
+  metadata carriers while preserving every structural box
+  (`hdlr`, `pitm`, `iloc`, `iinf`, `iprp`, `ipco`, `ipma`,
+  `iref`, …) and the image bitstream (`mdat`) bit-for-bit:
+
+    - 4CC `Exif` boxes (ISO 23008-12 § A.2) — stripped when `StripExif`.
+    - `uuid` boxes with the Apple-defined EXIF UUID
+      `8532C9A2-3B9A-11E4-B6A2-0401E0CBBFCE` — stripped when
+      `StripExif`. This is the storage format most iOS devices
+      emit and which libavif / libheif also accept as an
+      alternative.
+    - `uuid` boxes with the XMP UUID
+      `BE7ACFCB-97A9-42E8-9C71-999491E3AFAC` — stripped when
+      `StripXmp`.
+    - `mime` boxes whose content type is `application/rdf+xml` —
+      the alternative XMP carrier — stripped when `StripXmp`.
+    - `colr` boxes of colour type `rICC` / `prof` (embedded ICC
+      color profiles) — stripped unless `PreserveColorProfile`.
+      The `nclx` colour type is the inline colour primaries /
+      transfer / matrix representation and is kept verbatim
+      because it is the image's actual colour description, not
+      metadata.
+
+  The ftyp box is validated against the three AVIF brands
+  (`avif` / `avis` / `mif1`) by checking the `major_brand` and
+  the `compatible_brands` list. `mif1` is included because
+  conformant AVIF encoders (libavif, …) always emit it in the
+  compatible-brands list per ISO 23000-22, and accepting it
+  lets the cleaner also accept AVIF that has been re-wrapped by
+  a HEIF-aware tool. A file whose ftyp is *only* HEIF-flavoured
+  (e.g. `heic` major + `heic` compatible, no `mif1`) is
+  correctly rejected so HEIC files are not silently treated as
+  AVIF. The 8-byte `largesize` box extension (size field == 1
+  followed by a BE u64) is honoured at the top level so very
+  large `mdat` regions are not miscounted. `size == 0`
+  (extends-to-EOF) boxes are rejected as risky rather than
+  guessed. Index-out-of-range / argument / overflow exceptions
+  during the walk are translated into the project-wide
+  `MetadataStripException` so callers only have to catch one
+  type. The router is wired up: `IFileMetadataCleaner`
+  registration in `AddWatermarkRemoverMetadata` is updated; the
+  `FileCleanerRouter` resolves `.avif` (case-insensitive) to the
+  new cleaner. **23 new xUnit tests** in
+  `WatermarkRemover.Metadata.Tests/MetadataCleanerTests` (20
+  new cleaner tests + 3 new router rows / tests in
+  `FileCleanerRouterTests`):
+  `Avif_Inspect_FindsExifAndXmp` (default
+  `PreserveColorProfile = true` reports only EXIF + XMP),
+  `Avif_Clean_RemovesExifXmpIcc_KeepsStructuralAndMdat`
+  (verifies the `hdlr` and `pitm` structural boxes survive,
+  the `mdat` payload is byte-for-byte identical to the input,
+  and the output still has `ftyp` with `avif` as the major
+  brand), `Avif_Clean_DefaultOptions_PreservesColorProfile`,
+  `Avif_Clean_KeepsNclxColr`,
+  `Avif_Inspect_AppleUuidExif_Found` +
+  `Avif_Clean_AppleUuidExif_Removed` (Apple-style EXIF
+  carrier), `Avif_Clean_MimeXmp_Removed` (XMP carried in a
+  `mime` box), `Avif_Clean_Reclean_Empty` (a second pass with
+  the same options finds nothing to strip),
+  `Avif_Clean_LargeSizeMdat_Supported` (the 8-byte
+  `largesize` extension is handled at the top level),
+  `Avif_Clean_OnlyFtypAndMeta_Succeeds` (the walker does not
+  require `mdat` to be present),
+  `Avif_Inspect_NoMetadata_ReturnsEmpty`,
+  `Avif_Clean_NoMetadata_OutputValidAvif`,
+  `Avif_Header_NotAvif_Throws` (a QuickTime-flavoured ftyp with
+  brand `qt  ` is rejected), `Avif_Header_NotIsoBmff_Throws`
+  (a JPEG-prefixed file with `.avif` extension is rejected at
+  the size-marker check), `Avif_Header_TruncatedFtyp_Throws`
+  (declared ftyp size larger than the file),
+  `Avif_Brand_AvifAndAvisAndMif1_Accepted` (the brand
+  validator accepts `avif` / `avis` / `mif1` from the
+  major_brand slot), `Avif_Brand_HeicOnly_Rejected` (a
+  HEIC-only ftyp with no `mif1` compatible brand is correctly
+  rejected so the AVIF cleaner does not silently treat HEIC as
+  AVIF), `Avif_CorruptMetaTruncated_Throws`,
+  `Avif_Cleaner_MissingFile_Throws`, and
+  `Avif_CanHandle_RecognisesExtensions`. The router tests gain
+  two new theory rows (`a.avif` / `A.AVIF`) in
+  `IsSupported_KnownExtensions_ReturnsTrue`, a new
+  `Resolve_Avif_ReturnsAvifCleaner` fact, and a new `.avif`
+  entry in `SupportedExtensions_AggregatesAllCleaners`. Build
+  clean (0 warnings, 0 errors), **559 xUnit tests**
+  (81 + 88 + 9 + 35 + 39 + 307), all green.
+
 - **TIFF metadata cleaner (`TiffMetadataCleaner`, WR-P101)** — the
   project now ships a first-party TIFF (Tagged Image File Format)
   metadata stripper registered alongside the existing JPEG / PNG /

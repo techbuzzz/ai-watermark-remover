@@ -576,6 +576,31 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-P104 — AVIF metadata cleaner
+      (`src/WatermarkRemover.Metadata/AvifMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/DependencyInjection.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` +
+      `BACKLOG.md` + `CHANGELOG.md`)** — `.avif` files now flow
+      through the same metadata-strip pipeline as JPEG / PNG / WebP /
+      TIFF / PDF / DOCX / HTML / HEIF. AVIF reuses the same ISOBMFF
+      container as HEIF, so the new cleaner mirrors the HEIF walker
+      verbatim: it parses the top-level `ftyp` / `meta` / `mdat` boxes
+      and rebuilds `meta` child-by-child, stripping the 4CC `Exif`
+      box, the Apple-UUID EXIF carrier, the XMP-UUID carrier, the
+      `mime`-box XMP carrier, and the `colr` `rICC` / `prof` ICC
+      profiles (all gated by the standard `MetadataCleanOptions`
+      toggles; `nclx` is preserved as structural colour info).
+      Header validation accepts the three AVIF brands `avif` /
+      `avis` / `mif1` and rejects HEIC-only ftyps so HEIC files are
+      not silently treated as AVIF. The 8-byte `largesize` extension
+      is honoured; `size == 0` is refused; walker exceptions are
+      translated into `MetadataStripException`. **23 new xUnit
+      tests** in `WatermarkRemover.Metadata.Tests` (20 new cleaner
+      tests + 2 new `IsSupported` theory rows + 1 new `Resolve_Avif`
+      fact).
+
 - [x] **WR-P101 — TIFF metadata cleaner
       (`src/WatermarkRemover.Metadata/TiffMetadataCleaner.cs` +
       `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` +

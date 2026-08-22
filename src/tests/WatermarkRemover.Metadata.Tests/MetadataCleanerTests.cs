@@ -794,6 +794,370 @@ public class MetadataCleanerTests : IDisposable
         cleaner.SupportedExtensions.Should().BeEquivalentTo([".heic", ".heif"]);
     }
 
+    [Fact]
+    public void Avif_Inspect_FindsExifAndXmp()
+    {
+        // Default `PreserveColorProfile = true` keeps the ICC rICC box, so the
+        // default Inspect reports only the EXIF + XMP carriers.
+        string path = Path.Combine(_dir, "in.avif");
+        TestFixtures.WriteAvifWithMetadata(path);
+
+        var cleaner = new AvifMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+        entries.Should().NotContain(e => e.Container == "ICC");
+    }
+
+    [Fact]
+    public void Avif_Clean_RemovesExifXmpIcc_KeepsStructuralAndMdat()
+    {
+        string input = Path.Combine(_dir, "in.avif");
+        string output = Path.Combine(_dir, "out.avif");
+        TestFixtures.WriteAvifWithMetadata(input);
+
+        var cleaner = new AvifMetadataCleaner();
+        var options = new MetadataCleanOptions { PreserveColorProfile = false };
+        FileCleanResult result = cleaner.Clean(input, output, options);
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP", "ICC"]);
+
+        // The output is still a valid AVIF container with the right ftyp brand.
+        byte[] outputBytes = File.ReadAllBytes(output);
+        Encoding.ASCII.GetString(outputBytes, 4, 4).Should().Be("ftyp");
+        Encoding.ASCII.GetString(outputBytes, 8, 4).Should().Be("avif");
+
+        // meta still has the structural children (hdlr, pitm) — the metadata boxes are gone.
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Select(c => c.Type).Should().Contain(["hdlr", "pitm"]);
+        children.Should().NotContain(c => c.Type == "Exif");
+        children.Should().NotContain(c => c.Type == "uuid" && c.Uuid == "8532c9a23b9a11e4b6a20401e0cbbFce".ToLowerInvariant());
+        children.Should().NotContain(c => c.Type == "uuid" && c.Uuid == "be7acfcb97a942e89c71999491e3afac");
+        children.Should().NotContain(c => c.Type == "colr" && c.ColourType == "rICC");
+
+        // mdat survived — the bitstream is byte-for-byte identical.
+        byte[] inputBytes = File.ReadAllBytes(input);
+        ExtractMdatPayload(outputBytes).Should().Equal(ExtractMdatPayload(inputBytes));
+    }
+
+    [Fact]
+    public void Avif_Clean_DefaultOptions_PreservesColorProfile()
+    {
+        // Default `PreserveColorProfile = true` — ICC rICC box must survive.
+        string input = Path.Combine(_dir, "icc.avif");
+        string output = Path.Combine(_dir, "icc-out.avif");
+        TestFixtures.WriteAvifWithMetadata(input);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+        result.RemovedEntries.Should().NotContain(e => e.Container == "ICC");
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Should().Contain(c => c.Type == "colr" && c.ColourType == "rICC");
+    }
+
+    [Fact]
+    public void Avif_Clean_KeepsNclxColr()
+    {
+        // nclx is the inline colour primaries / transfer / matrix representation —
+        // it is the image's colour description, not metadata, and must be preserved.
+        string input = Path.Combine(_dir, "nclx.avif");
+        string output = Path.Combine(_dir, "nclx-out.avif");
+        TestFixtures.WriteAvifWithMetadata(input, includeIccColr: false, includeNclxColr: true);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions { PreserveColorProfile = false });
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Should().Contain(c => c.Type == "colr" && c.ColourType == "nclx");
+    }
+
+    [Fact]
+    public void Avif_Inspect_AppleUuidExif_Found()
+    {
+        // Apple-style EXIF storage uses a uuid box with the Apple-defined EXIF UUID.
+        string path = Path.Combine(_dir, "apple.avif");
+        TestFixtures.WriteAvifWithMetadata(path, includeExif4cc: false, includeExifUuid: true);
+
+        var cleaner = new AvifMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "EXIF" && e.Key == "uuid/EXIF");
+    }
+
+    [Fact]
+    public void Avif_Clean_AppleUuidExif_Removed()
+    {
+        string input = Path.Combine(_dir, "apple-in.avif");
+        string output = Path.Combine(_dir, "apple-out.avif");
+        TestFixtures.WriteAvifWithMetadata(input, includeExif4cc: false, includeExifUuid: true);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF" && e.Key == "uuid/EXIF");
+        cleaner.Inspect(output).Should().NotContain(e => e.Key == "uuid/EXIF");
+    }
+
+    [Fact]
+    public void Avif_Clean_MimeXmp_Removed()
+    {
+        // XMP carried in a mime box (alternative storage) — also stripped.
+        string input = Path.Combine(_dir, "mime-in.avif");
+        string output = Path.Combine(_dir, "mime-out.avif");
+        TestFixtures.WriteAvifWithMetadata(input, includeXmpUuid: false, includeMimeXmp: true);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "XMP" && e.Key == "mime/XMP");
+        cleaner.Inspect(output).Should().NotContain(e => e.Key == "mime/XMP");
+    }
+
+    [Fact]
+    public void Avif_Clean_Reclean_Empty()
+    {
+        // Two passes with the same options — the second pass must find nothing to strip.
+        string input = Path.Combine(_dir, "reclean-in.avif");
+        string pass1 = Path.Combine(_dir, "reclean-1.avif");
+        string pass2 = Path.Combine(_dir, "reclean-2.avif");
+        TestFixtures.WriteAvifWithMetadata(input);
+
+        var cleaner = new AvifMetadataCleaner();
+        var options = new MetadataCleanOptions { PreserveColorProfile = false };
+        FileCleanResult first = cleaner.Clean(input, pass1, options);
+        FileCleanResult second = cleaner.Clean(pass1, pass2, options);
+
+        first.RemovedEntries.Should().NotBeEmpty();
+        second.RemovedEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Avif_Clean_LargeSizeMdat_Supported()
+    {
+        // mdat is wrapped in a largesize box (size == 1 → 8-byte BE u64 follows).
+        string input = Path.Combine(_dir, "large-in.avif");
+        string output = Path.Combine(_dir, "large-out.avif");
+        TestFixtures.WriteAvifWithMetadata(input, useLargeSize: true);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions { PreserveColorProfile = false });
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP", "ICC"]);
+
+        // mdat payload preserved even with the largesize header.
+        byte[] inputBytes = File.ReadAllBytes(input);
+        byte[] outputBytes = File.ReadAllBytes(output);
+        ExtractMdatPayload(inputBytes).Should().Equal(ExtractMdatPayload(outputBytes));
+    }
+
+    [Fact]
+    public void Avif_Clean_OnlyFtypAndMeta_Succeeds()
+    {
+        // No mdat box — only ftyp + meta. Walker must not require mdat.
+        string path = Path.Combine(_dir, "no-mdat.avif");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("avif"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("mif1"u8);
+
+            // meta: hdlr + Exif
+            using var metaChildren = new MemoryStream();
+            WriteHeifHdlr(metaChildren);
+            WriteHeifPlainBox(metaChildren, "Exif", [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0x00, 0x00]);
+            byte[] children = metaChildren.ToArray();
+
+            int metaTotal = 8 + 4 + children.Length;
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)metaTotal);
+            fs.Write(hdr);
+            fs.Write("meta"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write(children, 0, children.Length);
+        }
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(path, Path.Combine(_dir, "no-mdat-out.avif"), new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF");
+    }
+
+    [Fact]
+    public void Avif_Inspect_NoMetadata_ReturnsEmpty()
+    {
+        string path = Path.Combine(_dir, "bare.avif");
+        TestFixtures.WriteAvifWithMetadata(
+            path,
+            includeExif4cc: false,
+            includeXmpUuid: false,
+            includeIccColr: false);
+
+        var cleaner = new AvifMetadataCleaner();
+        cleaner.Inspect(path).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Avif_Clean_NoMetadata_OutputValidAvif()
+    {
+        string input = Path.Combine(_dir, "bare-in.avif");
+        string output = Path.Combine(_dir, "bare-out.avif");
+        TestFixtures.WriteAvifWithMetadata(
+            input,
+            includeExif4cc: false,
+            includeXmpUuid: false,
+            includeIccColr: false);
+
+        var cleaner = new AvifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty();
+        File.Exists(output).Should().BeTrue();
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        Encoding.ASCII.GetString(outputBytes, 4, 4).Should().Be("ftyp");
+    }
+
+    [Fact]
+    public void Avif_Header_NotAvif_Throws()
+    {
+        // ftyp is present but the brand is not AVIF (e.g. "qt  " for QuickTime).
+        string path = Path.Combine(_dir, "fake.avif");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("qt  "u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("qt  "u8);
+        }
+
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_Header_NotIsoBmff_Throws()
+    {
+        // The first 4 bytes are not a valid size — a JPEG-prefixed file rejected.
+        string path = Path.Combine(_dir, "jpeg-as-avif.avif");
+        File.WriteAllBytes(path, [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F']);
+
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_Header_TruncatedFtyp_Throws()
+    {
+        // First 4 bytes declare size 16 but file is only 10 bytes long.
+        string path = Path.Combine(_dir, "truncated.avif");
+        File.WriteAllBytes(path, [0x00, 0x00, 0x00, 0x10, (byte)'f', (byte)'t', (byte)'y', (byte)'p', (byte)'a', (byte)'v', (byte)'i']);
+
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_Brand_AvifAndAvisAndMif1_Accepted()
+    {
+        // The AVIF specification brands (avif / avis / mif1) should all pass
+        // header validation. We don't try to parse a real AV1 bitstream; we
+        // just want the brand check to accept these.
+        foreach (string brand in new[] { "avif", "avis", "mif1" })
+        {
+            string path = Path.Combine(_dir, $"brand-{brand}.avif");
+            TestFixtures.WriteAvifWithMetadata(path, brand: brand);
+            var cleaner = new AvifMetadataCleaner();
+            Action act = () => cleaner.Inspect(path);
+            act.Should().NotThrow($"brand {brand} should be accepted as AVIF-compatible");
+        }
+    }
+
+    [Fact]
+    public void Avif_Brand_HeicOnly_Rejected()
+    {
+        // A HEIC file with only "heic" as both major and compatible brand (no
+        // mif1) must be rejected — AVIF requires one of {avif, avis, mif1}.
+        string path = Path.Combine(_dir, "heic-as-avif.avif");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("heic"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]); // minor_version
+            fs.Write("heic"u8); // compatible_brand = heic (NOT mif1)
+        }
+
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_CorruptMetaTruncated_Throws()
+    {
+        // ftyp is valid, but the meta box declares a size that runs past EOF.
+        string path = Path.Combine(_dir, "bad-meta.avif");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("avif"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("mif1"u8);
+
+            // meta with size=4096 but no payload
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 4096u);
+            fs.Write(hdr);
+            fs.Write("meta"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+        }
+
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_Cleaner_MissingFile_Throws()
+    {
+        var cleaner = new AvifMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.avif"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Avif_CanHandle_RecognisesExtensions()
+    {
+        var cleaner = new AvifMetadataCleaner();
+        cleaner.CanHandle(".avif").Should().BeTrue();
+        cleaner.CanHandle(".AVIF").Should().BeTrue();
+        cleaner.CanHandle(".png").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".avif"]);
+    }
+
     private static byte[] ExtractMdatPayload(byte[] data)
     {
         int pos = 0;

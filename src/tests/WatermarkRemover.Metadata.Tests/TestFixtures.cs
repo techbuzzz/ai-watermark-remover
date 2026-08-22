@@ -464,6 +464,169 @@ internal static class TestFixtures
         stream.Write(payload);
     }
 
+    /// <summary>
+    /// Writes a minimal but structurally valid AVIF file (ISOBMFF) with the
+    /// requested metadata children inside the <c>meta</c> box. The file is
+    /// "playable" in the sense that <see cref="AvifMetadataCleaner"/> will accept
+    /// it and find the metadata boxes; the actual AV1 bitstream is just a stub
+    /// byte sequence — the tests don't decode pixels.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="brand">The major_brand for the ftyp box (e.g. "avif", "mif1").</param>
+    /// <param name="includeHdlr">When true, emit a structural <c>hdlr</c> box as the first child of <c>meta</c>.</param>
+    /// <param name="includePitm">When true, emit a structural <c>pitm</c> box after <c>hdlr</c>.</param>
+    /// <param name="includeExif4cc">When true, emit a 4CC <c>Exif</c> box carrying an "Exif\0\0" stub payload.</param>
+    /// <param name="includeExifUuid">When true, emit a <c>uuid</c> box with the Apple EXIF UUID.</param>
+    /// <param name="includeXmpUuid">When true, emit a <c>uuid</c> box with the XMP UUID.</param>
+    /// <param name="includeIccColr">When true, emit a <c>colr</c> box of colour type <c>rICC</c>.</param>
+    /// <param name="includeNclxColr">When true, emit a <c>colr</c> box of colour type <c>nclx</c> (kept verbatim by the cleaner).</param>
+    /// <param name="includeMimeXmp">When true, emit a <c>mime</c> box whose content_type is <c>application/rdf+xml</c>.</param>
+    /// <param name="useLargeSize">When true, wrap the mdat box in an 8-byte <c>largesize</c> extension (size == 1).</param>
+    public static void WriteAvifWithMetadata(
+        string path,
+        string brand = "avif",
+        bool includeHdlr = true,
+        bool includePitm = true,
+        bool includeExif4cc = true,
+        bool includeExifUuid = false,
+        bool includeXmpUuid = true,
+        bool includeIccColr = true,
+        bool includeNclxColr = false,
+        bool includeMimeXmp = false,
+        bool useLargeSize = false)
+    {
+        using var fs = File.Create(path);
+
+        // ftyp box: size(4) + "ftyp" + major_brand(4) + minor_version(4) + compatible_brands(4)
+        Span<byte> ftypSize = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(ftypSize, 20u);
+        fs.Write(ftypSize);
+        fs.Write("ftyp"u8);
+        fs.Write(Encoding.ASCII.GetBytes(brand));
+        fs.Write([0x00, 0x00, 0x00, 0x00]); // minor_version
+        fs.Write("mif1"u8); // compatible_brand (shared with HEIF)
+
+        // Build the meta box payload in a separate MemoryStream so we can
+        // patch the meta box's total size after we know the children's sizes.
+        using var metaChildren = new MemoryStream();
+
+        if (includeHdlr)
+        {
+            // hdlr FullBox: 8 header + 4 version+flags + 4 pre_defined + 4 handler_type + 12 reserved + 1 name nul
+            WriteIsoBox(metaChildren, "hdlr", BuildHdlrPayload());
+        }
+
+        if (includePitm)
+        {
+            // pitm FullBox: 8 header + 4 version+flags + 2 item_id
+            const int pitmSize = 8 + 4 + 2;
+            Span<byte> pitmPayload = stackalloc byte[4 + 2];
+            pitmPayload[0] = 0; pitmPayload[1] = 0; pitmPayload[2] = 0; pitmPayload[3] = 0; // version + flags
+            BinaryPrimitives.WriteUInt16BigEndian(pitmPayload.Slice(4, 2), 1); // item_id = 1
+            WriteIsoBoxRaw(metaChildren, pitmSize, "pitm", pitmPayload);
+        }
+
+        if (includeExif4cc)
+        {
+            // 4CC Exif box: 8 header + 8 bytes of stub "Exif\0\0" + extra IFD stub
+            byte[] exifPayload = [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0x00, 0x00, (byte)'I', (byte)'I', 0x00, 0x2A, 0x00, 0x00];
+            WriteIsoBox(metaChildren, "Exif", exifPayload);
+        }
+
+        if (includeExifUuid)
+        {
+            // uuid box carrying the Apple EXIF UUID + 8 bytes of stub TIFF header.
+            byte[] uuidPayload = new byte[16 + 8];
+            byte[] appleExifUuid =
+            [
+                0x85, 0x32, 0xC9, 0xA2, 0x3B, 0x9A, 0x11, 0xE4,
+                0xB6, 0xA2, 0x04, 0x01, 0xE0, 0xCB, 0xBF, 0xCE,
+            ];
+            Array.Copy(appleExifUuid, uuidPayload, 16);
+            uuidPayload[16] = (byte)'I'; uuidPayload[17] = (byte)'I';
+            uuidPayload[18] = 0x2A; uuidPayload[19] = 0x00;
+            uuidPayload[20] = 0x08; uuidPayload[21] = 0x00; uuidPayload[22] = 0x00; uuidPayload[23] = 0x00;
+            WriteIsoBox(metaChildren, "uuid", uuidPayload);
+        }
+
+        if (includeXmpUuid)
+        {
+            // uuid box carrying the XMP UUID + a tiny XMP packet stub.
+            byte[] uuidPayload = new byte[16 + 8];
+            byte[] xmpUuid =
+            [
+                0xBE, 0x7A, 0xCF, 0xCB, 0x97, 0xA9, 0x42, 0xE8,
+                0x9C, 0x71, 0x99, 0x94, 0x91, 0xE3, 0xAF, 0xAC,
+            ];
+            Array.Copy(xmpUuid, uuidPayload, 16);
+            byte[] xmpStub = "<?xpkt?>"u8.ToArray();
+            Array.Copy(xmpStub, 0, uuidPayload, 16, xmpStub.Length);
+            WriteIsoBox(metaChildren, "uuid", uuidPayload);
+        }
+
+        if (includeIccColr)
+        {
+            // colr box: 8 header + 4 colour_type ("rICC") + 8 bytes of stub ICC data.
+            byte[] colrPayload = new byte[4 + 8];
+            colrPayload[0] = (byte)'r'; colrPayload[1] = (byte)'I'; colrPayload[2] = (byte)'C'; colrPayload[3] = (byte)'C';
+            WriteIsoBox(metaChildren, "colr", colrPayload);
+        }
+
+        if (includeNclxColr)
+        {
+            // colr box of colour_type "nclx" (kept verbatim by the cleaner).
+            byte[] colrPayload = new byte[4 + 12];
+            colrPayload[0] = (byte)'n'; colrPayload[1] = (byte)'c'; colrPayload[2] = (byte)'l'; colrPayload[3] = (byte)'x';
+            WriteIsoBox(metaChildren, "colr", colrPayload);
+        }
+
+        if (includeMimeXmp)
+        {
+            // mime box: 8 header + null-terminated content_type + stub XMP packet.
+            byte[] mimeContent = "application/rdf+xml"u8.ToArray();
+            byte[] stub = "<x:xmpmeta/>"u8.ToArray();
+            byte[] payload = new byte[mimeContent.Length + 1 + stub.Length];
+            Array.Copy(mimeContent, payload, mimeContent.Length);
+            payload[mimeContent.Length] = 0x00; // nul terminator
+            Array.Copy(stub, 0, payload, mimeContent.Length + 1, stub.Length);
+            WriteIsoBox(metaChildren, "mime", payload);
+        }
+
+        // Build the meta box (FullBox) = 8 header + 4 version+flags + children.
+        byte[] childrenBytes = metaChildren.ToArray();
+        long metaTotalSize = 8L + 4 + childrenBytes.Length;
+        if (metaTotalSize > uint.MaxValue)
+        {
+            throw new InvalidOperationException("meta box exceeds 4 GiB.");
+        }
+
+        Span<byte> metaSizeBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(metaSizeBytes, (uint)metaTotalSize);
+        fs.Write(metaSizeBytes);
+        fs.Write("meta"u8);
+        fs.Write([0x00, 0x00, 0x00, 0x00]); // version 0, flags 0
+        fs.Write(childrenBytes, 0, childrenBytes.Length);
+
+        // mdat box (image bitstream stub).
+        byte[] mdatPayload = [0x00, 0x00, 0x00, 0x24, (byte)'a', (byte)'v', (byte)'0', (byte)'1']; // pretend AV1 OBU header
+        if (useLargeSize)
+        {
+            long mdatTotal = 16L + mdatPayload.Length; // 16-byte largesize header
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 1u); // size == 1 signals largesize
+            fs.Write(hdr);
+            fs.Write("mdat"u8);
+            Span<byte> large = stackalloc byte[8];
+            BinaryPrimitives.WriteInt64BigEndian(large, mdatTotal);
+            fs.Write(large);
+            fs.Write(mdatPayload, 0, mdatPayload.Length);
+        }
+        else
+        {
+            WriteIsoBox(fs, "mdat", mdatPayload);
+        }
+    }
+
     private static byte[] BuildHdlrPayload()
     {
         // hdlr FullBox payload: version(1) + flags(3) + pre_defined(4) + handler_type(4) + reserved(12) + name(nul)

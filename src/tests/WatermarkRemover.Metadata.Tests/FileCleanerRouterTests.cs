@@ -14,6 +14,7 @@ public class FileCleanerRouterTests
         new WebPMetadataCleaner(),
         new TiffMetadataCleaner(),
         new HeifMetadataCleaner(),
+        new AvifMetadataCleaner(),
         new PdfMetadataCleaner(),
         new DocxMetadataCleaner(),
         new HtmlMetadataCleaner(),
@@ -28,12 +29,14 @@ public class FileCleanerRouterTests
     [InlineData("a.tiff")]
     [InlineData("a.heic")]
     [InlineData("a.heif")]
+    [InlineData("a.avif")]
     [InlineData("a.pdf")]
     [InlineData("a.docx")]
     [InlineData("a.html")]
     [InlineData("A.PNG")]
     [InlineData("A.TIF")]
     [InlineData("A.HEIC")]
+    [InlineData("A.AVIF")]
     public void IsSupported_KnownExtensions_ReturnsTrue(string path)
     {
         BuildRouter().IsSupported(path).Should().BeTrue();
@@ -77,8 +80,14 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_Avif_ReturnsAvifCleaner()
+    {
+        BuildRouter().Resolve("photo.avif").Should().BeOfType<AvifMetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".pdf", ".docx", ".html"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".html"]);
     }
 }
