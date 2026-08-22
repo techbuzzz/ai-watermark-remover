@@ -1,10 +1,22 @@
 # syntax=docker/dockerfile:1.7
 #
-# Multi-stage build for the WatermarkRemover HTTP API (`serve` sub-command)
-# with the Astro web UI bundled in.
+# Multi-stage build for the WatermarkRemover CLI. The same image hosts
+# three sub-commands — `serve` (HTTP API + Astro UI, default), `serve-mcp`
+# (MCP Streamable HTTP for remote agents), and any one-shot CLI invocation
+# (clean-text, clean-file, …) — selected via the `command:` override in
+# `docker run` or compose.
 #
+#   # Default: HTTP API on :5080 (Astro UI bundled in)
 #   docker build -t watermarkremover .
 #   docker run --rm -p 5080:5080 watermarkremover
+#
+#   # MCP Streamable HTTP on :5090 (stateless, JSON-RPC)
+#   docker run --rm -p 5090:5090 watermarkremover \
+#     serve-mcp --transport http --host 0.0.0.0 --port 5090
+#
+#   # One-shot CLI invocation (e.g. clean a file then exit)
+#   docker run --rm -v "$PWD:/data" watermarkremover \
+#     clean-text --input /data/in.txt --output /data/out.txt
 #
 # Three stages:
 #   0. webbuild  — node:22-alpine, builds the Astro UI in /web and writes
@@ -22,8 +34,12 @@
 # required to match the runtime stage).
 #
 # The final image runs as a dedicated non-root user (`wr`, uid:gid 10001),
-# exposes the default API port (5080), and ships with a HEALTHCHECK that
-# hits the unauthenticated `/health` endpoint exposed by `ServeCommand`.
+# exposes BOTH default ports (5080 for the HTTP API, 5090 for the MCP
+# Streamable HTTP transport — operators only publish the ones they need),
+# and ships with a HEALTHCHECK that hits the unauthenticated `/health`
+# endpoint exposed by `ServeCommand`. The MCP transport has its own
+# `/health` endpoint on the same path under a separate host; override the
+# HEALTHCHECK via `docker run --health-cmd` when running MCP-only.
 
 # ----------------------------------------------------------------------------
 # Stage 0 — build the Astro web UI
@@ -119,7 +135,13 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true
 
 USER wr
-EXPOSE 5080
+
+# Expose BOTH default ports:
+#   5080 — the `serve` HTTP API + Astro web UI (default sub-command).
+#   5090 — the `serve-mcp` Streamable HTTP transport (override CMD).
+# Docker does not auto-publish EXPOSEd ports; operators still need
+# `docker run -p 5080:5080` or `-p 5090:5090` to bind them on the host.
+EXPOSE 5080 5090
 
 # The apphost is the platform-specific executable that `dotnet publish`
 # emits next to `watermarkremover.dll` for `linux-musl-x64`. Invoking it
@@ -128,8 +150,21 @@ EXPOSE 5080
 ENTRYPOINT ["./watermarkremover"]
 
 # Default sub-command: serve the HTTP API on all interfaces. Override
-# `CMD` in `docker run` or compose to invoke a different sub-command
-# (e.g. `clean-text --input … --output …`).
+# `CMD` in `docker run` or compose to invoke a different sub-command.
+#
+#   # MCP Streamable HTTP (stateless JSON-RPC for remote agents)
+#   docker run -p 5090:5090 watermarkremover \
+#     serve-mcp --transport http --host 0.0.0.0 --port 5090
+#
+#   # One-shot CLI invocation
+#   docker run -v "$PWD:/data" watermarkremover \
+#     clean-text --input /data/in.txt --output /data/out.txt
+#
+# The MCP transport has its own `/health` endpoint on the same path, so
+# the default `serve` healthcheck below is still meaningful when the
+# image is repurposed for MCP — override the HEALTHCHECK with
+# `docker run --health-cmd 'curl -fsS http://127.0.0.1:5090/health || exit 1'`
+# if you want the probe to hit the MCP port.
 CMD ["serve", "--host", "0.0.0.0", "--port", "5080"]
 
 # Match the rate-limiter's window to the probe interval so a flapping

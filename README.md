@@ -579,13 +579,32 @@ docker run --rm -p 5080:5080 \
   -e WATERMARKREMOVER_API_KEY=s3cret \
   -v $(pwd)/models:/app/models \
   watermarkremover
+
+# MCP Streamable HTTP transport (stateless JSON-RPC for remote agents)
+docker run --rm -p 5090:5090 \
+  -e WATERMARKREMOVER_API_KEY=s3cret \
+  watermarkremover serve-mcp --transport http --host 0.0.0.0 --port 5090 --api-key s3cret
 ```
 
-A single-service [`docker-compose.yml`](./docker-compose.yml) is provided for the common
-dev loop (build, mount `./models`, expose `:5080`).
+[`docker-compose.yml`](./docker-compose.yml) ships **two long-running services** plus a
+profile-gated one-shot:
+
+```bash
+docker compose up                # HTTP API on :5080 (default)
+docker compose up mcp            # MCP Streamable HTTP on :5090
+docker compose up --detach mcp watermarkremover  # both side by side
+docker compose run --rm clean clean-text \
+  --input /data/in.txt --output /data/out.txt   # one-shot CLI
+```
 
 The `Dockerfile` is **multi-stage**, runs as a **non-root user**, and ships with a
-**HEALTHCHECK** that hits `/health`.
+**HEALTHCHECK** that hits `/health`. Both `5080` and `5090` are `EXPOSE`d so either
+service can be published via the usual `docker run -p` syntax. The release workflow
+(`.github/workflows/release.yml`) smoke-tests the `serve-mcp` sub-command on every
+RID before publishing the binary, so a regression that accidentally trims the
+`ModelContextProtocol` SDK out of the single-file bundle fails the build. Full
+Docker / Compose reference:
+[`docs/MCP.md → Docker`](./docs/MCP.md#docker-streamable-http).
 
 ---
 

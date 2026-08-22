@@ -527,7 +527,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   scaffold, keep the extension thin (delegate to MCP server).
 - **Backlog ref:** WR-P625
 
-### WR-S20. [~] MCP packaging + Docker for MCP
+### WR-S20. [x] MCP packaging + Docker for MCP
 
 - **Why:** WR-P631, WR-P633 — ensure `serve-mcp` is in release binaries
   and Docker exposes the MCP HTTP transport.
@@ -575,6 +575,57 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-S20 — MCP packaging + Docker for MCP
+      (`Dockerfile` + `docker-compose.yml` + `.github/workflows/release.yml`
+      + `docs/MCP.md`)** — the MCP story is now first-class in both the
+      release pipeline and the container image. `Dockerfile` now
+      `EXPOSE`s **both** `5080` (HTTP API + Astro UI) and `5090` (MCP
+      Streamable HTTP), the header documents a `serve-mcp --transport
+      http` CMD variant alongside the existing `serve` default, and a
+      regression-guard comment in the runtime stage explains how to
+      override `HEALTHCHECK` when running MCP-only. `docker-compose.yml`
+      grew two new top-level entries: an `mcp` long-running service
+      that runs `serve-mcp --transport http --host 0.0.0.0 --port 5090`
+      with the same hardening posture as the HTTP API (read-only root
+      fs, tmpfs `/tmp`, `no-new-privileges`, dedicated `healthcheck`
+      probing `http://127.0.0.1:5090/health`); and a `clean` service
+      under a `clean` profile for one-shot CLI invocations
+      (`docker compose run --rm clean clean-text --input /data/in.txt
+      --output /data/out.txt`). The release workflow
+      (`.github/workflows/release.yml`) gets a new
+      `Smoke-test 'serve-mcp' sub-command` step that runs **after** the
+      binary is published and **before** the zip is uploaded: it locates
+      the apphost (handling both `watermarkremover` and
+      `watermarkremover.exe` per RID), invokes `serve-mcp --help`, and
+      asserts the help text mentions both `--transport` and `stdio` /
+      `http` — so a regression that accidentally trims the
+      `ModelContextProtocol` SDK out of the single-file bundle fails
+      the build instead of shipping a broken MCP integration. The MCP
+      NuGet packages (`ModelContextProtocol` 2.2.0 and
+      `ModelContextProtocol.AspNetCore` 2.2.0) were already pinned in
+      `src/Directory.Packages.props`; the new
+      `McpDockerPackagingTests` class guards them so a future
+      central-management refactor that drops one is caught. `docs/MCP.md
+      → Docker` grows three subsections: the original
+      `docker run` recipe, a new `Docker Compose` walkthrough
+      (`docker compose up mcp`, side-by-side with the API, the `clean`
+      profile), and a new `Building the image locally` block. README
+      unchanged. **17 new xUnit tests** in
+      `WatermarkRemover.CLI.Tests/McpDockerPackagingTests` (file
+      presence for `Dockerfile` / `docker-compose.yml` /
+      `release.yml` / `Directory.Packages.props` / `docs/MCP.md`;
+      structural assertions: `EXPOSE 5080 5090` is parsed by a
+      digit-only regex that handles the multi-line and single-line
+      shapes; the `mcp:` compose service block is matched; the
+      `serve-mcp` + `"http"` + `5090` triplet is asserted in the
+      compose body; the MCP healthcheck probes the right port; the
+      `watermarkremover` service stays intact; the release workflow
+      invokes `serve-mcp --help` and asserts the transport-flag help
+      text; the docs section mentions `docker compose` and port
+      `5090`). Build clean (0 warnings, 0 errors), **438 xUnit tests
+      total** (81 + 35 + 9 + 26 + 39 + 248) + **13 Node tests**, all
+      green.
 
 - [x] **WR-S19 — VS Code extension (`vscode/watermark-remover/` +
       `docs/VS-CODE.md`)** — the project now ships a first-party VS

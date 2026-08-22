@@ -1084,6 +1084,77 @@ The agent's MCP client config then points at
 > `EnvironmentVariablesConfigurationProvider` does. Double-underscore
 > (`__`) is the section separator.
 
+#### Docker Compose
+
+The repo ships a [`docker-compose.yml`](../docker-compose.yml) with
+**two long-running services** and one profile-gated one-shot:
+
+```bash
+# MCP transport only (HTTP API on :5080 stays down)
+docker compose up mcp
+
+# MCP + HTTP API side by side
+docker compose up --detach mcp watermarkremover
+
+# One-shot CLI invocation (clean-text in this example)
+docker compose run --rm clean clean-text \
+  --input /data/in.txt --output /data/out.txt
+```
+
+The `mcp` service:
+
+- Re-uses the same image as the HTTP API service — no second build.
+- Binds `0.0.0.0:5090` (publish the port with `-p 5090:5090` or the
+  compose `ports:` mapping already wired in the file).
+- Honours `WATERMARKREMOVER_API_KEY` (forwarded to `--api-key`) for
+  per-request auth.
+- Has its own `/health` endpoint and a `docker compose`-managed
+  healthcheck (port 5090, every 30 s).
+- Uses a read-only root filesystem + tmpfs `/tmp`, like the API
+  service. Mounts `./models` read-only; flip to `:rw` if your agents
+  call `clean_image` and need to download LaMa weights on demand.
+
+A complete agent-side wiring example (Cursor pointing at the compose
+service) is just the standard Streamable HTTP config:
+
+```json
+{
+  "mcpServers": {
+    "watermarkremover": {
+      "url": "http://localhost:5090"
+    }
+  }
+}
+```
+
+…or, when `WATERMARKREMOVER_API_KEY` is set on the server side, the
+matching `X-API-Key` header (Cursor doesn't ship a first-class auth
+field for HTTP-type servers, so add it via the host-side proxy or
+move to a client that does — VS Code, Continue, and OpenCode all
+expose an `headers` map).
+
+#### Building the image locally
+
+The image isn't published to a registry yet (the release workflow
+publishes the **CLI binary** as a GitHub Release asset — agents
+install that via the npm wrapper or the release-binary path
+above). To build the Docker image from source for local use:
+
+```bash
+# Build with the default sub-command (HTTP API on :5080)
+docker build -t techbuzzz/watermarkremover:local .
+
+# Run the MCP transport from the same image
+docker run --rm -p 5090:5090 \
+  techbuzzz/watermarkremover:local \
+  serve-mcp --transport http --host 0.0.0.0 --port 5090
+```
+
+The Dockerfile's `EXPOSE` directive lists **both** `5080` and
+`5090`; the active sub-command is selected by the final `CMD`
+override. The `ENTRYPOINT` is `./watermarkremover` so a `docker run
+… <sub-command> <args>` works without any extra ceremony.
+
 ### Verify the install
 
 Once the server is registered, ask the agent to list the available

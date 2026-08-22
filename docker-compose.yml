@@ -1,7 +1,17 @@
-# docker-compose.yml — single-service dev loop for the WatermarkRemover
-# HTTP API. Use `docker compose up --build` to build the image and start
-# the server. Use `docker compose run --rm watermarkremover <command>` to
-# invoke a one-off CLI command inside the same image.
+# docker-compose.yml — local dev loop for the WatermarkRemover
+# container image. Two long-running services share the same build:
+#
+#   `watermarkremover`  — the HTTP API + Astro web UI on :5080.
+#                          Use `docker compose up serve` (the default).
+#   `mcp`               — the MCP Streamable HTTP transport on :5090.
+#                          Use `docker compose up mcp` (or `up --detach
+#                          mcp` to run side by side with the API).
+#   `clean` (profile)   — one-shot CLI invocations, e.g. `clean-text` or
+#                          `clean-file`. Use `docker compose run --rm
+#                          clean clean-text --input /data/in.txt …`.
+#
+# Use `docker compose run --rm watermarkremover <command>` to invoke a
+# one-off CLI command inside the same image without starting a service.
 #
 # Why this exists:
 #   - Bind-mount `./models` so downloaded ONNX weights persist on the host.
@@ -96,6 +106,122 @@ services:
         reservations:
           cpus: "0.5"
           memory: 512M
+
+  # -------------------------------------------------------------------
+  # MCP Streamable HTTP transport. Same image, different sub-command
+  # + port. Run with `docker compose up mcp` (or `--detach mcp` to run
+  # side by side with the HTTP API). See docs/MCP.md → "Docker" for
+  # the full reference and connect-your-agent recipes.
+  # -------------------------------------------------------------------
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: techbuzzz/watermarkremover:local
+    container_name: watermarkremover-mcp
+    restart: unless-stopped
+
+    # Port 5090 is distinct from the HTTP API's 5080 so both services
+    # can run side by side without flag-flipping. The MCP transport
+    # uses Streamable HTTP (stateless) and is fully self-contained.
+    ports:
+      - "5090:5090"
+
+    # Same hardening posture as the HTTP API service above — run as
+    # the unprivileged `wr` user with a read-only root filesystem,
+    # /tmp tmpfs, and no-new-privileges.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+    # Environment variables consumed by the MCP server:
+    #   WATERMARKREMOVER_API_KEY        — enables X-API-Key auth (omit to run open)
+    #   WATERMARKREMOVER__MCP__TRANSPORT — pinned to "http" (the host argv also
+    #                                     pins it, but the env var is the
+    #                                     canonical way for Compose stacks that
+    #                                     use the layered config loader)
+    #   WATERMARKREMOVER__MCP__HOST     — binds 0.0.0.0 (matches the --host flag)
+    #   WATERMARKREMOVER__MCP__PORT     — 5090 (matches the --port flag)
+    environment:
+      WATERMARKREMOVER_API_KEY: ${WATERMARKREMOVER_API_KEY:-}
+      WATERMARKREMOVER__MCP__TRANSPORT: "http"
+      WATERMARKREMOVER__MCP__HOST: "0.0.0.0"
+      WATERMARKREMOVER__MCP__PORT: "5090"
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+    command:
+      - "serve-mcp"
+      - "--transport"
+      - "http"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "5090"
+      # Forward the API key to the CLI when one is supplied. The
+      # empty-string fallback makes the conditional `--api-key=`
+      # skip the flag (the serve-mcp command treats an unset flag
+      # as "no auth required").
+      - "--api-key"
+      - "${WATERMARKREMOVER_API_KEY:-disabled}"
+
+    volumes:
+      # The MCP transport does not run the image pipeline on the
+      # request path, so the ONNX weights volume is mounted read-only
+      # by default. Change `:ro` to `:rw` if your agents call
+      # `clean_image` and the container should download models on
+      # demand.
+      - ./models:/app/models:ro
+      # Same rolling-file log volume as the HTTP API service so a
+      # single `docker compose logs` follows both.
+      - logs:/app/logs
+
+    # The MCP transport exposes its own `/health` endpoint that is
+    # exempt from the API-key check, so the probe is meaningful even
+    # when `WATERMARKREMOVER_API_KEY` is set.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5090/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits are intentionally lighter than the HTTP API
+    # service — the MCP transport is stateless per request and never
+    # holds an inpainting model in memory on the request path. Bump
+    # up if your agents call `clean_image` frequently.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # -------------------------------------------------------------------
+  # One-shot CLI invocations under a `clean` profile. Use:
+  #   docker compose run --rm clean clean-text \
+  #     --input /data/in.txt --output /data/out.txt
+  # Bind-mount your working directory to /data and run any sub-command.
+  # The profile keeps the service dormant unless explicitly requested
+  # so `docker compose up` doesn't accidentally start a long-running
+  # process.
+  # -------------------------------------------------------------------
+  clean:
+    profiles: ["clean"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: techbuzzz/watermarkremover:local
+    container_name: watermarkremover-clean
+    # Profiles don't run as long-lived services, so the host
+    # networking + read-only root fs are intentionally relaxed.
+    command: ["--help"]
+    volumes:
+      - ./data:/data:rw
+      - ./models:/app/models:rw
 
 volumes:
   models:

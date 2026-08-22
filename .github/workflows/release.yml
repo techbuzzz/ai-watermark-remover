@@ -158,6 +158,48 @@ jobs:
           cd ../..
           ls -la "${{ matrix.zip_name }}"
 
+      # Smoke-test that the `serve-mcp` sub-command is wired into the
+      # published single-file binary. The MCP SDK is a pure managed
+      # library so it must travel with the bundle; a regression that
+      # accidentally excluded it (e.g. trimming, R2R, or a misconfigured
+      # `<TrimMode>`) would still produce a working `serve` but a broken
+      # MCP integration. We exit 1 explicitly on the unsupported-Windows
+      # path because the bash fallback below uses `win-x64` naming on
+      # `windows-latest` and the apphost filename differs per OS.
+      - name: Smoke-test `serve-mcp` sub-command
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "publish/${{ matrix.rid }}"
+
+          # Locate the apphost. The single-file publish emits an
+          # `apphost` named after the assembly on every RID:
+          #   linux-x64 / linux-arm64 / osx-x64  -> `watermarkremover`
+          #   win-x64                              -> `watermarkremover.exe`
+          if [ -x "./watermarkremover" ]; then
+            BIN="./watermarkremover"
+          elif [ -x "./watermarkremover.exe" ]; then
+            BIN="./watermarkremover.exe"
+          else
+            echo "::error::Could not locate the watermarkremover apphost in $(pwd)"
+            ls -la
+            exit 1
+          fi
+
+          echo "Smoke-testing $BIN serve-mcp --help …"
+          "$BIN" serve-mcp --help
+
+          # Also verify the sub-command advertises both supported
+          # transports in the help text. A regression that lost
+          # `--transport http` would silently degrade Docker users to
+          # stdio (which is useless for `docker run -p 5090:5090`).
+          HELP_OUT="$("$BIN" serve-mcp --help 2>&1 || true)"
+          echo "$HELP_OUT" | grep -q -- "--transport" \
+            || { echo "::error::serve-mcp --help does not mention --transport"; exit 1; }
+          echo "$HELP_OUT" | grep -qE "stdio|http" \
+            || { echo "::error::serve-mcp --help does not mention stdio or http"; exit 1; }
+          echo "serve-mcp --help OK (transport + flags advertised)."
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
