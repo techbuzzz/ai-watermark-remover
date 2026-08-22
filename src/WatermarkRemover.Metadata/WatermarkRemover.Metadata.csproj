@@ -17,8 +17,8 @@
     <PackageVersion>1.0.0</PackageVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
-    <PackageDescription>Byte-level metadata strippers for JPEG, PNG, PDF, DOCX, PPTX, XLSX, HTML, EPUB, HEIF/HEIC, TIFF and WebP. The router dispatches on file extension; each cleaner implements IFileMetadataCleaner.</PackageDescription>
-    <PackageTags>ai;watermark;metadata;exif;xmp;c2pa;pdf;docx;xlsx;pptx;html;epub;png;jpg;webp;heic;heif;tif;tiff;dotnet</PackageTags>
+    <PackageDescription>Byte-level metadata strippers for JPEG, PNG, PDF, DOCX, PPTX, XLSX, HTML, EPUB, RTF, HEIF/HEIC, TIFF and WebP. The router dispatches on file extension; each cleaner implements IFileMetadataCleaner.</PackageDescription>
+    <PackageTags>ai;watermark;metadata;exif;xmp;c2pa;pdf;docx;xlsx;pptx;html;epub;rtf;png;jpg;webp;heic;heif;tif;tiff;dotnet</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
     <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>

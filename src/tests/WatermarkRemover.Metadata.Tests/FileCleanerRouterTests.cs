@@ -21,6 +21,7 @@ public class FileCleanerRouterTests
         new XlsxMetadataCleaner(),
         new HtmlMetadataCleaner(),
         new EpubMetadataCleaner(),
+        new RtfMetadataCleaner(),
     ]);
 
     [Theory]
@@ -39,6 +40,7 @@ public class FileCleanerRouterTests
     [InlineData("a.xlsx")]
     [InlineData("a.html")]
     [InlineData("a.epub")]
+    [InlineData("a.rtf")]
     [InlineData("A.PNG")]
     [InlineData("A.TIF")]
     [InlineData("A.HEIC")]
@@ -46,6 +48,7 @@ public class FileCleanerRouterTests
     [InlineData("A.EPUB")]
     [InlineData("A.PPTX")]
     [InlineData("A.XLSX")]
+    [InlineData("A.RTF")]
     public void IsSupported_KnownExtensions_ReturnsTrue(string path)
     {
         BuildRouter().IsSupported(path).Should().BeTrue();
@@ -116,8 +119,15 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_Rtf_ReturnsRtfCleaner()
+    {
+        BuildRouter().Resolve("doc.rtf").Should().BeOfType<RtfMetadataCleaner>();
+        BuildRouter().Resolve("doc.RTF").Should().BeOfType<RtfMetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub", ".rtf"]);
     }
 }

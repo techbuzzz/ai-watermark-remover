@@ -46,7 +46,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 - 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
 - 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
-- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB — pixel-preserving, byte-level
+- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF — pixel-preserving, byte-level
 - 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
 - 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
 - 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
@@ -301,6 +301,7 @@ Byte-level, pixel-preserving cleaners:
 - **DOCX / PPTX / XLSX** — OpenXML core/extended/custom properties; DOCX also strips revision history; PPTX also strips per-slide comments + presentation-wide author list; XLSX also strips workbook-wide author list + per-worksheet threaded comments
 - **HTML** — `<meta name="generator|author">` + `<!-- comments -->` + tracking scripts
 - **EPUB** — OCF zip-rewrite; strips OPF `<dc:*>` (except `dc:identifier` kept as a fresh UUID) and `<meta>` entries; preserves every other entry byte-for-byte (XHTML / CSS / images / NCX)
+- **RTF** — character-stream parser; strips `\author` / `\company` / `\manager` / `\generator` / `\doccomm` / `\title` / `\subject` / `\keywords` / `\category` / `\comment` / `\hlinkbase` / `\operator` / `\version` / `\edmins` / `\nofpages` / `\nofwords` / `\nofchars` / `\nofcharsws` / `\id` plus compound time-table entries `\creatim` / `\revtbl` / `\printim` / `\buptim` (each followed by sub-control words like `\yr\mo\dy\hr\min\sec`); preserves font table, colour table, stylesheet, headers / footers, and body text byte-for-byte
 
 ### Image
 
@@ -663,7 +664,7 @@ WatermarkRemover.sln
 ├── src/
 │   ├── WatermarkRemover.Core        # Models, interfaces, configuration, DI contracts
 │   ├── WatermarkRemover.Text        # Layer A (Unicode) / B (statistical) / C (vendor) + Markdown
-│   ├── WatermarkRemover.Metadata    # JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB metadata cleaners
+│   ├── WatermarkRemover.Metadata    # JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF metadata cleaners
 │   ├── WatermarkRemover.Image       # Mask generation + LaMa ONNX inpainting pipeline
 │   └── WatermarkRemover.CLI         # Spectre.Console CLI + ASP.NET Core HTTP API (serve)
 └── src/tests/
@@ -734,7 +735,7 @@ The active roadmap lives in [BACKLOG.md](./BACKLOG.md). Highlights:
 - [x] Issue / PR templates, CODEOWNERS, CODE_OF_CONDUCT, SECURITY, CHANGELOG
 
 **P1 — Core features (v1.0)**
-- [ ] More metadata formats (RTF, MP4) — WebP, TIFF, HEIF, AVIF, EPUB landed
+- [ ] More metadata formats (MP4) — WebP, TIFF, HEIF, AVIF, EPUB, RTF landed
 - [ ] DeepSeek / Grok / Mistral vendor detectors
 - [ ] Synonym dictionary: EN → 400+, RU → 200+
 - [ ] Image batch processing + GPU inference

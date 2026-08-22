@@ -1689,4 +1689,201 @@ public class MetadataCleanerTests : IDisposable
         cleaner.CanHandle(".docx").Should().BeFalse();
         cleaner.SupportedExtensions.Should().BeEquivalentTo([".xlsx"]);
     }
+
+    [Fact]
+    public void Rtf_Inspect_FindsAuthorAndGenerator()
+    {
+        string path = Path.Combine(_dir, "in.rtf");
+        TestFixtures.WriteRtfWithMetadata(path, author: "John Smith", generator: "AI-Writer 1.0");
+
+        var cleaner = new RtfMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "RTF/info" && e.Key == "author" && e.Value == "John Smith");
+        entries.Should().Contain(e => e.Container == "RTF/info" && e.Key == "generator" && e.Value == "AI-Writer 1.0");
+        entries.Should().Contain(e => e.Container == "RTF/info" && e.Key == "doccomm");
+    }
+
+    [Fact]
+    public void Rtf_Clean_StripsAuthorGeneratorDoccomm()
+    {
+        string input = Path.Combine(_dir, "in.rtf");
+        string output = Path.Combine(_dir, "out.rtf");
+        TestFixtures.WriteRtfWithMetadata(
+            input,
+            author: "John Smith",
+            generator: "AI-Writer 1.0",
+            doccomm: "Internal only");
+
+        var cleaner = new RtfMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Select(e => e.Key).Should().Contain(["author", "generator", "doccomm"]);
+
+        // The cleaned file no longer contains the metadata values anywhere.
+        string cleaned = File.ReadAllText(output);
+        cleaned.Should().NotContain("John Smith");
+        cleaned.Should().NotContain("AI-Writer 1.0");
+        cleaned.Should().NotContain("Internal only");
+
+        // The three metadata control words themselves are gone.
+        cleaned.Should().NotContain("\\author ");
+        cleaned.Should().NotContain("\\generator ");
+        cleaned.Should().NotContain("\\doccomm ");
+    }
+
+    [Fact]
+    public void Rtf_Clean_StripsAllInfoMetadata()
+    {
+        string input = Path.Combine(_dir, "all.rtf");
+        string output = Path.Combine(_dir, "all-out.rtf");
+        TestFixtures.WriteRtfWithMetadata(
+            input,
+            author: "John Smith",
+            generator: "AI-Writer 1.0",
+            doccomm: "Internal only",
+            title: "Sample Doc",
+            company: "Acme Corp");
+
+        var cleaner = new RtfMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // Every common metadata control word was removed.
+        result.RemovedEntries.Select(e => e.Key)
+            .Should().Contain(["title", "author", "company", "generator", "doccomm"]);
+
+        // No leftover metadata values in the output.
+        string cleaned = File.ReadAllText(output);
+        cleaned.Should().NotContain("John Smith");
+        cleaned.Should().NotContain("Acme Corp");
+        cleaned.Should().NotContain("AI-Writer 1.0");
+        cleaned.Should().NotContain("Internal only");
+        cleaned.Should().NotContain("Sample Doc");
+
+        // A second pass finds nothing left to strip.
+        FileCleanResult secondPass = cleaner.Clean(output, Path.Combine(_dir, "all-out2.rtf"), new MetadataCleanOptions());
+        secondPass.RemovedEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Rtf_Clean_StripsCompoundControlWords()
+    {
+        string input = Path.Combine(_dir, "compound.rtf");
+        string output = Path.Combine(_dir, "compound-out.rtf");
+        TestFixtures.WriteRtfWithMetadata(input, includeCreatim: true);
+
+        var cleaner = new RtfMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Key == "creatim");
+
+        // The compound control word AND every sub-control word are gone.
+        string cleaned = File.ReadAllText(output);
+        cleaned.Should().NotContain("\\creatim");
+        cleaned.Should().NotContain("\\yr2024");
+        cleaned.Should().NotContain("\\mo1");
+        cleaned.Should().NotContain("\\dy15");
+        cleaned.Should().NotContain("\\hr10");
+        cleaned.Should().NotContain("\\min30");
+        cleaned.Should().NotContain("\\sec0");
+    }
+
+    [Fact]
+    public void Rtf_Clean_OutputIsValidRtf()
+    {
+        string input = Path.Combine(_dir, "valid.rtf");
+        string output = Path.Combine(_dir, "valid-out.rtf");
+        TestFixtures.WriteRtfWithMetadata(input);
+
+        var cleaner = new RtfMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // Output starts with the RTF magic and has balanced braces.
+        string cleaned = File.ReadAllText(output);
+        cleaned.Should().StartWith("{\\rtf");
+        cleaned.TrimEnd().Should().EndWith("}");
+
+        int open = cleaned.Count(c => c == '{');
+        int close = cleaned.Count(c => c == '}');
+        open.Should().Be(close, "cleaned RTF must have balanced braces");
+    }
+
+    [Fact]
+    public void Rtf_Clean_PreservesContent()
+    {
+        string body = "The quick brown fox jumps over the lazy dog.";
+        string input = Path.Combine(_dir, "content.rtf");
+        string output = Path.Combine(_dir, "content-out.rtf");
+        TestFixtures.WriteRtfWithMetadata(input, body: body);
+
+        var cleaner = new RtfMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        string cleaned = File.ReadAllText(output);
+        cleaned.Should().Contain(body);
+
+        // The font table survives too.
+        cleaned.Should().Contain("\\fonttbl");
+        cleaned.Should().Contain("\\f0\\fnil");
+    }
+
+    [Fact]
+    public void Rtf_Clean_InspectAfterClean_FindsNoMetadata()
+    {
+        string input = Path.Combine(_dir, "roundtrip.rtf");
+        string output = Path.Combine(_dir, "roundtrip-out.rtf");
+        TestFixtures.WriteRtfWithMetadata(input);
+
+        var cleaner = new RtfMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        cleaner.Inspect(output).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Rtf_Inspect_CorruptFile_Throws()
+    {
+        // A file that does not start with the {\rtf magic is rejected.
+        string path = Path.Combine(_dir, "bad.rtf");
+        File.WriteAllText(path, "This is not an RTF file at all, just plain text.");
+
+        var cleaner = new RtfMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+
+        act.Should().Throw<MetadataStripException>()
+            .And.Message.Should().Contain("{\\rtf");
+    }
+
+    [Fact]
+    public void Rtf_Clean_CorruptFile_Throws()
+    {
+        // Bytes that don't start with the {\rtf magic — same code path, but
+        // exercised via the public Clean() entry point.
+        string input = Path.Combine(_dir, "bad-clean.rtf");
+        File.WriteAllBytes(input, [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+
+        var cleaner = new RtfMetadataCleaner();
+        Action act = () => cleaner.Clean(input, Path.Combine(_dir, "bad-clean-out.rtf"), new MetadataCleanOptions());
+
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Rtf_MissingFile_Throws()
+    {
+        var cleaner = new RtfMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.rtf"));
+
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Rtf_CanHandle_RecognisesExtensions()
+    {
+        var cleaner = new RtfMetadataCleaner();
+        cleaner.CanHandle(".rtf").Should().BeTrue();
+        cleaner.CanHandle(".RTF").Should().BeTrue();
+        cleaner.CanHandle(".docx").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".rtf"]);
+    }
 }

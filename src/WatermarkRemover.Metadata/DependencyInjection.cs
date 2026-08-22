@@ -23,6 +23,7 @@ public static class MetadataServiceCollectionExtensions
         services.AddSingleton<IFileMetadataCleaner, XlsxMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, HtmlMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, EpubMetadataCleaner>();
+        services.AddSingleton<IFileMetadataCleaner, RtfMetadataCleaner>();
         services.AddSingleton<IFileCleanerRouter, FileCleanerRouter>();
         return services;
     }

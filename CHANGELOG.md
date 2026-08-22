@@ -18,6 +18,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **RTF metadata cleaner (`RtfMetadataCleaner`, WR-P107)** — `.rtf`
+  files now flow through the same metadata-strip pipeline as JPEG /
+  PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML /
+  EPUB. The cleaner is a pure-managed character-stream parser: it
+  reads the file as ASCII, validates the `{\rtf` magic, walks the
+  stream control-word-by-control-word, and strips the canonical
+  authorship-and-provenance control words — `\author`, `\company`,
+  `\manager`, `\category`, `\keywords`, `\subject`, `\title`,
+  `\comment`, `\doccomm`, `\hlinkbase`, `\generator`, `\operator`,
+  `\version`, `\edmins`, `\nofpages`, `\nofwords`, `\nofchars`,
+  `\nofcharsws`, `\id` — plus the compound time-table entries
+  `\creatim` / `\revtbl` / `\printim` / `\buptim` (each followed by
+  sub-control words like `\yr\mo\dy\hr\min\sec`). The RTF body, font
+  table, colour table, stylesheet, headers / footers, and visible
+  text content are all preserved byte-for-byte. The cleaner
+  re-validates the output by re-checking the `{\rtf` magic and
+  balanced braces, and surfaces `MetadataStripException` for corrupt
+  / non-RTF inputs. The router is updated: `AddWatermarkRemoverMetadata`
+  registers the new cleaner; `FileCleanerRouter` resolves `.rtf`
+  (case-insensitive) to it. The package description and tags on
+  `WatermarkRemover.Metadata.csproj` now list RTF. README adds RTF to
+  the supported-format list, the metadata section, the project tree,
+  and the P1 roadmap one-liner. **14 new xUnit tests** in
+  `WatermarkRemover.Metadata.Tests` (11 RTF cleaner tests covering
+  Inspect / Clean / compound stripping / output validity / content
+  preservation / round-trip / corrupt input / missing file /
+  `CanHandle`; plus 3 router rows / facts for `.rtf`/`.RTF`). Build
+  clean (0 warnings, 0 errors), **606 xUnit tests total** (81 + 35 +
+  9 + 135 + 39 + 307), all green.
 - **PPTX + XLSX metadata cleaners
   (`PptxMetadataCleaner` + `XlsxMetadataCleaner` + shared
   `OpenXmlCoreMetadataCleaner`, WR-P106)** — `.pptx` and `.xlsx`

@@ -1075,4 +1075,63 @@ internal static class TestFixtures
             doc.PackageProperties.LastModifiedBy = lastModifiedBy;
         }
     }
+
+    /// <summary>
+    /// Writes a minimal but structurally valid Rich Text Format (<c>.rtf</c>) file
+    /// to <paramref name="path"/>. The file carries the chosen metadata control
+    /// words in an <c>\info</c> group and a short body paragraph, so
+    /// <see cref="RtfMetadataCleaner"/> can round-trip it through Inspect + Clean
+    /// and the tests can assert that the metadata control words go away while
+    /// the body text and the <c>{\rtf</c> header survive.
+    /// </summary>
+    public static void WriteRtfWithMetadata(
+        string path,
+        string author = "John Smith",
+        string generator = "AI-Writer 1.0",
+        string doccomm = "Internal only",
+        string title = "Sample Doc",
+        string company = "Acme Corp",
+        bool includeCreatim = true,
+        string body = "Hello world!")
+    {
+        var sb = new StringBuilder();
+        sb.Append("{\\rtf1\\ansi\\ansicpg1252\\deff0\n");
+        sb.Append("{\\fonttbl{\\f0\\fnil\\fcharset0 Times New Roman;}}\n");
+        sb.Append("{\\info\n");
+        if (!string.IsNullOrEmpty(title))
+        {
+            sb.Append($"{{\\title {title}}}\n");
+        }
+
+        if (!string.IsNullOrEmpty(author))
+        {
+            sb.Append($"{{\\author {author}}}\n");
+        }
+
+        if (!string.IsNullOrEmpty(company))
+        {
+            sb.Append($"{{\\company {company}}}\n");
+        }
+
+        if (!string.IsNullOrEmpty(generator))
+        {
+            sb.Append($"{{\\generator {generator}}}\n");
+        }
+
+        if (!string.IsNullOrEmpty(doccomm))
+        {
+            sb.Append($"{{\\doccomm {doccomm}}}\n");
+        }
+
+        if (includeCreatim)
+        {
+            sb.Append("{\\creatim\\yr2024\\mo1\\dy15\\hr10\\min30\\sec0}\n");
+        }
+
+        sb.Append("}\n");
+        sb.Append("\\viewkind4\\uc1\\pard\\f0\\fs24\n");
+        sb.Append(body);
+        sb.Append("\n}\n");
+        File.WriteAllText(path, sb.ToString());
+    }
 }
