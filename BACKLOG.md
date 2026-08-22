@@ -58,7 +58,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [x] WR-P103 — **WebP** metadata cleaner — byte-level chunk parser for VP8/VP8L/VP8X RIFF (strip EXIF, XMP, ICC chunks)
 - [x] WR-P104 — **AVIF** metadata cleaner — ISOBMFF box parser for EXIF/XMP
 - [x] WR-P105 — **EPUB** metadata cleaner — strip OPF metadata (creator, contributor, dc:identifier, etc.) via zip-rewrite
-- [ ] WR-P106 — **PPTX/XLSX** metadata cleaners — extend OpenXML approach beyond DOCX
+- [~] WR-P106 — **PPTX/XLSX** metadata cleaners — extend OpenXML approach beyond DOCX
 - [ ] WR-P107 — **RTF** metadata cleaner — strip `\author`, `\generator`, `\doccomm` control words
 - [ ] WR-P108 — **MP4/MOV** metadata cleaner — strip `moov/udta/©xyz` atom (GPS), `udta/meta/keys/ilst` (title/author)
 

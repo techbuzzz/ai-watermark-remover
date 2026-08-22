@@ -29,6 +29,106 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
+### WR-S22. [~] PPTX + XLSX metadata cleaners
+
+- **Why:** BACKLOG P1 — `.pptx` and `.xlsx` files (Microsoft Office Open
+  XML, the same ZIP-of-XML container family as `.docx`/`.epub`) are
+  not currently supported; `clean-file` returns "unsupported" for them.
+  AI-generated Office documents ship with the same carrier metadata
+  the existing DOCX cleaner already strips: `dc:creator` /
+  `dc:title` / `cp:lastModifiedBy` in `docProps/core.xml`, plus the
+  `docProps/app.xml` extended-properties part (Application, Company,
+  Manager, Template) and `docProps/custom.xml` custom-properties part.
+  The Open XML SDK already in `Directory.Packages.props` is the right
+  tool for the job — `DocumentFormat.OpenXml.Packaging.PresentationDocument`
+  and `SpreadsheetDocument` expose the same `PackageProperties` /
+  `ExtendedFilePropertiesPart` / `CustomFilePropertiesPart` shape as
+  `WordprocessingDocument`, so the new cleaners reuse a shared internal
+  helper and add the format-specific pieces (PPT slide comments +
+  comment-author list, XLS threaded comments + shared-string authorship).
+  Fills the two biggest gaps in the Office-Open-XML family.
+- **Scope:** `src/WatermarkRemover.Metadata/`,
+  `src/tests/WatermarkRemover.Metadata.Tests/`
+- **Files to touch:**
+  - New `src/WatermarkRemover.Metadata/OpenXmlCoreMetadataCleaner.cs` —
+    internal static helper with `ClearCoreProperties(OpenXmlPackage pkg,
+    List<MetadataEntry> removed)`, `DeleteExtendedProperties(OpenXmlPackage
+    pkg, List<MetadataEntry> removed)`, `DeleteCustomProperties(OpenXmlPackage
+    pkg, List<MetadataEntry> removed)`, plus inspect-side counterparts
+    `InspectCoreProperties(pkg)`, `HasExtendedProperties(pkg)`,
+    `HasCustomProperties(pkg)`. Each just touches the same three parts
+    the DOCX cleaner already mutates — no OpenXml-specific business
+    logic, so the helper is safe to share between all three formats.
+  - New `src/WatermarkRemover.Metadata/PptxMetadataCleaner.cs` — opens
+    with `PresentationDocument.Open`, calls the shared helper to clear
+    core/extended/custom, then walks `CommentPart` instances on every
+    `SlidePart` and deletes the comment XML (the author + initials of
+    every comment are pure authorship metadata), and deletes every
+    `CommentAuthorPart` so the slide has no `commentAuthor` left. The
+    slide content itself (text, shapes, images) is preserved verbatim.
+  - New `src/WatermarkRemover.Metadata/XlsxMetadataCleaner.cs` — opens
+    with `SpreadsheetDocument.Open`, calls the shared helper, then
+    deletes the `WorkbookPart.ThreadedCommentAuthorsPart` (it stores
+    per-thread author display names) and clears every
+    `WorkbookPart.Workbook.Descendants<ThreadedComment>()` element.
+    Cell values + formulas + shared string table are preserved.
+  - `src/WatermarkRemover.Metadata/DependencyInjection.cs` — register
+    both new cleaners in `AddWatermarkRemoverMetadata`.
+  - `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` —
+    update `<PackageDescription>` and `<PackageTags>` to mention PPTX
+    + XLSX.
+  - `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` —
+    `WritePptxWithMetadata(path, creator, application, withComment)`
+    helper that uses `PresentationDocument.Create` + `AddNewPart<SlidePart>`
+    + `SlideCommentsPart` to emit a tiny but real `.pptx`; and
+    `WriteXlsxWithMetadata(path, creator, application, withThreadedComment)`
+    that uses `SpreadsheetDocument.Create` + `WorksheetPart` +
+    `ThreadedCommentAuthorsPart` to emit a tiny but real `.xlsx`.
+  - `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` —
+    ≥ 12 new tests (≥ 6 per cleaner) — see Acceptance.
+  - `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` —
+    add `.pptx`/`.PPTX`/`.xlsx`/`.XLSX` to the
+    `IsSupported_KnownExtensions_ReturnsTrue` theory, add
+    `Resolve_Pptx_ReturnsPptxCleaner` + `Resolve_Xlsx_ReturnsXlsxCleaner`
+    facts, add `.pptx` + `.xlsx` to `BuildRouter()` + the
+    `SupportedExtensions_AggregatesAllCleaners` assertion.
+  - `README.md` — line 49 supported-formats list + the metadata section
+    + the docs/INSTALLATION.md mention (whichever exists).
+  - `BACKLOG.md` — flip `WR-P106` to `[x]`.
+  - `CHANGELOG.md` — new "Added" entry under `[Unreleased]`.
+- **Acceptance:**
+  - `dotnet build` clean (0 warnings, 0 errors).
+  - `dotnet test` clean; at least 12 new tests (≥ 6 per cleaner) covering:
+    - PPTX Inspect finds `dc:creator` and `Application` (`app.xml`) on a
+      fixture with both.
+    - PPTX Clean clears `core.xml` (re-inspect shows no Creator), deletes
+      `app.xml`, deletes `custom.xml` if present, and removes every
+      `CommentPart` + every `CommentAuthorPart` so the slide is
+      comment-free.
+    - PPTX output is a valid OpenXml container that
+      `PresentationDocument.Open(...)` re-opens without throwing.
+    - PPTX slide text / shape count is preserved (open the cleaned
+      file and assert the original placeholder text is still in the
+      shape tree).
+    - PPTX corrupt / non-pptx input throws `MetadataStripException`.
+    - PPTX `CanHandle(".pptx")` true, `CanHandle(".PPTX")` true.
+    - XLSX Inspect finds `dc:creator` and `Application` on a fixture.
+    - XLSX Clean clears `core.xml`, deletes `app.xml` and `custom.xml`.
+    - XLSX output is a valid OpenXml container that
+      `SpreadsheetDocument.Open(...)` re-opens.
+    - XLSX cell values are preserved (re-open the cleaned workbook and
+      assert the fixture's value is still in `Sheet1.Cells["A1"]`).
+    - XLSX corrupt / non-xlsx input throws `MetadataStripException`.
+    - XLSX `CanHandle(".xlsx")` true, `CanHandle(".XLSX")` true.
+  - File-routing tests pass.
+- **Risks:** None — pure managed code on top of the already-pinned
+  `DocumentFormat.OpenXml` 3.2.0 NuGet. The shared helper
+  (`OpenXmlCoreMetadataCleaner`) takes an `OpenXmlPackage` which is
+  the common base class of `WordprocessingDocument`,
+  `PresentationDocument`, and `SpreadsheetDocument`, so DOCX could
+  later be refactored to call it too — out of scope for this tick.
+- **Backlog ref:** WR-P106
+
 ### WR-S21. [x] EPUB metadata cleaner
 
 - **Why:** BACKLOG P1 — `.epub` files (zip-of-XHTML) are not currently
