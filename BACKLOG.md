@@ -56,7 +56,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [x] WR-P101 — **TIFF** metadata cleaner (`TIFFMetadataCleaner`) — strip EXIF, IPTC, XMP, ICC; preserve pixel data via `SixLabors.ImageSharp`
 - [x] WR-P102 — **HEIF/HEIC** metadata cleaner — strip EXIF/XMP from Apple's modern photo format
 - [x] WR-P103 — **WebP** metadata cleaner — byte-level chunk parser for VP8/VP8L/VP8X RIFF (strip EXIF, XMP, ICC chunks)
-- [ ] WR-P104 — **AVIF** metadata cleaner — ISOBMFF box parser for EXIF/XMP
+- [~] WR-P104 — **AVIF** metadata cleaner — ISOBMFF box parser for EXIF/XMP
 - [ ] WR-P105 — **EPUB** metadata cleaner — strip OPF metadata (creator, contributor, dc:identifier, etc.) via zip-rewrite
 - [ ] WR-P106 — **PPTX/XLSX** metadata cleaners — extend OpenXML approach beyond DOCX
 - [ ] WR-P107 — **RTF** metadata cleaner — strip `\author`, `\generator`, `\doccomm` control words
