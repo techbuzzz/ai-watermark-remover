@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using FluentAssertions;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
@@ -1477,5 +1479,214 @@ public class MetadataCleanerTests : IDisposable
         cleaner.CanHandle(".EPUB").Should().BeTrue();
         cleaner.CanHandle(".zip").Should().BeFalse();
         cleaner.SupportedExtensions.Should().BeEquivalentTo([".epub"]);
+    }
+
+    // --- PPTX ---
+
+    [Fact]
+    public void Pptx_Inspect_FindsCreatorAndTitle()
+    {
+        string path = Path.Combine(_dir, "in.pptx");
+        TestFixtures.WritePptxWithMetadata(
+            path,
+            creator: "AI Author",
+            title: "Generated Deck",
+            lastModifiedBy: "Last Mod");
+
+        var cleaner = new PptxMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "Creator" && e.Value == "AI Author");
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "Title" && e.Value == "Generated Deck");
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "LastModifiedBy" && e.Value == "Last Mod");
+    }
+
+    [Fact]
+    public void Pptx_Clean_ClearsCoreProperties()
+    {
+        string input = Path.Combine(_dir, "in.pptx");
+        string output = Path.Combine(_dir, "out.pptx");
+        TestFixtures.WritePptxWithMetadata(
+            input,
+            creator: "AI Author",
+            title: "Generated Deck",
+            lastModifiedBy: "Last Mod");
+
+        var cleaner = new PptxMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "Creator" && e.Value == "AI Author");
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "Title" && e.Value == "Generated Deck");
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "LastModifiedBy" && e.Value == "Last Mod");
+
+        // Re-inspect the output: every Core entry is gone.
+        IReadOnlyList<MetadataEntry> remaining = cleaner.Inspect(output);
+        remaining.Should().NotContain(e => e.Container == "Core");
+    }
+
+    [Fact]
+    public void Pptx_Clean_OutputIsValidPresentation()
+    {
+        string input = Path.Combine(_dir, "in.pptx");
+        string output = Path.Combine(_dir, "out.pptx");
+        TestFixtures.WritePptxWithMetadata(input, creator: "AI Author", title: "Generated Deck");
+
+        var cleaner = new PptxMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // The output is a valid OpenXml container that re-opens.
+        using PresentationDocument doc = PresentationDocument.Open(output, isEditable: false);
+        doc.Should().NotBeNull();
+        doc.PresentationPart.Should().NotBeNull();
+        doc.PresentationPart!.SlideParts.Count().Should().Be(1);
+    }
+
+    [Fact]
+    public void Pptx_Clean_PreservesSlideShapeText()
+    {
+        string input = Path.Combine(_dir, "in.pptx");
+        string output = Path.Combine(_dir, "out.pptx");
+        TestFixtures.WritePptxWithMetadata(input);
+
+        var cleaner = new PptxMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // The slide's "Hello PPTX" text is preserved through the clean pass.
+        using PresentationDocument doc = PresentationDocument.Open(output, isEditable: false);
+        SlidePart slide = doc.PresentationPart!.SlideParts.First();
+        slide.Slide.InnerText.Should().Contain("Hello PPTX");
+    }
+
+    [Fact]
+    public void Pptx_CorruptFile_ThrowsMetadataStripException()
+    {
+        string path = Path.Combine(_dir, "bad.pptx");
+        File.WriteAllBytes(path, Encoding.ASCII.GetBytes("not a pptx file at all"));
+
+        var cleaner = new PptxMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Pptx_MissingFile_Throws()
+    {
+        var cleaner = new PptxMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.pptx"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Pptx_CanHandle_RecognisesExtension()
+    {
+        var cleaner = new PptxMetadataCleaner();
+        cleaner.CanHandle(".pptx").Should().BeTrue();
+        cleaner.CanHandle(".PPTX").Should().BeTrue();
+        cleaner.CanHandle(".docx").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".pptx"]);
+    }
+
+    // --- XLSX ---
+
+    [Fact]
+    public void Xlsx_Inspect_FindsCreatorAndTitle()
+    {
+        string path = Path.Combine(_dir, "in.xlsx");
+        TestFixtures.WriteXlsxWithMetadata(
+            path,
+            creator: "AI Author",
+            title: "Generated Sheet",
+            lastModifiedBy: "Last Mod");
+
+        var cleaner = new XlsxMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "Creator" && e.Value == "AI Author");
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "Title" && e.Value == "Generated Sheet");
+        entries.Should().Contain(e => e.Container == "Core" && e.Key == "LastModifiedBy" && e.Value == "Last Mod");
+    }
+
+    [Fact]
+    public void Xlsx_Clean_ClearsCoreProperties()
+    {
+        string input = Path.Combine(_dir, "in.xlsx");
+        string output = Path.Combine(_dir, "out.xlsx");
+        TestFixtures.WriteXlsxWithMetadata(
+            input,
+            creator: "AI Author",
+            title: "Generated Sheet",
+            lastModifiedBy: "Last Mod");
+
+        var cleaner = new XlsxMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "Creator" && e.Value == "AI Author");
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "Title" && e.Value == "Generated Sheet");
+        result.RemovedEntries.Should().Contain(e => e.Container == "Core" && e.Key == "LastModifiedBy" && e.Value == "Last Mod");
+
+        IReadOnlyList<MetadataEntry> remaining = cleaner.Inspect(output);
+        remaining.Should().NotContain(e => e.Container == "Core");
+    }
+
+    [Fact]
+    public void Xlsx_Clean_OutputIsValidWorkbook()
+    {
+        string input = Path.Combine(_dir, "in.xlsx");
+        string output = Path.Combine(_dir, "out.xlsx");
+        TestFixtures.WriteXlsxWithMetadata(input, creator: "AI Author");
+
+        var cleaner = new XlsxMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        using SpreadsheetDocument doc = SpreadsheetDocument.Open(output, isEditable: false);
+        doc.Should().NotBeNull();
+        doc.WorkbookPart.Should().NotBeNull();
+        doc.WorkbookPart!.WorksheetParts.Count().Should().Be(1);
+    }
+
+    [Fact]
+    public void Xlsx_Clean_PreservesCellValues()
+    {
+        string input = Path.Combine(_dir, "in.xlsx");
+        string output = Path.Combine(_dir, "out.xlsx");
+        TestFixtures.WriteXlsxWithMetadata(input, cellA1: "Hello Cell");
+
+        var cleaner = new XlsxMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        using SpreadsheetDocument doc = SpreadsheetDocument.Open(output, isEditable: false);
+        WorksheetPart wsPart = doc.WorkbookPart!.WorksheetParts.First();
+        Cell cell = wsPart.Worksheet.Descendants<Cell>().First();
+        cell.CellReference!.Value.Should().Be("A1");
+        cell.CellValue!.Text.Should().Be("Hello Cell");
+    }
+
+    [Fact]
+    public void Xlsx_CorruptFile_ThrowsMetadataStripException()
+    {
+        string path = Path.Combine(_dir, "bad.xlsx");
+        File.WriteAllBytes(path, Encoding.ASCII.GetBytes("not an xlsx file at all"));
+
+        var cleaner = new XlsxMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Xlsx_MissingFile_Throws()
+    {
+        var cleaner = new XlsxMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.xlsx"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Xlsx_CanHandle_RecognisesExtension()
+    {
+        var cleaner = new XlsxMetadataCleaner();
+        cleaner.CanHandle(".xlsx").Should().BeTrue();
+        cleaner.CanHandle(".XLSX").Should().BeTrue();
+        cleaner.CanHandle(".docx").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".xlsx"]);
     }
 }

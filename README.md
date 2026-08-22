@@ -46,7 +46,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 - 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
 - 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
-- 🗂️ **Strips metadata** from JPEG / PNG / PDF / DOCX / HTML / EPUB — pixel-preserving, byte-level
+- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB — pixel-preserving, byte-level
 - 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
 - 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
 - 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
@@ -298,7 +298,7 @@ Byte-level, pixel-preserving cleaners:
 - **JPEG** — segment parser (APP0–APP15, COM); strips EXIF / XMP / IPTC / ICC / C2PA
 - **PNG** — chunk filter (tEXt, zTXt, iTXt, eXIf); preserves IHDR / IDAT / IEND
 - **PDF** — `PdfPig` rebuild without document info / XMP metadata
-- **DOCX** — OpenXML core/extended/custom properties + revision history
+- **DOCX / PPTX / XLSX** — OpenXML core/extended/custom properties; DOCX also strips revision history; PPTX also strips per-slide comments + presentation-wide author list; XLSX also strips workbook-wide author list + per-worksheet threaded comments
 - **HTML** — `<meta name="generator|author">` + `<!-- comments -->` + tracking scripts
 - **EPUB** — OCF zip-rewrite; strips OPF `<dc:*>` (except `dc:identifier` kept as a fresh UUID) and `<meta>` entries; preserves every other entry byte-for-byte (XHTML / CSS / images / NCX)
 
@@ -663,7 +663,7 @@ WatermarkRemover.sln
 ├── src/
 │   ├── WatermarkRemover.Core        # Models, interfaces, configuration, DI contracts
 │   ├── WatermarkRemover.Text        # Layer A (Unicode) / B (statistical) / C (vendor) + Markdown
-│   ├── WatermarkRemover.Metadata    # JPEG / PNG / PDF / DOCX / HTML metadata cleaners
+│   ├── WatermarkRemover.Metadata    # JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB metadata cleaners
 │   ├── WatermarkRemover.Image       # Mask generation + LaMa ONNX inpainting pipeline
 │   └── WatermarkRemover.CLI         # Spectre.Console CLI + ASP.NET Core HTTP API (serve)
 └── src/tests/

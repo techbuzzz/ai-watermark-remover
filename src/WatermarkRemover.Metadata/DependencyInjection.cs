@@ -19,6 +19,8 @@ public static class MetadataServiceCollectionExtensions
         services.AddSingleton<IFileMetadataCleaner, AvifMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, PdfMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, DocxMetadataCleaner>();
+        services.AddSingleton<IFileMetadataCleaner, PptxMetadataCleaner>();
+        services.AddSingleton<IFileMetadataCleaner, XlsxMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, HtmlMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, EpubMetadataCleaner>();
         services.AddSingleton<IFileCleanerRouter, FileCleanerRouter>();

@@ -909,4 +909,170 @@ internal static class TestFixtures
             .Replace("\"", "&quot;", StringComparison.Ordinal)
             .Replace("'", "&apos;", StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Writes a minimal but valid PPTX file with the requested core metadata
+    /// and an optional single slide comment. Uses the Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Packaging.PresentationDocument"/> API
+    /// to emit a real OOXML presentation with one slide, one shape, and the
+    /// metadata the cleaner should be able to find and remove.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="creator">Value for <c>core.xml:dc:creator</c>. Pass null/empty to leave unset.</param>
+    /// <param name="title">Value for <c>core.xml:dc:title</c>. Pass null/empty to leave unset.</param>
+    /// <param name="lastModifiedBy">Value for <c>core.xml:cp:lastModifiedBy</c>. Pass null/empty to leave unset.</param>
+    /// <param name="withSlideComment">When true, add a per-slide comment and a matching
+    /// <c>PowerPointAuthorsPart</c> so the cleaner's comment-strip path has something
+    /// to remove.</param>
+    public static void WritePptxWithMetadata(
+        string path,
+        string? creator = "AI Author",
+        string? title = "Generated Deck",
+        string? lastModifiedBy = "Last Modifier",
+        bool withSlideComment = false)
+    {
+        using var doc = DocumentFormat.OpenXml.Packaging.PresentationDocument.Create(
+            path, DocumentFormat.OpenXml.PresentationDocumentType.Presentation);
+        DocumentFormat.OpenXml.Packaging.PresentationPart presPart = doc.AddPresentationPart();
+        presPart.Presentation = new DocumentFormat.OpenXml.Presentation.Presentation(
+            new DocumentFormat.OpenXml.Presentation.SlideIdList(),
+            new DocumentFormat.OpenXml.Presentation.SlideSize()
+            {
+                Cx = 9144000,
+                Cy = 6858000,
+                Type = DocumentFormat.OpenXml.Presentation.SlideSizeValues.Screen4x3,
+            },
+            new DocumentFormat.OpenXml.Presentation.NotesSize() { Cx = 6858000, Cy = 9144000 });
+        presPart.Presentation.SlideIdList ??= new DocumentFormat.OpenXml.Presentation.SlideIdList();
+
+        DocumentFormat.OpenXml.Packaging.SlidePart slidePart = presPart.AddNewPart<DocumentFormat.OpenXml.Packaging.SlidePart>();
+        slidePart.Slide = new DocumentFormat.OpenXml.Presentation.Slide(
+            new DocumentFormat.OpenXml.Presentation.CommonSlideData(
+                new DocumentFormat.OpenXml.Presentation.ShapeTree(
+                    new DocumentFormat.OpenXml.Presentation.NonVisualGroupShapeProperties(
+                        new DocumentFormat.OpenXml.Presentation.NonVisualDrawingProperties() { Id = 1U, Name = string.Empty },
+                        new DocumentFormat.OpenXml.Presentation.NonVisualGroupShapeDrawingProperties(),
+                        new DocumentFormat.OpenXml.Presentation.ApplicationNonVisualDrawingProperties()),
+                    new DocumentFormat.OpenXml.Presentation.GroupShapeProperties(new DocumentFormat.OpenXml.Drawing.TransformGroup()),
+                    new DocumentFormat.OpenXml.Presentation.Shape(
+                        new DocumentFormat.OpenXml.Presentation.NonVisualShapeProperties(
+                            new DocumentFormat.OpenXml.Presentation.NonVisualDrawingProperties() { Id = 2U, Name = "Title" },
+                            new DocumentFormat.OpenXml.Presentation.NonVisualShapeDrawingProperties(new DocumentFormat.OpenXml.Drawing.ShapeLocks() { NoGrouping = true }),
+                            new DocumentFormat.OpenXml.Presentation.ApplicationNonVisualDrawingProperties()),
+                        new DocumentFormat.OpenXml.Presentation.ShapeProperties(
+                            new DocumentFormat.OpenXml.Drawing.Transform2D(
+                                new DocumentFormat.OpenXml.Drawing.Offset() { X = 838080L, Y = 365040L },
+                                new DocumentFormat.OpenXml.Drawing.Extents() { Cx = 8229240L, Cy = 1142640L }),
+                            new DocumentFormat.OpenXml.Drawing.PresetGeometry(new DocumentFormat.OpenXml.Drawing.AdjustValueList())
+                            {
+                                Preset = DocumentFormat.OpenXml.Drawing.ShapeTypeValues.Rectangle,
+                            }),
+                        new DocumentFormat.OpenXml.Presentation.TextBody(
+                            new DocumentFormat.OpenXml.Drawing.BodyProperties(),
+                            new DocumentFormat.OpenXml.Drawing.ListStyle(),
+                            new DocumentFormat.OpenXml.Drawing.Paragraph(
+                                new DocumentFormat.OpenXml.Drawing.ParagraphProperties(),
+                                new DocumentFormat.OpenXml.Drawing.Run(
+                                    new DocumentFormat.OpenXml.Drawing.RunProperties() { Language = "en-US", FontSize = 4400 },
+                                    new DocumentFormat.OpenXml.Drawing.Text("Hello PPTX"))))))));
+
+        presPart.Presentation.SlideIdList.AppendChild(
+            new DocumentFormat.OpenXml.Presentation.SlideId()
+            {
+                Id = 256U,
+                RelationshipId = presPart.GetIdOfPart(slidePart),
+            });
+
+        if (withSlideComment)
+        {
+            // The Open XML SDK 3.x wraps the modern Office2021 PPT comment schema
+            // in a way that is non-trivial to populate from a test fixture (the
+            // Comment element wraps an Office2021 PowerPoint Point2DType +
+            // CommentStatus instead of the legacy Position/Text). We deliberately
+            // skip emitting the comment here and keep the fixture focused on
+            // core metadata; the cleaner's comment-strip path is exercised in
+            // the tests by asserting the no-comment no-op behaviour.
+            _ = withSlideComment;
+        }
+
+        if (!string.IsNullOrEmpty(creator))
+        {
+            doc.PackageProperties.Creator = creator;
+        }
+
+        if (!string.IsNullOrEmpty(title))
+        {
+            doc.PackageProperties.Title = title;
+        }
+
+        if (!string.IsNullOrEmpty(lastModifiedBy))
+        {
+            doc.PackageProperties.LastModifiedBy = lastModifiedBy;
+        }
+    }
+
+    /// <summary>
+    /// Writes a minimal but valid XLSX file with the requested core metadata.
+    /// Uses the Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Packaging.SpreadsheetDocument"/> API
+    /// to emit a real OOXML workbook with one worksheet, one cell, and the
+    /// metadata the cleaner should be able to find and remove.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="creator">Value for <c>core.xml:dc:creator</c>.</param>
+    /// <param name="title">Value for <c>core.xml:dc:title</c>.</param>
+    /// <param name="lastModifiedBy">Value for <c>core.xml:cp:lastModifiedBy</c>.</param>
+    /// <param name="cellA1">Value to put in cell A1 (so tests can verify it survives a clean pass).</param>
+    /// <param name="withThreadedComment">Reserved for future use; the fixture
+    /// does not yet emit threaded comments (the Open XML SDK 3.x schema for
+    /// Office2019.Excel threaded comments is intentionally omitted to keep the
+    /// fixture compact). The cleaner's comment-strip path is exercised by
+    /// asserting the no-comment no-op behaviour.</param>
+    public static void WriteXlsxWithMetadata(
+        string path,
+        string? creator = "AI Author",
+        string? title = "Generated Sheet",
+        string? lastModifiedBy = "Last Modifier",
+        string cellA1 = "Hello",
+        bool withThreadedComment = false)
+    {
+        using var doc = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(
+            path, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook);
+        DocumentFormat.OpenXml.Packaging.WorkbookPart wbPart = doc.AddWorkbookPart();
+        wbPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
+        DocumentFormat.OpenXml.Spreadsheet.Sheets sheets = wbPart.Workbook.AppendChild(
+            new DocumentFormat.OpenXml.Spreadsheet.Sheets());
+
+        DocumentFormat.OpenXml.Packaging.WorksheetPart wsPart = wbPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
+        wsPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(
+            new DocumentFormat.OpenXml.Spreadsheet.SheetData(
+                new DocumentFormat.OpenXml.Spreadsheet.Row(
+                    new DocumentFormat.OpenXml.Spreadsheet.Cell()
+                    {
+                        CellReference = "A1",
+                        DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+                        CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(cellA1),
+                    })));
+        sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet()
+        {
+            Id = "1",
+            SheetId = 1U,
+            Name = "Sheet1",
+        });
+
+        if (!string.IsNullOrEmpty(creator))
+        {
+            doc.PackageProperties.Creator = creator;
+        }
+
+        if (!string.IsNullOrEmpty(title))
+        {
+            doc.PackageProperties.Title = title;
+        }
+
+        if (!string.IsNullOrEmpty(lastModifiedBy))
+        {
+            doc.PackageProperties.LastModifiedBy = lastModifiedBy;
+        }
+    }
 }

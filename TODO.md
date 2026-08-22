@@ -29,7 +29,7 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
-### WR-S22. [~] PPTX + XLSX metadata cleaners
+### WR-S22. [x] PPTX + XLSX metadata cleaners
 
 - **Why:** BACKLOG P1 — `.pptx` and `.xlsx` files (Microsoft Office Open
   XML, the same ZIP-of-XML container family as `.docx`/`.epub`) are
@@ -726,6 +726,52 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-P106 — PPTX + XLSX metadata cleaners
+      (`src/WatermarkRemover.Metadata/OpenXmlCoreMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/PptxMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/XlsxMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/DependencyInjection.cs` +
+      `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` +
+      `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` +
+      `README.md` + `BACKLOG.md` + `CHANGELOG.md`)** — `.pptx` and
+      `.xlsx` files now flow through the same metadata-strip pipeline as
+      JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / HTML / EPUB.
+      Both new cleaners are built on the same Open XML SDK 3.2.0 already
+      pinned in `Directory.Packages.props`. A new internal shared helper
+      `OpenXmlCoreMetadataCleaner` mutates the parts every Microsoft
+      Open XML format ships (`core.xml` / `app.xml` / `custom.xml`)
+      through the package's `Parts` collection, so the helper works
+      against the common `OpenXmlPackage` base class without needing
+      per-document-type accessors. `PptxMetadataCleaner` then walks
+      every per-slide `PowerPointCommentPart` + the presentation-wide
+      `authorsPart` (`PowerPointAuthorsPart`) and deletes them, so
+      slide comments and their authorship go away with the rest of
+      the metadata; the slide content (text, shapes, layout) is
+      preserved byte-for-byte. `XlsxMetadataCleaner` then walks
+      every per-worksheet `WorksheetCommentsPart` +
+      `WorksheetThreadedCommentsPart` and the workbook-wide
+      `CommentAuthorsPart` and deletes them all, so cell comments
+      and their authorship go away too; cell values, formulas, and
+      the shared string table are preserved. Both cleaners
+      re-validate the output as a real `PresentationDocument` /
+      `SpreadsheetDocument` and surface `MetadataStripException` for
+      corrupt / non-Office-Open-XML inputs. The router is updated:
+      `AddWatermarkRemoverMetadata` registers both new cleaners;
+      `FileCleanerRouter` resolves `.pptx` and `.xlsx` (case-
+      insensitive) to them. The package description and tags on
+      `WatermarkRemover.Metadata.csproj` now list PPTX + XLSX.
+      README adds the two formats to the supported-format list, the
+      metadata section, and the project-tree one-liner. **20 new
+      xUnit tests** in `WatermarkRemover.Metadata.Tests` (7 PPTX
+      cleaner tests + 7 XLSX cleaner tests covering Inspect / Clean
+      / round-trip / content preservation / corrupt input / missing
+      file / `CanHandle`; plus 6 router theory + fact rows for
+      `.pptx`/`.PPTX`/`.xlsx`/`.XLSX`). Build clean (0 warnings,
+      0 errors), **592 xUnit tests total** (81 + 35 + 9 + 121 + 39
+      + 307), all green.
 
 - [x] **WR-P105 — EPUB metadata cleaner
       (`src/WatermarkRemover.Metadata/EpubMetadataCleaner.cs` +
