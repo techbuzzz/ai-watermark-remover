@@ -72,7 +72,7 @@ public class CleanAllCommandTests : IDisposable
         WritePngWithText(Path.Combine(_tempDir, "c.png"), "Comment", "watermark");
 
         // Act
-        int exit = await _command.ExecuteAsync(NewContext(), NewSettings(path: _tempDir));
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(_command, NewContext(), NewSettings(path: _tempDir), CancellationToken.None);
 
         // Assert: every supported extension produced a `.cleaned.*` file
         // and the originals are untouched. Text ZWSP is gone; PNG tEXt
@@ -106,8 +106,8 @@ public class CleanAllCommandTests : IDisposable
         WriteText(Path.Combine(sub, "deep.txt"), "deep\u200Btext");
 
         // Without --recursive: only top.txt is processed.
-        int nonRecursiveExit = await _command.ExecuteAsync(
-            NewContext(), NewSettings(path: _tempDir, recursive: false));
+        int nonRecursiveExit = await CommandTestHelpers.InvokeExecuteAsync(_command, 
+            NewContext(), NewSettings(path: _tempDir, recursive: false), CancellationToken.None);
         nonRecursiveExit.Should().Be(0);
         File.Exists(Path.Combine(_tempDir, "top.cleaned.txt")).Should().BeTrue();
         File.Exists(Path.Combine(sub, "deep.cleaned.txt")).Should().BeFalse();
@@ -116,8 +116,8 @@ public class CleanAllCommandTests : IDisposable
         File.Delete(Path.Combine(_tempDir, "top.cleaned.txt"));
 
         // With --recursive: both files cleaned.
-        int recursiveExit = await _command.ExecuteAsync(
-            NewContext(), NewSettings(path: _tempDir, recursive: true));
+        int recursiveExit = await CommandTestHelpers.InvokeExecuteAsync(_command, 
+            NewContext(), NewSettings(path: _tempDir, recursive: true), CancellationToken.None);
         recursiveExit.Should().Be(0);
         File.Exists(Path.Combine(_tempDir, "top.cleaned.txt")).Should().BeTrue();
         File.Exists(Path.Combine(sub, "deep.cleaned.txt")).Should().BeTrue();
@@ -132,7 +132,7 @@ public class CleanAllCommandTests : IDisposable
         string binPath = Path.Combine(_tempDir, "blob.bin");
         File.WriteAllBytes(binPath, [0x00, 0x01, 0x02, 0xFF, 0xFE]);
 
-        int exit = await _command.ExecuteAsync(NewContext(), NewSettings(path: _tempDir));
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(_command, NewContext(), NewSettings(path: _tempDir), CancellationToken.None);
 
         exit.Should().Be(0);
         File.Exists(Path.Combine(_tempDir, "blob.cleaned.bin")).Should().BeFalse();
@@ -146,8 +146,8 @@ public class CleanAllCommandTests : IDisposable
         WriteText(Path.Combine(_tempDir, "note.txt"), "Hello\u200B world");
         WriteText(Path.Combine(_tempDir, "readme.md"), "# title");
 
-        int exit = await _command.ExecuteAsync(
-            NewContext(), NewSettings(path: _tempDir, dryRun: true));
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(_command, 
+            NewContext(), NewSettings(path: _tempDir, dryRun: true), CancellationToken.None);
 
         exit.Should().Be(0);
         File.Exists(Path.Combine(_tempDir, "note.cleaned.txt")).Should().BeFalse();
@@ -163,7 +163,7 @@ public class CleanAllCommandTests : IDisposable
         string txt = Path.Combine(_tempDir, "solo.txt");
         WriteText(txt, "Hello\u200B world");
 
-        int exit = await _command.ExecuteAsync(NewContext(), NewSettings(path: txt));
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(_command, NewContext(), NewSettings(path: txt), CancellationToken.None);
 
         exit.Should().Be(0);
         File.Exists(Path.Combine(_tempDir, "solo.cleaned.txt")).Should().BeTrue();
@@ -172,8 +172,8 @@ public class CleanAllCommandTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_MissingPath_ReturnsError()
     {
-        int exit = await _command.ExecuteAsync(
-            NewContext(), NewSettings(path: Path.Combine(_tempDir, "does-not-exist")));
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(_command, 
+            NewContext(), NewSettings(path: Path.Combine(_tempDir, "does-not-exist")), CancellationToken.None);
 
         exit.Should().Be(1);
     }

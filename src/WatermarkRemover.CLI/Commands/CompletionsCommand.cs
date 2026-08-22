@@ -25,7 +25,7 @@ public sealed class CompletionsCommand : AsyncCommand<CompletionsCommand.Setting
         public string Shell { get; init; } = "bash";
     }
 
-    public override Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(settings.Shell))
         {

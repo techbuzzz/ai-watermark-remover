@@ -37,10 +37,9 @@ public sealed class CleanMarkdownCommand(IMarkdownCleaner cleaner, AppConfig con
         public bool StripLinks { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
-        string input = await IoHelper.ReadTextAsync(settings.Markdown, settings.Input, ct).ConfigureAwait(false);
+        string input = await IoHelper.ReadTextAsync(settings.Markdown, settings.Input, cancellationToken).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(input))
         {
@@ -69,7 +68,7 @@ public sealed class CleanMarkdownCommand(IMarkdownCleaner cleaner, AppConfig con
 
         if (!settings.DryRun)
         {
-            await IoHelper.WriteTextAsync(settings.Output, result.Cleaned, ct).ConfigureAwait(false);
+            await IoHelper.WriteTextAsync(settings.Output, result.Cleaned, cancellationToken).ConfigureAwait(false);
         }
 
         if (settings.Verbose || settings.DryRun)

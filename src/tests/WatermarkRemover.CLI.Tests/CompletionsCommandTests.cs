@@ -119,7 +119,7 @@ public class CompletionsCommandTests
             Console.SetOut(capture);
             Console.SetError(capture);
 
-            int exit = await command.ExecuteAsync(NewContext(), settings);
+            int exit = await CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), settings, CancellationToken.None);
 
             exit.Should().Be(0);
         }
@@ -142,7 +142,7 @@ public class CompletionsCommandTests
 
         // The error path writes to the Spectre renderer; we don't need to
         // capture it, but we still need the command's exit code to be 1.
-        int exit = await command.ExecuteAsync(NewContext(), settings);
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), settings, CancellationToken.None);
         exit.Should().Be(1);
     }
 
@@ -152,7 +152,7 @@ public class CompletionsCommandTests
         CompletionsCommand command = new();
         var settings = new CompletionsCommand.Settings { Shell = "" };
 
-        int exit = await command.ExecuteAsync(NewContext(), settings);
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), settings, CancellationToken.None);
         exit.Should().Be(1);
     }
 

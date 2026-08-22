@@ -22,9 +22,8 @@ public sealed class DownloadModelCommand(IModelDownloader downloader) : AsyncCom
         public bool Force { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
 
         try
         {
@@ -34,7 +33,7 @@ public sealed class DownloadModelCommand(IModelDownloader downloader) : AsyncCom
                 {
                     ProgressTask task = ctx.AddTask("[green]Downloading model[/]", maxValue: 1.0);
                     Progress<double> progress = new(p => task.Value = Math.Clamp(p, 0, 1));
-                    return await _downloader.DownloadAsync(settings.Destination, settings.Force, progress, ct).ConfigureAwait(false);
+                    return await _downloader.DownloadAsync(settings.Destination, settings.Force, progress, cancellationToken).ConfigureAwait(false);
                 }).ConfigureAwait(false);
 
             if (settings.Json)

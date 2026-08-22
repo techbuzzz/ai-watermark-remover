@@ -41,9 +41,8 @@ public sealed class CleanAllCommand(
         public string Suffix { get; init; } = ".cleaned";
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
         List<string> files = ResolveFiles(settings);
         if (files.Count == 0)
         {
@@ -75,7 +74,7 @@ public sealed class CleanAllCommand(
             {
                 FileOutcome outcome = settings.DryRun
                     ? PlanDryRun(file, pipeline)
-                    : await CleanFile(file, pipeline, settings, ct).ConfigureAwait(false);
+                    : await CleanFile(file, pipeline, settings, cancellationToken).ConfigureAwait(false);
 
                 succeeded.Add(outcome);
             }

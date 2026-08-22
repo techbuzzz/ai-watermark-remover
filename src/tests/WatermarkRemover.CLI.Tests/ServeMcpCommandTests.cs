@@ -113,7 +113,7 @@ public class ServeMcpCommandTests
         // HTTP path is up and never see the connection attempts.
         ServeMcpCommand command = NewCommand();
 
-        int exit = await command.ExecuteAsync(NewContext(), new ServeMcpCommand.Settings { Transport = "websocket" });
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), new ServeMcpCommand.Settings { Transport = "websocket" }, CancellationToken.None);
 
         exit.Should().Be(1);
     }
@@ -134,7 +134,7 @@ public class ServeMcpCommandTests
         // transports (the check runs before the transport switch),
         // but it's only meaningful for HTTP. We pass the default
         // (stdio) and the early validation still trips.
-        int exit = await command.ExecuteAsync(NewContext(), new ServeMcpCommand.Settings());
+        int exit = await CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), new ServeMcpCommand.Settings(), CancellationToken.None);
 
         exit.Should().Be(1);
     }
@@ -151,7 +151,7 @@ public class ServeMcpCommandTests
         ServeMcpCommand command = NewCommand();
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
-        Task<int> run = command.ExecuteAsync(NewContext(), new ServeMcpCommand.Settings { Transport = "stdio" });
+        Task<int> run = CommandTestHelpers.InvokeExecuteAsync(command, NewContext(), new ServeMcpCommand.Settings { Transport = "stdio" }, CancellationToken.None);
 
         // Wait for the command to either complete or be cancelled.
         // A successful exit (0) means the host built + ran + shut

@@ -85,10 +85,21 @@ public sealed class HtmlMetadataCleaner : IFileMetadataCleaner
 
             if (name == "meta")
             {
-                string key = node.GetAttributeValue("name", null)
-                    ?? node.GetAttributeValue("property", null)
-                    ?? node.GetAttributeValue("http-equiv", null)
-                    ?? string.Empty;
+                // HtmlAgilityPack 1.12 made GetAttributeValue's default
+                // parameter non-nullable, so we pass string.Empty and
+                // fall through with explicit IsNullOrEmpty checks rather
+                // than the previous null-coalescing chain.
+                string key = node.GetAttributeValue("name", string.Empty);
+                if (string.IsNullOrEmpty(key))
+                {
+                    key = node.GetAttributeValue("property", string.Empty);
+                }
+
+                if (string.IsNullOrEmpty(key))
+                {
+                    key = node.GetAttributeValue("http-equiv", string.Empty);
+                }
+
                 if (MetaNames.Contains(key))
                 {
                     string content = node.GetAttributeValue("content", string.Empty);

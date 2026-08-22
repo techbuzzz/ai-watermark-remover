@@ -1945,7 +1945,7 @@ public class MetadataCleanerTests : IDisposable
         // The slide's "Hello PPTX" text is preserved through the clean pass.
         using PresentationDocument doc = PresentationDocument.Open(output, isEditable: false);
         SlidePart slide = doc.PresentationPart!.SlideParts.First();
-        slide.Slide.InnerText.Should().Contain("Hello PPTX");
+        slide.Slide!.InnerText.Should().Contain("Hello PPTX");
     }
 
     [Fact]
@@ -2047,7 +2047,7 @@ public class MetadataCleanerTests : IDisposable
 
         using SpreadsheetDocument doc = SpreadsheetDocument.Open(output, isEditable: false);
         WorksheetPart wsPart = doc.WorkbookPart!.WorksheetParts.First();
-        Cell cell = wsPart.Worksheet.Descendants<Cell>().First();
+        Cell cell = wsPart.Worksheet!.Descendants<Cell>().First()!;
         cell.CellReference!.Value.Should().Be("A1");
         cell.CellValue!.Text.Should().Be("Hello Cell");
     }

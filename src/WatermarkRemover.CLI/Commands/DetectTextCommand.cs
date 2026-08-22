@@ -23,10 +23,9 @@ public sealed class DetectTextCommand(ITextCleaningPipeline pipeline) : AsyncCom
         public string? Input { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
-        string input = await IoHelper.ReadTextAsync(settings.Text, settings.Input, ct).ConfigureAwait(false);
+        string input = await IoHelper.ReadTextAsync(settings.Text, settings.Input, cancellationToken).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(input))
         {

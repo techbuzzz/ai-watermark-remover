@@ -19,7 +19,7 @@ public sealed class InspectFileCommand(IFileCleanerRouter router) : AsyncCommand
         public string Path { get; init; } = string.Empty;
     }
 
-    public override Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (!File.Exists(settings.Path))
         {

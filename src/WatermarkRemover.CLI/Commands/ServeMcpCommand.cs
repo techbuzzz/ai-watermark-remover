@@ -107,7 +107,7 @@ public sealed class ServeMcpCommand : AsyncCommand<ServeMcpCommand.Settings>
         _logger = logger;
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         // Parse the transport up-front so an unknown value fails with
         // a clear error rather than silently falling back to stdio.

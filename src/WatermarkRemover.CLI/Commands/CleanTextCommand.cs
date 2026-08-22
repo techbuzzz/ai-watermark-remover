@@ -42,10 +42,9 @@ public sealed class CleanTextCommand(ITextCleaningPipeline pipeline, AppConfig c
         public string? LlmEndpoint { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
-        string input = await IoHelper.ReadTextAsync(settings.Text, settings.Input, ct).ConfigureAwait(false);
+        string input = await IoHelper.ReadTextAsync(settings.Text, settings.Input, cancellationToken).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(input))
         {
@@ -62,7 +61,7 @@ public sealed class CleanTextCommand(ITextCleaningPipeline pipeline, AppConfig c
             LlmModel = _config.Text.LlmModel,
         };
 
-        TextCleanResult result = await _pipeline.CleanAsync(input, options, ct).ConfigureAwait(false);
+        TextCleanResult result = await _pipeline.CleanAsync(input, options, cancellationToken).ConfigureAwait(false);
 
         if (settings.Json)
         {
@@ -72,7 +71,7 @@ public sealed class CleanTextCommand(ITextCleaningPipeline pipeline, AppConfig c
 
         if (!settings.DryRun)
         {
-            await IoHelper.WriteTextAsync(settings.Output, result.Cleaned, ct).ConfigureAwait(false);
+            await IoHelper.WriteTextAsync(settings.Output, result.Cleaned, cancellationToken).ConfigureAwait(false);
         }
 
         if (settings.Verbose || settings.DryRun)

@@ -34,9 +34,8 @@ public sealed class CleanImageCommand(IImageCleaningPipeline pipeline, AppConfig
         public double? Threshold { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        CancellationToken ct = CancellationToken.None;
 
         if (!File.Exists(settings.Image))
         {
@@ -69,7 +68,7 @@ public sealed class CleanImageCommand(IImageCleaningPipeline pipeline, AppConfig
             return 0;
         }
 
-        ImageCleanResult result = await _pipeline.CleanAsync(settings.Image, outputPath, options, ct).ConfigureAwait(false);
+        ImageCleanResult result = await _pipeline.CleanAsync(settings.Image, outputPath, options, cancellationToken).ConfigureAwait(false);
 
         if (settings.Json)
         {

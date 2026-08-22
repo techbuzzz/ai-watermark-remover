@@ -17,6 +17,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependency refresh (chore-deps)** — bumped all central package
+  versions to current stable releases: `DocumentFormat.OpenXml`
+  3.2.0 → 3.5.1, `FluentAssertions` 6.12.0 → 8.10.0,
+  `HtmlAgilityPack` 1.11.0 → 1.12.4, `Microsoft.ML.OnnxRuntime`
+  1.19.0 → 1.29.0, `Microsoft.NET.Test.Sdk` 17.11.1 → 18.9.0,
+  `Microsoft.OpenApi` 2.7.5 → 3.10.2 (reverted to 2.7.5 below),
+  `Serilog` 4.0.0 → 4.4.0, `Serilog.Extensions.Logging` 8.0.0 →
+  10.0.0, `Serilog.Sinks.Console` 6.0.0 → 6.1.1, `Serilog.Sinks.File`
+  6.0.0 → 7.0.0, `Spectre.Console` 0.49.0 → 0.57.2,
+  `Spectre.Console.Cli` 0.49.0 → 0.55.0, `Swashbuckle.AspNetCore`
+  10.1.1 → 10.2.3, `xunit` 2.9.2 → 2.9.3, `xunit.runner.visualstudio`
+  2.8.2 → 4.0.0, `YamlDotNet` 16.0.0 → 18.1.0, plus matching bumps
+  to `Microsoft.Extensions.*` packages. Reverted `Microsoft.OpenApi`
+  to 2.7.5 — Swashbuckle 10.2.3's transitive dep is the 2.x line
+  and the 3.10.2 binary is not compatible with its reflection calls
+  into `IOpenApiRequestBody.get_Content()` (manifests as
+  `MissingMethodException` during `/swagger/v1/swagger.json`).
+- **Spectre.Console.Cli 0.55 API migration** — the framework changed
+  the `AsyncCommand<TSettings>.ExecuteAsync` signature to take a
+  `CancellationToken` *and* to expose it as `protected` (was `public`).
+  All thirteen CLI command subclasses now override
+  `protected override … ExecuteAsync(…, CancellationToken)` and
+  pass the token through to async pipeline calls. The `CleanAllCommand`,
+  `CompletionsCommand`, and `ServeMcpCommand` test suites now invoke
+  `ExecuteAsync` through a new
+  `WatermarkRemover.CLI.Tests.CommandTestHelpers.InvokeExecuteAsync`
+  reflection helper (the only practical way to drive the framework
+  method from a test assembly without going through the full
+  `CommandApp` argv parser).
+- **FluentAssertions 8 API rename** — `BeGreaterOrEqualTo` →
+  `BeGreaterThanOrEqualTo` in `RateLimitConfigTests`.
+- **HtmlAgilityPack 1.12 nullability** — `GetAttributeValue` no
+  longer accepts `null` for the default-value argument; the
+  `HtmlMetadataCleaner` now uses a cascade of
+  `IsNullOrEmpty` checks instead of the previous null-coalescing
+  chain.
+- **OpenXml SDK 3.5 nullability** — `Worksheet` is now nullable in
+  the SDK, so two PPTX/XLSX test assertions had to adopt
+  null-forgiving operators (`!.`).
+- **Test runner `PrivateAssets`** — the four test csprojs now
+  declare `<PrivateAssets>all</PrivateAssets>` +
+  `<IncludeAssets>…</IncludeAssets>` on the
+  `xunit.runner.visualstudio` reference, matching the convention
+  already used by `coverlet.collector`. Keeps the runner out of the
+  transitive closure for downstream consumers.
+
 ### Added
 - **MP4 / MOV / M4V / M4A / M4B / M4P / 3GP / 3G2 metadata cleaner
   (`Mp4MetadataCleaner`, WR-P108)** — `.mp4` / `.mov` / `.m4v` / `.m4a`

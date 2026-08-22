@@ -40,7 +40,7 @@ public sealed class RateLimitConfigTests
 
         rl.PermitLimit.Should().BeGreaterThan(0, "the limiter must allow at least one request");
         rl.WindowSeconds.Should().BeGreaterThan(0, "the window must have a positive length");
-        rl.QueueLimit.Should().BeGreaterOrEqualTo(0, "0 means no queueing, which is valid");
+        rl.QueueLimit.Should().BeGreaterThanOrEqualTo(0, "0 means no queueing, which is valid");
     }
 
     [Fact]

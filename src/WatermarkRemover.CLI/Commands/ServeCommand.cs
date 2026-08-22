@@ -83,7 +83,7 @@ public sealed class ServeCommand(
         public int? MaxUploadMB { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         // Resolve rate-limit knobs once, up-front, so we can fail fast on bad input
         // before binding sockets. CLI > config.yaml > built-in default.

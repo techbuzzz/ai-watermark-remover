@@ -30,7 +30,7 @@ public sealed class CleanFileCommand(IFileCleanerRouter router, AppConfig config
         public string Suffix { get; init; } = ".cleaned";
     }
 
-    public override Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         List<string> files = ResolveFiles(settings);
         if (files.Count == 0)
