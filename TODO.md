@@ -712,7 +712,125 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 ## In progress
 
-*(empty — no tick is currently assigned)*
+### WR-S23. [~] DeepSeek / Grok / Mistral vendor detectors (Layer C)
+
+- **Why:** BACKLOG P1 — the `IAiTextWatermarkDetector` registry currently
+  ships three vendors (Claude, Gemini, OpenAI). DeepSeek, Grok, and
+  Mistral all carry detectable, character-level traces in their outputs
+  and the README's P1 roadmap already lists this work as the next item
+  (README:740). Layer C runs last, so each new detector is purely
+  additive — no other pipeline changes. All three vendors are pure-managed
+  detections (no key, no remote call, no model), so the cost per detector
+  is one file in `Vendors/` and one DI line, matching the existing
+  pattern.
+- **Scope:** `src/WatermarkRemover.Text/Vendors/`,
+  `src/WatermarkRemover.Text/DependencyInjection.cs`,
+  `src/tests/WatermarkRemover.Text.Tests/VendorDetectorTests.cs`,
+  `README.md`, `BACKLOG.md`, `CHANGELOG.md`.
+- **Files to touch:**
+  - New `src/WatermarkRemover.Text/Vendors/DeepSeekWatermarkDetector.cs`
+    — `VendorName = "DeepSeek"`. Two pattern families:
+    - **Reasoning-block**: literal `<` followed by `think` or
+      `/think`, with optional `>` and matching close-tag. DeepSeek-R1
+      routinely leaks its `<think>…</think>` reasoning trace into the
+      final answer (the rendered chain-of-thought is meant to be
+      stripped by the serving stack, but the user-visible copy often
+      still carries the tags). Match each tag as a `WatermarkMatch`
+      with pattern `reasoning-block`. Confidence 0.95 (very high —
+      this string is not in natural prose).
+    - **Fullwidth punctuation**: a code point in the
+      `U+FF01`–`U+FF5E` range (full-width `!` to `~` — the CJK
+      ASCII twin block) when the previous or next character is
+      ASCII Latin. DeepSeek's training data has an over-representation
+      of CJK text, so a full-width comma, period, or question mark
+      sitting inside an otherwise Latin sentence is a strong stylistic
+      fingerprint. Match each such code point as a `WatermarkMatch`
+      with pattern `fullwidth-punctuation`. Confidence 0.7
+      (a single full-width mark in a mostly-Latin passage is
+      suspicious; a sentence of full-width is just Chinese).
+    - `Remove`: strip the `<think>` / `</think>` tags verbatim
+      (including any surrounding whitespace), and normalise each
+      full-width code point in the `U+FF01`–`U+FF5E` range to its
+      ASCII equivalent (`U+0021`–`U+007E`).
+  - New `src/WatermarkRemover.Text/Vendors/GrokWatermarkDetector.cs`
+    — `VendorName = "Grok"`. Two pattern families:
+    - **Emoji burst**: 3+ consecutive emoji code points (anything in
+      the BMP supplementary planes commonly classified as emoji —
+      `U+1F300`–`U+1FAFF`, `U+2600`–`U+27BF`, `U+1F1E6`–`U+1F1FF`
+      regional indicators, the `U+FE0F` variation selector).
+      Grok's `grok-2` persona frequently injects 3–5 emoji in a row
+      at the start of a response. Match each run with pattern
+      `emoji-burst`. Confidence 0.6.
+    - **Em-dash cluster**: 3+ consecutive `U+2014` em-dashes
+      (sometimes with intervening zero-width joiners). Grok's
+      outputs overuse em-dashes in a way the other vendors don't.
+      Match the run with pattern `em-dash-cluster`. Confidence 0.7.
+    - `Remove`: collapse each emoji burst to a single emoji
+      (the first in the run), and collapse each em-dash cluster
+      to a single em-dash. This keeps the document readable
+      rather than stripping the whole fingerprint.
+  - New `src/WatermarkRemover.Text/Vendors/MistralWatermarkDetector.cs`
+    — `VendorName = "Mistral"`. One pattern family:
+    - **Template-leak**: the literal Mistral chat-template
+      markers that sometimes survive a renderer's prompt
+      sanitisation. Six tokens, all case-sensitive: `[INST]`,
+      `[/INST]`, `<<SYS>>`, `<</SYS>>`, `<s>`, `</s>`. Each is
+      a 100% sure signal — these are never natural prose. Match
+      each occurrence with pattern `template-leak`. Confidence 0.99.
+    - `Remove`: drop the markers entirely. If `[INST]` immediately
+      precedes user-style content and `[/INST]` immediately follows
+      it, leave a single space between (so the cleaned sentence
+      still has word boundaries), otherwise drop without a space.
+  - `src/WatermarkRemover.Text/DependencyInjection.cs` — register
+    the three new detectors next to the existing Claude / Gemini /
+    OpenAI block (same `AddSingleton<IAiTextWatermarkDetector, …>()`
+    pattern).
+  - `src/WatermarkRemover.Text/WatermarkRemover.Text.csproj` — add
+    `deepseek` and `grok` and `mistral` to the `<PackageTags>`
+    list and mention all three in `<PackageDescription>`.
+  - `src/tests/WatermarkRemover.Text.Tests/VendorDetectorTests.cs`
+    — extend the existing `Detectors` member data, add at least
+    **6 facts per new detector** (positive detection + removal +
+    negative / "clean text" + at least one boundary case):
+    - **DeepSeek** (6): reasoning-tag detected and removed;
+      reasoning-tag content preserved; full-width comma flagged;
+      full-width `~` flagged; clean text returns no matches;
+      mixed Latin + full-width returns a single fullwidth match
+      (not a run).
+    - **Grok** (6): emoji burst detected; emoji burst collapsed
+      to one emoji on Remove; em-dash cluster detected and
+      collapsed; single emoji does NOT match; single em-dash
+      does NOT match; clean text returns no matches.
+    - **Mistral** (6): `[INST]…[/INST]` block detected and
+      stripped; `<<SYS>>…<</SYS>>` detected and stripped;
+      `<s>` / `</s>` sentence-piece markers detected and
+      stripped; multiple `[INST]` occurrences each get their
+      own `WatermarkMatch`; clean text returns no matches; the
+      `Remove` call is a no-op for empty `matches` (boundary).
+- **Acceptance:**
+  - `dotnet build` clean (0 warnings, 0 errors).
+  - `dotnet test` clean; at least **18 new tests** (6 per new
+    detector) on top of the existing 35 Text.Tests, all green.
+  - `Layer C` picks up all three new vendors automatically —
+    a `clean-text` run on a fixture containing `<think>` /
+    `[INST]` / an emoji burst must return cleaned text with
+    those markers gone (verifiable through a single
+    `Pipeline_RunsLayerCForAllRegisteredDetectors` test or
+    via the existing `TextCleaningPipelineTests` suite).
+  - Each detector's `VendorName` is exact (`"DeepSeek"`,
+    `"Grok"`, `"Mistral"`) — the orchestrator's
+    `detections.AddRange(matches)` carries that string through
+    to JSON output and downstream consumers rely on it.
+- **Risks:** None — pure managed code, no model download, no
+  external dependency. The detectors' patterns are deliberately
+  *high-precision, low-recall* (they'll miss some real DeepSeek /
+  Grok / Mistral output, but they will not flag non-vendor text),
+  which matches the existing Claude / Gemini / OpenAI detectors'
+  posture. The README at line 740 already advertises this work
+  on the P1 roadmap, so the user-facing description stays
+  consistent.
+- **Backlog ref:** WR-P111
+
 
 ---
 
