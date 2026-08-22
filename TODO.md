@@ -466,7 +466,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   Anthropic docs.
 - **Backlog ref:** WR-P622
 
-### WR-S17. [ ] MiniMax Code integration
+### WR-S17. [~] MiniMax Code integration
 
 - **Why:** WR-P623 — MiniMax Code plugin with MCP registration.
 - **Scope:** new `minimax-code/watermark-remover/`
