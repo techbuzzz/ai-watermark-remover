@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Text;
 using FluentAssertions;
 using SixLabors.ImageSharp;
@@ -1263,5 +1264,218 @@ public class MetadataCleanerTests : IDisposable
         }
 
         return -1;
+    }
+
+    [Fact]
+    public void Epub_Inspect_FindsDublinCoreAndMetaEntries()
+    {
+        string path = Path.Combine(_dir, "in.epub");
+        TestFixtures.WriteEpubWithMetadata(
+            path,
+            creator: "AI Author",
+            contributor: "Bot Editor",
+            title: "Generated Book",
+            publisher: "AI Press",
+            metas: [("dcterms:modified", "2024-06-15T12:00:00Z")]);
+
+        var cleaner = new EpubMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "creator" && e.Value == "AI Author");
+        entries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "title" && e.Value == "Generated Book");
+        entries.Should().Contain(e => e.Container == "OPF/meta" && e.Key == "dcterms:modified" && e.Value == "2024-06-15T12:00:00Z");
+    }
+
+    [Fact]
+    public void Epub_Clean_RemovesAllDcExceptIdentifier_StripsAllMeta()
+    {
+        string input = Path.Combine(_dir, "in.epub");
+        string output = Path.Combine(_dir, "out.epub");
+        TestFixtures.WriteEpubWithMetadata(
+            input,
+            creator: "AI Author",
+            contributor: "Bot Editor",
+            title: "Generated Book",
+            publisher: "AI Press",
+            date: "2024-06-15",
+            metas: [("dcterms:modified", "2024-06-15T12:00:00Z"), ("ibooks:specified-fonts", "true")]);
+
+        var cleaner = new EpubMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // All non-identifier dc entries + both meta entries are reported as removed.
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "creator");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "contributor");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "title");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "publisher");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/dc" && e.Key == "date");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/meta" && e.Key == "dcterms:modified");
+        result.RemovedEntries.Should().Contain(e => e.Container == "OPF/meta" && e.Key == "ibooks:specified-fonts");
+    }
+
+    [Fact]
+    public void Epub_Clean_OutputIsValidZip_WithStrippedOpf()
+    {
+        string input = Path.Combine(_dir, "in.epub");
+        string output = Path.Combine(_dir, "out.epub");
+        TestFixtures.WriteEpubWithMetadata(
+            input,
+            creator: "AI Author",
+            title: "Generated Book",
+            metas: [("dcterms:modified", "2024-06-15T12:00:00Z")]);
+
+        var cleaner = new EpubMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // The output is a valid zip that re-opens with ZipArchive.
+        using FileStream fs = File.OpenRead(output);
+        using var archive = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Read);
+
+        ZipArchiveEntry? opf = archive.GetEntry("OEBPS/content.opf");
+        opf.Should().NotBeNull();
+
+        using Stream opfStream = opf!.Open();
+        using var reader = new StreamReader(opfStream);
+        string opfXml = reader.ReadToEnd();
+        opfXml.Should().NotContain("AI Author");
+        opfXml.Should().NotContain("Generated Book");
+        opfXml.Should().NotContain("dcterms:modified");
+        opfXml.Should().Contain("dc:identifier");
+    }
+
+    [Fact]
+    public void Epub_Clean_PreservesMimetypeAsFirstEntry_Uncompressed()
+    {
+        string input = Path.Combine(_dir, "in.epub");
+        string output = Path.Combine(_dir, "out.epub");
+        TestFixtures.WriteEpubWithMetadata(input);
+
+        var cleaner = new EpubMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        using FileStream fs = File.OpenRead(output);
+        using var archive = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Read);
+
+        archive.Entries[0].FullName.Should().Be("mimetype");
+        using Stream s = archive.Entries[0].Open();
+        using var reader = new StreamReader(s);
+        reader.ReadToEnd().Should().Be("application/epub+zip");
+    }
+
+    [Fact]
+    public void Epub_Clean_PreservesContainerXmlAndContentUnchanged()
+    {
+        string input = Path.Combine(_dir, "in.epub");
+        string output = Path.Combine(_dir, "out.epub");
+        TestFixtures.WriteEpubWithMetadata(
+            input,
+            creator: "AI Author",
+            title: "Generated Book");
+
+        // Snapshot the input container.xml and chapter bytes.
+        string inputContainer;
+        byte[] inputChapterBytes;
+        using (FileStream inFs = File.OpenRead(input))
+        using (var inArchive = new System.IO.Compression.ZipArchive(inFs, System.IO.Compression.ZipArchiveMode.Read))
+        {
+            using Stream s = inArchive.GetEntry("META-INF/container.xml")!.Open();
+            using var reader = new StreamReader(s);
+            inputContainer = reader.ReadToEnd();
+
+            using Stream ch = inArchive.GetEntry("OEBPS/chapter1.xhtml")!.Open();
+            using var ms = new MemoryStream();
+            ch.CopyTo(ms);
+            inputChapterBytes = ms.ToArray();
+        }
+
+        var cleaner = new EpubMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        using FileStream fs = File.OpenRead(output);
+        using var archive = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Read);
+
+        // META-INF/container.xml must be byte-equal to the input.
+        using (Stream s = archive.GetEntry("META-INF/container.xml")!.Open())
+        using (var reader = new StreamReader(s))
+        {
+            reader.ReadToEnd().Should().Be(inputContainer);
+        }
+
+        // The placeholder chapter must be byte-equal to the input.
+        using Stream chOut = archive.GetEntry("OEBPS/chapter1.xhtml")!.Open();
+        using var msOut = new MemoryStream();
+        chOut.CopyTo(msOut);
+        msOut.ToArray().Should().Equal(inputChapterBytes);
+    }
+
+    [Fact]
+    public void Epub_Clean_InspectsToOnlyFreshlyStampedIdentifier_AfterPass()
+    {
+        string input = Path.Combine(_dir, "in.epub");
+        string output = Path.Combine(_dir, "out.epub");
+        TestFixtures.WriteEpubWithMetadata(
+            input,
+            creator: "AI Author",
+            title: "Generated Book",
+            metas: [("dcterms:modified", "2024-06-15T12:00:00Z")]);
+
+        var cleaner = new EpubMetadataCleaner();
+        cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // After a clean pass only the freshly-stamped dc:identifier remains (every other
+        // dc:* / <meta> entry was stripped); the new identifier is a UUID, not the input's value.
+        IReadOnlyList<MetadataEntry> remaining = cleaner.Inspect(output);
+        remaining.Should().HaveCount(1);
+        remaining[0].Container.Should().Be("OPF/dc");
+        remaining[0].Key.Should().Be("identifier");
+        remaining[0].Value.Should().StartWith("urn:uuid:");
+    }
+
+    [Fact]
+    public void Epub_CorruptFile_ThrowsMetadataStripException()
+    {
+        string path = Path.Combine(_dir, "bad.epub");
+        File.WriteAllBytes(path, Encoding.ASCII.GetBytes("not an epub at all"));
+
+        var cleaner = new EpubMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Epub_MissingMimetype_Throws()
+    {
+        // Build a valid zip that lacks the canonical `mimetype` entry.
+        string path = Path.Combine(_dir, "no-mimetype.epub");
+        using (FileStream fs = File.Create(path))
+        using (var archive = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry entry = archive.CreateEntry("hello.txt");
+            using Stream s = entry.Open();
+            byte[] data = System.Text.Encoding.UTF8.GetBytes("hi");
+            s.Write(data, 0, data.Length);
+        }
+
+        var cleaner = new EpubMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Epub_MissingFile_Throws()
+    {
+        var cleaner = new EpubMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.epub"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Epub_CanHandle_RecognisesExtension()
+    {
+        var cleaner = new EpubMetadataCleaner();
+        cleaner.CanHandle(".epub").Should().BeTrue();
+        cleaner.CanHandle(".EPUB").Should().BeTrue();
+        cleaner.CanHandle(".zip").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".epub"]);
     }
 }

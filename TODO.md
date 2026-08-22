@@ -29,7 +29,7 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
-### WR-S21. [~] EPUB metadata cleaner
+### WR-S21. [x] EPUB metadata cleaner
 
 - **Why:** BACKLOG P1 — `.epub` files (zip-of-XHTML) are not currently
   supported; `clean-file` returns "unsupported" for them. AI-generated
@@ -626,6 +626,53 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-P105 — EPUB metadata cleaner
+      (`src/WatermarkRemover.Metadata/EpubMetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/DependencyInjection.cs` +
+      `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` +
+      `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` +
+      `README.md` + `BACKLOG.md` + `CHANGELOG.md`)** — `.epub` files
+      now flow through the same metadata-strip pipeline as JPEG / PNG /
+      WebP / TIFF / PDF / DOCX / HTML. The cleaner is an OCF
+      zip-rewriter: it opens the input as a
+      `System.IO.Compression.ZipArchive`, locates the OPF package via
+      `META-INF/container.xml`, parses the OPF with `System.Xml.Linq`,
+      and rebuilds the archive child-by-child — stripping every
+      `<dc:*>` Dublin Core element except `dc:identifier` (which is
+      kept but with a freshly-generated `urn:uuid:<guid>` so the
+      output remains a structurally valid EPUB) and every `<meta>`
+      element (both `property="…"` and `name="…"` flavours, including
+      the AI-watermark-friendly `dcterms:modified` /
+      `ibooks:specified-fonts` entries). The canonical `mimetype`
+      entry stays first, **uncompressed** (`CompressionLevel.NoCompression`),
+      so the output is a valid OCF container that every EPUB reader
+      can open; every other entry (XHTML chapters, CSS, images,
+      fonts, NCX) is copied through the rewrite byte-for-byte.
+      Header validation rejects files that lack a `mimetype` entry
+      or whose `mimetype` content is not the literal string
+      `application/epub+zip`; container / OPF XML well-formedness is
+      enforced; `IndexOutOfRangeException` / `InvalidDataException` /
+      generic exceptions during the zip walk are translated into the
+      project-wide `MetadataStripException`. The router is wired up:
+      `IFileMetadataCleaner` registration in
+      `AddWatermarkRemoverMetadata` is updated; `FileCleanerRouter`
+      resolves `.epub` (case-insensitive) to the new cleaner; the
+      package description and tags on `WatermarkRemover.Metadata.csproj`
+      now list EPUB. **20 new xUnit tests** in
+      `WatermarkRemover.Metadata.Tests` (10 cleaner tests covering
+      inspect, full-report clean, output-is-valid-zip,
+      mimetype-stays-first-uncompressed, container-and-chapter
+      byte-equal-through-pass, post-pass inspect, corrupt file,
+      missing-mimetype, missing file, `CanHandle` recognition; plus
+      router tests: new `Resolve_Epub_ReturnsEpubCleaner` fact +
+      `.epub` / `.EPUB` rows added to the
+      `IsSupported_KnownExtensions_ReturnsTrue` theory, and
+      `SupportedExtensions_AggregatesAllCleaners` updated to include
+      `.epub`). Build clean (0 warnings, 0 errors), **572 xUnit
+      tests** (81 + 35 + 101 + 9 + 39 + 307), all green.
 
 - [x] **WR-P104 — AVIF metadata cleaner
       (`src/WatermarkRemover.Metadata/AvifMetadataCleaner.cs` +

@@ -18,6 +18,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **EPUB metadata cleaner (`EpubMetadataCleaner`, WR-P105)** — `.epub`
+  files now flow through the same metadata-strip pipeline as JPEG /
+  PNG / WebP / TIFF / PDF / DOCX / HTML. The cleaner is an OCF
+  zip-rewriter: it opens the input as a `System.IO.Compression.ZipArchive`,
+  locates the OPF package via `META-INF/container.xml`, parses the OPF
+  with `System.Xml.Linq`, and rebuilds the archive child-by-child:
+
+    - All `<dc:*>` Dublin Core elements (creator, contributor, title,
+      publisher, date, description, subject, rights, source, relation,
+      coverage, type, format, language) are removed.
+    - `<dc:identifier` is kept — the OPF 3.0 spec requires a primary
+      identifier and `epubcheck` rejects documents without one — but
+      its value is replaced with a freshly-generated
+      `urn:uuid:<guid>` so the cleaned EPUB no longer carries the
+      input's identifier.
+    - Every `<meta>` element (both `property="…"` and `name="…"`
+      flavours, including the AI-watermark-friendly
+      `dcterms:modified` / `ibooks:specified-fonts` /
+      `cover` entries and any custom `<meta name="…">` blocks) is
+      removed.
+    - The canonical `mimetype` entry stays first, **uncompressed**
+      (CompressionLevel.NoCompression), so the output is a valid
+      OCF container that every EPUB reader can open.
+    - Every other entry (XHTML chapters, CSS, images, fonts, NCX,
+      any ancillary XML) is copied through the rewrite byte-for-byte.
+
+  Header validation rejects files that lack a `mimetype` entry or
+  whose `mimetype` content is not the literal string
+  `application/epub+zip`. Container / OPF XML well-formedness is
+  enforced; malformed XML is translated into the project-wide
+  `MetadataStripException` so callers only have to catch one type.
+  `IndexOutOfRangeException` / `InvalidDataException` / generic
+  exceptions during the zip walk are likewise translated. The router
+  is wired up: the `IFileMetadataCleaner` registration in
+  `AddWatermarkRemoverMetadata` is updated; the `FileCleanerRouter`
+  resolves `.epub` (case-insensitive) to the new cleaner; the
+  `Metadata.Tests` package description and tags on
+  `WatermarkRemover.Metadata.csproj` now list EPUB. **20 new xUnit
+  tests** in `WatermarkRemover.Metadata.Tests` (10 cleaner tests:
+  inspect, clean with full report, output-is-valid-zip,
+  mimetype-stays-first-uncompressed, container-and-chapter
+  byte-equal-through-pass, post-pass inspect, corrupt file,
+  missing-mimetype, missing file, `CanHandle` recognition; 2 router
+  tests: new `Resolve_Epub_ReturnsEpubCleaner` fact + `.epub` /
+  `.EPUB` rows added to the `IsSupported_KnownExtensions_ReturnsTrue`
+  theory, plus `BuildRouter` updated and
+  `SupportedExtensions_AggregatesAllCleaners` updated).
+
 - **HEIF/HEIC metadata cleaner (`HeifMetadataCleaner`, WR-P102)** — the
   project now ships a first-party HEIF / HEIC (ISO base media file
   format, ISO 14496-12 / ISO 23008-12) metadata stripper registered

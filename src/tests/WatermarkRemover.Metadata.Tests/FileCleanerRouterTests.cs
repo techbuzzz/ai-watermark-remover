@@ -18,6 +18,7 @@ public class FileCleanerRouterTests
         new PdfMetadataCleaner(),
         new DocxMetadataCleaner(),
         new HtmlMetadataCleaner(),
+        new EpubMetadataCleaner(),
     ]);
 
     [Theory]
@@ -33,10 +34,12 @@ public class FileCleanerRouterTests
     [InlineData("a.pdf")]
     [InlineData("a.docx")]
     [InlineData("a.html")]
+    [InlineData("a.epub")]
     [InlineData("A.PNG")]
     [InlineData("A.TIF")]
     [InlineData("A.HEIC")]
     [InlineData("A.AVIF")]
+    [InlineData("A.EPUB")]
     public void IsSupported_KnownExtensions_ReturnsTrue(string path)
     {
         BuildRouter().IsSupported(path).Should().BeTrue();
@@ -86,8 +89,15 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_Epub_ReturnsEpubCleaner()
+    {
+        BuildRouter().Resolve("book.epub").Should().BeOfType<EpubMetadataCleaner>();
+        BuildRouter().Resolve("book.EPUB").Should().BeOfType<EpubMetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".html"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".html", ".epub"]);
     }
 }

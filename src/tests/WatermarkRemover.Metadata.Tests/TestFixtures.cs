@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Text;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
@@ -771,5 +772,141 @@ internal static class TestFixtures
         }
 
         return crc;
+    }
+
+    /// <summary>
+    /// Writes a minimal but structurally valid EPUB (OCF / ZIP) at <paramref name="path"/>.
+    /// The archive contains the canonical <c>mimetype</c> entry (first, uncompressed),
+    /// the <c>META-INF/container.xml</c> pointing at the OPF, the OPF itself with the
+    /// requested metadata children, and an <c>OEBPS/chapter1.xhtml</c> placeholder that
+    /// is preserved byte-for-byte across a clean pass. The OCF zip structure is
+    /// hand-written (not via <c>ZipArchive</c>) so the test fixture stays tiny and
+    /// deterministic.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="creator">Optional <c>dc:creator</c> value (omitted when null).</param>
+    /// <param name="contributor">Optional <c>dc:contributor</c> value (omitted when null).</param>
+    /// <param name="title">Optional <c>dc:title</c> value (omitted when null).</param>
+    /// <param name="publisher">Optional <c>dc:publisher</c> value (omitted when null).</param>
+    /// <param name="date">Optional <c>dc:date</c> value (omitted when null).</param>
+    /// <param name="identifier">Optional <c>dc:identifier</c> value (defaults to a fresh UUID).</param>
+    /// <param name="metas">Optional list of <c>&lt;meta&gt;</c> entries to emit
+    /// (each as a <c>(property, content)</c> tuple).</param>
+    public static void WriteEpubWithMetadata(
+        string path,
+        string? creator = "AI Author",
+        string? contributor = "Bot Editor",
+        string? title = "Generated Book",
+        string? publisher = "AI Press",
+        string? date = "2024-06-15",
+        string? identifier = null,
+        IReadOnlyList<(string Property, string Content)>? metas = null)
+    {
+        string opfRelative = "OEBPS/content.opf";
+        string opfFullPath = opfRelative;
+        string identifierValue = identifier ?? $"urn:uuid:{Guid.NewGuid():D}";
+
+        // Build the OPF XML.
+        var opf = new StringBuilder();
+        opf.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        opf.AppendLine("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"bookid\">");
+        opf.AppendLine("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">");
+        opf.Append("    <dc:identifier id=\"bookid\">").Append(XmlEscape(identifierValue)).AppendLine("</dc:identifier>");
+        if (!string.IsNullOrEmpty(title))
+        {
+            opf.Append("    <dc:title>").Append(XmlEscape(title)).AppendLine("</dc:title>");
+        }
+
+        if (!string.IsNullOrEmpty(creator))
+        {
+            opf.Append("    <dc:creator>").Append(XmlEscape(creator)).AppendLine("</dc:creator>");
+        }
+
+        if (!string.IsNullOrEmpty(contributor))
+        {
+            opf.Append("    <dc:contributor>").Append(XmlEscape(contributor)).AppendLine("</dc:contributor>");
+        }
+
+        if (!string.IsNullOrEmpty(publisher))
+        {
+            opf.Append("    <dc:publisher>").Append(XmlEscape(publisher)).AppendLine("</dc:publisher>");
+        }
+
+        if (!string.IsNullOrEmpty(date))
+        {
+            opf.Append("    <dc:date>").Append(XmlEscape(date)).AppendLine("</dc:date>");
+        }
+
+        if (metas is not null)
+        {
+            foreach ((string property, string content) in metas)
+            {
+                opf.Append("    <meta property=\"").Append(XmlEscape(property))
+                    .Append("\" content=\"").Append(XmlEscape(content)).AppendLine("\"/>");
+            }
+        }
+
+        opf.AppendLine("  </metadata>");
+        opf.AppendLine("  <manifest>");
+        opf.AppendLine("    <item id=\"ch1\" href=\"chapter1.xhtml\" media-type=\"application/xhtml+xml\"/>");
+        opf.AppendLine("  </manifest>");
+        opf.AppendLine("  <spine>");
+        opf.AppendLine("    <itemref idref=\"ch1\"/>");
+        opf.AppendLine("  </spine>");
+        opf.AppendLine("</package>");
+
+        // Build the container.xml.
+        var container = new StringBuilder();
+        container.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        container.AppendLine("<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">");
+        container.Append("  <rootfiles><rootfile full-path=\"").Append(XmlEscape(opfFullPath))
+            .AppendLine("\" media-type=\"application/oebps-package+xml\"/></rootfiles>");
+        container.AppendLine("</container>");
+
+        // Build the placeholder XHTML.
+        const string chapter = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <!DOCTYPE html>
+            <html xmlns="http://www.w3.org/1999/xhtml">
+              <head><title>Chapter 1</title></head>
+              <body><p>Chapter content.</p></body>
+            </html>
+            """;
+
+        byte[] mimetypeBytes = Encoding.ASCII.GetBytes("application/epub+zip");
+        byte[] containerBytes = Encoding.UTF8.GetBytes(container.ToString());
+        byte[] opfBytes = Encoding.UTF8.GetBytes(opf.ToString());
+        byte[] chapterBytes = Encoding.UTF8.GetBytes(chapter);
+
+        using FileStream fs = File.Create(path);
+        using var output = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: false);
+
+        // mimetype: first, stored (no compression).
+        ZipArchiveEntry mimetype = output.CreateEntry("mimetype", CompressionLevel.NoCompression);
+        using (Stream s = mimetype.Open())
+        {
+            s.Write(mimetypeBytes, 0, mimetypeBytes.Length);
+        }
+
+        AddDeflatedEntry(output, "META-INF/container.xml", containerBytes);
+        AddDeflatedEntry(output, opfFullPath, opfBytes);
+        AddDeflatedEntry(output, "OEBPS/chapter1.xhtml", chapterBytes);
+    }
+
+    private static void AddDeflatedEntry(ZipArchive archive, string name, byte[] data)
+    {
+        ZipArchiveEntry entry = archive.CreateEntry(name, CompressionLevel.Optimal);
+        using Stream s = entry.Open();
+        s.Write(data, 0, data.Length);
+    }
+
+    private static string XmlEscape(string value)
+    {
+        return value
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("\"", "&quot;", StringComparison.Ordinal)
+            .Replace("'", "&apos;", StringComparison.Ordinal);
     }
 }

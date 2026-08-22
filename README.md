@@ -46,7 +46,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 - 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
 - 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
-- 🗂️ **Strips metadata** from JPEG / PNG / PDF / DOCX / HTML — pixel-preserving, byte-level
+- 🗂️ **Strips metadata** from JPEG / PNG / PDF / DOCX / HTML / EPUB — pixel-preserving, byte-level
 - 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
 - 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
 - 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
@@ -300,6 +300,7 @@ Byte-level, pixel-preserving cleaners:
 - **PDF** — `PdfPig` rebuild without document info / XMP metadata
 - **DOCX** — OpenXML core/extended/custom properties + revision history
 - **HTML** — `<meta name="generator|author">` + `<!-- comments -->` + tracking scripts
+- **EPUB** — OCF zip-rewrite; strips OPF `<dc:*>` (except `dc:identifier` kept as a fresh UUID) and `<meta>` entries; preserves every other entry byte-for-byte (XHTML / CSS / images / NCX)
 
 ### Image
 
@@ -733,7 +734,7 @@ The active roadmap lives in [BACKLOG.md](./BACKLOG.md). Highlights:
 - [x] Issue / PR templates, CODEOWNERS, CODE_OF_CONDUCT, SECURITY, CHANGELOG
 
 **P1 — Core features (v1.0)**
-- [ ] More metadata formats (WebP, TIFF, HEIF, AVIF, EPUB, RTF, MP4)
+- [ ] More metadata formats (RTF, MP4) — WebP, TIFF, HEIF, AVIF, EPUB landed
 - [ ] DeepSeek / Grok / Mistral vendor detectors
 - [ ] Synonym dictionary: EN → 400+, RU → 200+
 - [ ] Image batch processing + GPU inference
