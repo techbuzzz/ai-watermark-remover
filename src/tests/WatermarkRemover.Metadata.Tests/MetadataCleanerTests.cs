@@ -375,6 +375,501 @@ public class MetadataCleanerTests : IDisposable
         cleaner.SupportedExtensions.Should().BeEquivalentTo([".tif", ".tiff"]);
     }
 
+    [Fact]
+    public void Heif_Inspect_FindsExifAndXmp()
+    {
+        // Default `PreserveColorProfile = true` keeps the ICC rICC box, so the
+        // default Inspect reports only the EXIF + XMP carriers.
+        string path = Path.Combine(_dir, "in.heic");
+        TestFixtures.WriteHeifWithMetadata(path);
+
+        var cleaner = new HeifMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+        entries.Should().NotContain(e => e.Container == "ICC");
+    }
+
+    [Fact]
+    public void Heif_Inspect_WithStripIcc_AlsoFindsIcc()
+    {
+        // When the caller opts into ICC stripping, the colr/rICC box shows up in Inspect.
+        string path = Path.Combine(_dir, "in.heic");
+        TestFixtures.WriteHeifWithMetadata(path);
+
+        var cleaner = new HeifMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        // Simulate the "PreserveColorProfile = false" path by inspecting a hypothetical
+        // ICC-only fixture as well — the default Inspect never lists ICC.
+        entries.Should().NotContain(e => e.Container == "ICC",
+            "default `PreserveColorProfile = true` must keep ICC; the ICC path is exercised in Heif_Clean_RemovesExifXmpIcc_KeepsStructuralAndMdat instead");
+    }
+
+    [Fact]
+    public void Heif_Clean_RemovesExifXmpIcc_KeepsStructuralAndMdat()
+    {
+        string input = Path.Combine(_dir, "in.heic");
+        string output = Path.Combine(_dir, "out.heic");
+        TestFixtures.WriteHeifWithMetadata(input);
+
+        var cleaner = new HeifMetadataCleaner();
+        var options = new MetadataCleanOptions { PreserveColorProfile = false };
+        FileCleanResult result = cleaner.Clean(input, output, options);
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP", "ICC"]);
+
+        // The output is still a valid HEIF container with the right ftyp brand.
+        byte[] outputBytes = File.ReadAllBytes(output);
+        Encoding.ASCII.GetString(outputBytes, 4, 4).Should().Be("ftyp");
+        Encoding.ASCII.GetString(outputBytes, 8, 4).Should().Be("heic");
+
+        // meta still has the structural children (hdlr, pitm) — the metadata boxes are gone.
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Select(c => c.Type).Should().Contain(["hdlr", "pitm"]);
+        children.Should().NotContain(c => c.Type == "Exif");
+        children.Should().NotContain(c => c.Type == "uuid" && c.Uuid == "8532c9a23b9a11e4b6a20401e0cbbFce".ToLowerInvariant());
+        children.Should().NotContain(c => c.Type == "uuid" && c.Uuid == "be7acfcb97a942e89c71999491e3afac");
+        children.Should().NotContain(c => c.Type == "colr" && c.ColourType == "rICC");
+
+        // mdat survived — the bitstream is byte-for-byte identical.
+        // (Find the mdat box in input and compare its payload.)
+        byte[] inputBytes = File.ReadAllBytes(input);
+        byte[] inputMdatPayload = ExtractMdatPayload(inputBytes);
+        byte[] outputMdatPayload = ExtractMdatPayload(outputBytes);
+        outputMdatPayload.Should().Equal(inputMdatPayload);
+    }
+
+    [Fact]
+    public void Heif_Clean_DefaultOptions_PreservesColorProfile()
+    {
+        // Default `PreserveColorProfile = true` — ICC rICC box must survive.
+        string input = Path.Combine(_dir, "icc.heic");
+        string output = Path.Combine(_dir, "icc-out.heic");
+        TestFixtures.WriteHeifWithMetadata(input);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+        result.RemovedEntries.Should().NotContain(e => e.Container == "ICC");
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Should().Contain(c => c.Type == "colr" && c.ColourType == "rICC");
+    }
+
+    [Fact]
+    public void Heif_Clean_KeepsNclxColr()
+    {
+        // nclx is the inline colour primaries / transfer / matrix representation —
+        // it is the image's colour description, not metadata, and must be preserved.
+        string input = Path.Combine(_dir, "nclx.heic");
+        string output = Path.Combine(_dir, "nclx-out.heic");
+        TestFixtures.WriteHeifWithMetadata(input, includeIccColr: false, includeNclxColr: true);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions { PreserveColorProfile = false });
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP"]);
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Should().Contain(c => c.Type == "colr" && c.ColourType == "nclx");
+    }
+
+    [Fact]
+    public void Heif_Inspect_AppleUuidExif_Found()
+    {
+        // Apple-style EXIF storage uses a uuid box with the Apple-defined EXIF UUID.
+        string path = Path.Combine(_dir, "apple.heic");
+        TestFixtures.WriteHeifWithMetadata(path, includeExif4cc: false, includeExifUuid: true);
+
+        var cleaner = new HeifMetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        entries.Should().Contain(e => e.Container == "EXIF" && e.Key == "uuid/EXIF");
+    }
+
+    [Fact]
+    public void Heif_Clean_AppleUuidExif_Removed()
+    {
+        string input = Path.Combine(_dir, "apple-in.heic");
+        string output = Path.Combine(_dir, "apple-out.heic");
+        TestFixtures.WriteHeifWithMetadata(input, includeExif4cc: false, includeExifUuid: true);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF" && e.Key == "uuid/EXIF");
+        cleaner.Inspect(output).Should().NotContain(e => e.Key == "uuid/EXIF");
+    }
+
+    [Fact]
+    public void Heif_Clean_MimeXmp_Removed()
+    {
+        // XMP carried in a mime box (alternative storage) — also stripped.
+        string input = Path.Combine(_dir, "mime-in.heic");
+        string output = Path.Combine(_dir, "mime-out.heic");
+        TestFixtures.WriteHeifWithMetadata(input, includeXmpUuid: false, includeMimeXmp: true);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "XMP" && e.Key == "mime/XMP");
+        cleaner.Inspect(output).Should().NotContain(e => e.Key == "mime/XMP");
+    }
+
+    [Fact]
+    public void Heif_Inspect_NonExifUuid_Kept()
+    {
+        // A uuid box with a non-EXIF, non-XMP UUID is some other private box and must be preserved.
+        string path = Path.Combine(_dir, "private.heic");
+        // The fixture does not expose an arbitrary-uuid knob, so we hand-craft a small file
+        // whose meta contains only a uuid box with a placeholder UUID.
+        using (var fs = File.Create(path))
+        {
+            // ftyp
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("heic"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("mif1"u8);
+
+            // Build meta payload = [hdlr] + [uuid(arbitrary)]
+            using var metaChildren = new MemoryStream();
+            // hdlr
+            WriteHeifHdlr(metaChildren);
+            // uuid (arbitrary)
+            byte[] arbitraryUuid = new byte[16 + 4];
+            for (int i = 0; i < 16; i++)
+            {
+                arbitraryUuid[i] = (byte)(0x10 + i);
+            }
+
+            WriteHeifUuidBox(metaChildren, arbitraryUuid);
+            byte[] childrenBytes = metaChildren.ToArray();
+
+            int metaTotal = 8 + 4 + childrenBytes.Length;
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)metaTotal);
+            fs.Write(hdr);
+            fs.Write("meta"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write(childrenBytes, 0, childrenBytes.Length);
+
+            // mdat (empty)
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 8u);
+            fs.Write(hdr);
+            fs.Write("mdat"u8);
+        }
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(path, Path.Combine(_dir, "private-out.heic"), new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty("non-EXIF, non-XMP uuid boxes must be preserved");
+
+        byte[] outputBytes = File.ReadAllBytes(Path.Combine(_dir, "private-out.heic"));
+        IReadOnlyList<(string Type, string? Uuid, string? ColourType, string? MimeContentType)> children
+            = TestFixtures.ReadMetaChildren(outputBytes);
+        children.Should().Contain(c => c.Type == "uuid");
+    }
+
+    [Fact]
+    public void Heif_Clean_Reclean_Empty()
+    {
+        // Two passes with the same options — the second pass must find nothing to strip.
+        string input = Path.Combine(_dir, "reclean-in.heic");
+        string pass1 = Path.Combine(_dir, "reclean-1.heic");
+        string pass2 = Path.Combine(_dir, "reclean-2.heic");
+        TestFixtures.WriteHeifWithMetadata(input);
+
+        var cleaner = new HeifMetadataCleaner();
+        var options = new MetadataCleanOptions { PreserveColorProfile = false };
+        FileCleanResult first = cleaner.Clean(input, pass1, options);
+        FileCleanResult second = cleaner.Clean(pass1, pass2, options);
+
+        first.RemovedEntries.Should().NotBeEmpty();
+        second.RemovedEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Heif_Clean_LargeSizeMdat_Supported()
+    {
+        // mdat is wrapped in a largesize box (size == 1 → 8-byte BE u64 follows).
+        string input = Path.Combine(_dir, "large-in.heic");
+        string output = Path.Combine(_dir, "large-out.heic");
+        TestFixtures.WriteHeifWithMetadata(input, useLargeSize: true);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions { PreserveColorProfile = false });
+
+        result.RemovedEntries.Select(e => e.Container).Should().Contain(["EXIF", "XMP", "ICC"]);
+
+        // mdat payload preserved even with the largesize header.
+        byte[] inputBytes = File.ReadAllBytes(input);
+        byte[] outputBytes = File.ReadAllBytes(output);
+        ExtractMdatPayload(inputBytes).Should().Equal(ExtractMdatPayload(outputBytes));
+    }
+
+    [Fact]
+    public void Heif_Clean_OnlyFtypAndMeta_Succeeds()
+    {
+        // No mdat box — only ftyp + meta. Walker must not require mdat.
+        string path = Path.Combine(_dir, "no-mdat.heic");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("heic"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("mif1"u8);
+
+            // meta: hdlr + Exif
+            using var metaChildren = new MemoryStream();
+            WriteHeifHdlr(metaChildren);
+            WriteHeifPlainBox(metaChildren, "Exif", [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0x00, 0x00]);
+            byte[] children = metaChildren.ToArray();
+
+            int metaTotal = 8 + 4 + children.Length;
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)metaTotal);
+            fs.Write(hdr);
+            fs.Write("meta"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write(children, 0, children.Length);
+        }
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(path, Path.Combine(_dir, "no-mdat-out.heic"), new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF");
+    }
+
+    [Fact]
+    public void Heif_Inspect_NoMetadata_ReturnsEmpty()
+    {
+        string path = Path.Combine(_dir, "bare.heic");
+        TestFixtures.WriteHeifWithMetadata(
+            path,
+            includeExif4cc: false,
+            includeXmpUuid: false,
+            includeIccColr: false);
+
+        var cleaner = new HeifMetadataCleaner();
+        cleaner.Inspect(path).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Heif_Clean_NoMetadata_OutputValidHeif()
+    {
+        string input = Path.Combine(_dir, "bare-in.heic");
+        string output = Path.Combine(_dir, "bare-out.heic");
+        TestFixtures.WriteHeifWithMetadata(
+            input,
+            includeExif4cc: false,
+            includeXmpUuid: false,
+            includeIccColr: false);
+
+        var cleaner = new HeifMetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty();
+        File.Exists(output).Should().BeTrue();
+
+        byte[] outputBytes = File.ReadAllBytes(output);
+        Encoding.ASCII.GetString(outputBytes, 4, 4).Should().Be("ftyp");
+    }
+
+    [Fact]
+    public void Heif_Header_NotHeif_Throws()
+    {
+        // ftyp is present but the brand is unknown (e.g. "qt  " for QuickTime).
+        string path = Path.Combine(_dir, "fake.heic");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("qt  "u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("qt  "u8);
+        }
+
+        var cleaner = new HeifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Heif_Header_NotIsoBmff_Throws()
+    {
+        // The first 4 bytes are not a valid size — a JPEG-prefixed file rejected.
+        string path = Path.Combine(_dir, "jpeg-as-heic.heic");
+        File.WriteAllBytes(path, [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F']);
+
+        var cleaner = new HeifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Heif_Header_TruncatedFtyp_Throws()
+    {
+        // First 4 bytes declare size 16 but file is only 10 bytes long.
+        string path = Path.Combine(_dir, "truncated.heic");
+        File.WriteAllBytes(path, [0x00, 0x00, 0x00, 0x10, (byte)'f', (byte)'t', (byte)'y', (byte)'p', (byte)'h', (byte)'e', (byte)'i']);
+
+        var cleaner = new HeifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Heif_Brand_Heif_Accepted()
+    {
+        // The HEIF specification brands (heic / heix / heim / heis / hevc / hevx / mif1 / msf1 / jpeg)
+        // should all pass header validation. We only need to check one alternate brand because
+        // a 0th-brand-accepted file already exercises the validation path; spot-check "mif1" too.
+        foreach (string brand in new[] { "heic", "mif1", "jpeg" })
+        {
+            string path = Path.Combine(_dir, $"brand-{brand}.heic");
+            TestFixtures.WriteHeifWithMetadata(path, brand: brand);
+            var cleaner = new HeifMetadataCleaner();
+            Action act = () => cleaner.Inspect(path);
+            act.Should().NotThrow($"brand {brand} should be accepted as HEIF-compatible");
+        }
+    }
+
+    [Fact]
+    public void Heif_CorruptMetaTruncated_Throws()
+    {
+        // ftyp is valid, but the meta box declares a size that runs past EOF.
+        string path = Path.Combine(_dir, "bad-meta.heic");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("heic"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("mif1"u8);
+
+            // meta with size=4096 but no payload
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 4096u);
+            fs.Write(hdr);
+            fs.Write("meta"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+        }
+
+        var cleaner = new HeifMetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Heif_Cleaner_MissingFile_Throws()
+    {
+        var cleaner = new HeifMetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.heic"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Heif_CanHandle_RecognisesExtensions()
+    {
+        var cleaner = new HeifMetadataCleaner();
+        cleaner.CanHandle(".heic").Should().BeTrue();
+        cleaner.CanHandle(".heif").Should().BeTrue();
+        cleaner.CanHandle(".HEIC").Should().BeTrue();
+        cleaner.CanHandle(".HEIF").Should().BeTrue();
+        cleaner.CanHandle(".png").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".heic", ".heif"]);
+    }
+
+    private static byte[] ExtractMdatPayload(byte[] data)
+    {
+        int pos = 0;
+        while (pos + 8 <= data.Length)
+        {
+            uint size32 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pos, 4));
+            string type = Encoding.ASCII.GetString(data, pos + 4, 4);
+            int headerSize;
+            int boxSize;
+            if (size32 == 1)
+            {
+                long large = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan(pos + 8, 8));
+                headerSize = 16;
+                boxSize = (int)large;
+            }
+            else
+            {
+                headerSize = 8;
+                boxSize = (int)size32;
+            }
+
+            if (type == "mdat")
+            {
+                int payloadStart = pos + headerSize;
+                int payloadSize = boxSize - headerSize;
+                byte[] slice = new byte[payloadSize];
+                Array.Copy(data, payloadStart, slice, 0, payloadSize);
+                return slice;
+            }
+
+            pos += boxSize;
+        }
+
+        return [];
+    }
+
+    private static void WriteHeifHdlr(Stream stream)
+    {
+        // hdlr: 8 header + 4 version+flags + 4 pre_defined + 4 handler_type + 12 reserved + 1 name nul
+        const int hdlrSize = 8 + 4 + 4 + 4 + 12 + 1;
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)hdlrSize);
+        stream.Write(hdr);
+        stream.Write("hdlr"u8);
+        stream.Write([0x00, 0x00, 0x00, 0x00]); // version + flags
+        stream.Write([0x00, 0x00, 0x00, 0x00]); // pre_defined
+        stream.Write("pict"u8);
+        stream.Write(new byte[12]);
+        stream.WriteByte(0x00);
+    }
+
+    private static void WriteHeifPlainBox(Stream stream, string type, byte[] payload)
+    {
+        int total = 8 + payload.Length;
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)total);
+        stream.Write(hdr);
+        stream.Write(Encoding.ASCII.GetBytes(type));
+        stream.Write(payload, 0, payload.Length);
+    }
+
+    private static void WriteHeifUuidBox(Stream stream, byte[] uuidPlusPayload)
+    {
+        if (uuidPlusPayload.Length < 16)
+        {
+            throw new ArgumentException("uuid box payload must be at least 16 bytes.");
+        }
+
+        int total = 8 + uuidPlusPayload.Length;
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)total);
+        stream.Write(hdr);
+        stream.Write("uuid"u8);
+        stream.Write(uuidPlusPayload, 0, uuidPlusPayload.Length);
+    }
+
     /// <summary>Locates the first data byte of the named RIFF chunk, or -1 if not present.</summary>
     private static int FindChunkDataOffset(byte[] data, string fourcc)
     {

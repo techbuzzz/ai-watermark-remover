@@ -18,6 +18,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **HEIF/HEIC metadata cleaner (`HeifMetadataCleaner`, WR-P102)** — the
+  project now ships a first-party HEIF / HEIC (ISO base media file
+  format, ISO 14496-12 / ISO 23008-12) metadata stripper registered
+  alongside the existing JPEG / PNG / WebP / PDF / DOCX / HTML / TIFF
+  cleaners. The cleaner walks the top-level ISOBMFF boxes
+  (`ftyp` / `meta` / `mdat` / `free` / `skip`) and rebuilds the
+  `meta` FullBox child-by-child, stripping the four well-known
+  metadata carriers while preserving every structural box
+  (`hdlr`, `pitm`, `iloc`, `iinf`, `iprp`, `ipco`, `ipma`, `iref`, …)
+  and the image bitstream (`mdat`) bit-for-bit:
+
+    - 4CC `Exif` boxes (ISO 23008-12 § A.2) — stripped when `StripExif`.
+    - `uuid` boxes with the Apple-defined EXIF UUID
+      `8532C9A2-3B9A-11E4-B6A2-0401E0CBBFCE` — stripped when
+      `StripExif`. This is the storage format most iOS devices emit.
+    - `uuid` boxes with the XMP UUID
+      `BE7ACFCB-97A9-42E8-9C71-999491E3AFAC` — stripped when
+      `StripXmp`.
+    - `mime` boxes whose content type is `application/rdf+xml` —
+      the alternative XMP carrier — stripped when `StripXmp`.
+    - `colr` boxes of colour type `rICC` / `prof` (embedded ICC
+      color profiles) — stripped unless `PreserveColorProfile`. The
+      `nclx` colour type is the inline colour primaries / transfer /
+      matrix representation and is kept verbatim because it is the
+      image's actual colour description, not metadata.
+
+  The ftyp box is validated against the nine HEIF/HEIC brands
+  (`heic` / `heix` / `heim` / `heis` / `hevc` / `hevx` / `mif1` /
+  `msf1` / `jpeg`) by checking the `major_brand` and the
+  `compatible_brands` list. The 8-byte `largesize` box extension
+  (size field == 1 followed by a BE u64) is honoured at the top
+  level so very large `mdat` regions are not miscounted. `size == 0`
+  (extends-to-EOF) boxes are rejected as risky rather than guessed.
+  Index-out-of-range / argument / overflow exceptions during the
+  walk are translated into the project-wide `MetadataStripException`
+  so callers only have to catch one type. The router is wired up:
+  `IFileMetadataCleaner` registration in `AddWatermarkRemoverMetadata`
+  is updated; the `FileCleanerRouter` resolves `.heic` and `.heif`
+  (case-insensitive) to the new cleaner; the package description and
+  tags on `WatermarkRemover.Metadata.csproj` now list HEIF / HEIC
+  alongside the other formats. **25 new xUnit tests** (21 in
+  `WatermarkRemover.Metadata.Tests/MetadataCleanerTests` + 4 in
+  `FileCleanerRouterTests`): `Heif_Inspect_FindsExifAndXmp`
+  (default `PreserveColorProfile = true` reports only EXIF + XMP),
+  `Heif_Inspect_WithStripIcc_AlsoFindsIcc` (the ICC path is exercised
+  via the `Clean` flow), `Heif_Clean_RemovesExifXmpIcc_KeepsStructuralAndMdat`
+  (verifies that the `hdlr` and `pitm` structural boxes survive and
+  that the `mdat` payload is byte-for-byte identical to the input),
+  `Heif_Clean_DefaultOptions_PreservesColorProfile`, `Heif_Clean_KeepsNclxColr`,
+  `Heif_Inspect_AppleUuidExif_Found` + `Heif_Clean_AppleUuidExif_Removed`
+  (Apple-style EXIF carrier), `Heif_Clean_MimeXmp_Removed` (XMP
+  carried in a `mime` box), `Heif_Inspect_NonExifUuid_Kept` (a `uuid`
+  box with a non-EXIF / non-XMP UUID is preserved), `Heif_Clean_Reclean_Empty`
+  (a second pass with the same options finds nothing to strip),
+  `Heif_Clean_LargeSizeMdat_Supported` (the 8-byte `largesize`
+  extension is handled at the top level), `Heif_Clean_OnlyFtypAndMeta_Succeeds`
+  (the walker does not require `mdat` to be present),
+  `Heif_Inspect_NoMetadata_ReturnsEmpty`,
+  `Heif_Clean_NoMetadata_OutputValidHeif`, `Heif_Header_NotHeif_Throws`
+  (a QuickTime-flavoured ftyp with brand `qt  ` is rejected),
+  `Heif_Header_NotIsoBmff_Throws` (a JPEG-prefixed file with
+  `.heic` extension is rejected at the size-marker check),
+  `Heif_Header_TruncatedFtyp_Throws` (declared ftyp size larger than
+  the file), `Heif_Brand_Heif_Accepted` (the brand validator accepts
+  `heic` / `mif1` / `jpeg` from the major_brand slot),
+  `Heif_CorruptMetaTruncated_Throws`, `Heif_Cleaner_MissingFile_Throws`,
+  and `Heif_CanHandle_RecognisesExtensions`. The router tests gain
+  three new theory rows (`a.heic` / `a.heif` / `A.HEIC`) in
+  `IsSupported_KnownExtensions_ReturnsTrue`, a new
+  `Resolve_Heif_ReturnsHeifCleaner` fact, and a new `.heic` / `.heif`
+  pair in `SupportedExtensions_AggregatesAllCleaners`. Build clean
+  (0 warnings, 0 errors), **536 xUnit tests** (81 + 65 + 9 + 35 +
+  39 + 307), all green.
+
 - **TIFF metadata cleaner (`TiffMetadataCleaner`, WR-P101)** — the
   project now ships a first-party TIFF (Tagged Image File Format)
   metadata stripper registered alongside the existing JPEG / PNG /
