@@ -42,7 +42,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 ### Distribution
 - [x] WR-P009 — `dotnet publish` publish profiles for self-contained single-file executables (`PublishSingleFile=true`, `SelfContained=true`, `RuntimeIdentifier`, `EnableCompressionInSingleFile=true`, `IncludeAllContentForSelfExtract=true`) — `src/WatermarkRemover.CLI/Properties/PublishProfiles/{linux-x64,linux-arm64,win-x64,osx-x64}.pubxml`
 - [x] WR-P010 — NuGet packaging: mark `WatermarkRemover.Core` / `.Text` / `.Metadata` / `.Image` as `IsPackable=true`, set `PackageId` / `PackageVersion`, `PackageReadmeFile`, `PackageIcon`, create `.snk` for strong naming
-- [~] WR-P011 — `dotnet tool` packaging for a potential global tool install (`dotnet tool install -g watermarkremover`)
+- [x] WR-P011 — `dotnet tool` packaging for a potential global tool install (`dotnet tool install -g watermarkremover`)
 
 ### Docs
 - [x] WR-P012 — `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, issue templates, `PULL_REQUEST_TEMPLATE.md`, `CODEOWNERS`, `CODE_OF_CONDUCT.md`, `FUNDING.yml`, `dependabot.yml`

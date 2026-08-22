@@ -576,6 +576,54 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-P011 — `dotnet tool` packaging
+      (`src/WatermarkRemover.CLI/WatermarkRemover.CLI.csproj` +
+      `src/WatermarkRemover.CLI/README.md` +
+      `src/tests/WatermarkRemover.CLI.Tests/DotnetToolPackagingTests.cs` +
+      `BACKLOG.md` + `CHANGELOG.md` + `README.md`)** — the
+      `watermarkremover` CLI is now installable as a
+      **first-class `dotnet` global tool** with one command:
+      `dotnet tool install -g watermarkremover` lands a
+      `watermarkremover` binary on `$PATH` (the install location
+      follows the standard .NET global-tool path — `~/.dotnet/tools/`
+      on Linux/macOS, `%USERPROFILE%\.dotnet\tools\` on Windows). The
+      `WatermarkRemover.CLI` csproj is now `IsPackable=true` +
+      `PackAsTool=true` + `ToolCommandName=watermarkremover` +
+      `PackageId=watermarkremover` + `PackageOutputType=Exe`; the
+      `tools/net10.0/any/DotnetToolSettings.xml` that the SDK
+      generates maps the command to `watermarkremover.dll` with
+      `Runner=dotnet`. The Astro web UI is intentionally **kept in
+      the package** (~29 KB on disk) so `watermarkremover serve`
+      finds `wwwroot/` at `AppContext.BaseDirectory` after a global
+      install — users on headless boxes can pass `--no-ui` to skip
+      the file provider. A new `src/WatermarkRemover.CLI/README.md`
+      is the per-tool landing page (install + update + uninstall
+      + the most-used `clean-*` / `serve` / `serve-mcp` commands +
+      links to the alternative install paths and the main repo);
+      the shared 128×128 NuGet icon is bundled via an explicit
+      `<None Pack="true" PackagePath="\">` item, same shape as the
+      four library packages. **20 new xUnit tests** in
+      `WatermarkRemover.CLI.Tests/DotnetToolPackagingTests` (csproj
+      static-structural + per-`dotnet pack` dynamic-nuspec /
+      `DotnetToolSettings.xml` / entry-point-assembly presence /
+      package-size sanity) — the test class runs `dotnet pack` once
+      per test class (memoised in a `Lazy<string>` so xUnit's
+      parallel test scheduler does not trigger duplicate packs) and
+      writes the artifact to `out/tool-pack/` so it is easy to
+      inspect by hand. The README gains a new "5. As a `dotnet
+      tool`" install path under `## 📦 Installation`, parallel to
+      the existing pre-built binary / Docker / source / library
+      paths. Build clean (0 warnings, 0 errors), **497 xUnit
+      tests** (81 + 35 + 26 + 9 + 39 + 307) + 0 Node tests,
+      all green; `dotnet pack` of the CLI project produces a
+      113 MB `watermarkremover.1.0.0.nupkg` whose `.nuspec` has
+      `<packageType name="DotnetTool" />`,
+      `<id>watermarkremover</id>`, the right
+      `<frameworkReference name="Microsoft.AspNetCore.App" />`,
+      and the right `<readme>` / `<icon>`; the `DotnetToolSettings.xml`
+      inside the package has
+      `<Command Name="watermarkremover" EntryPoint="watermarkremover.dll" Runner="dotnet" />`.
+
 - [x] **WR-P010 — NuGet packaging for the four library projects
       (`src/WatermarkRemover.{Core,Text,Metadata,Image}.csproj` +
       `src/tools/watermarkremover.snk` + `src/tools/watermarkremover-nuget-icon.png`

@@ -247,6 +247,25 @@ dotnet run --project src/WatermarkRemover.CLI -- serve --port 5080
 once the package surface stabilises — see [BACKLOG.md → Distribution](./BACKLOG.md#distribution).
 Track progress on the [P1 board](https://github.com/techbuzzz/ai-watermark-remover/milestones).
 
+### 5. As a `dotnet tool` (WR-P011)
+
+If you have the [.NET 10 SDK](https://dotnet.microsoft.com/download) (or the
+ASP.NET Core runtime) installed and want the smallest, most idiomatic .NET
+install path, the `watermarkremover` CLI is also published as a
+**global tool**:
+
+```bash
+dotnet tool install -g watermarkremover
+watermarkremover --version
+watermarkremover clean-text "Hello‍‎world"   # → Helloworld
+```
+
+The tool ships the same `serve` + `serve-mcp` + `clean-*` + `detect-*` commands
+as the pre-built binary. The Astro web UI is bundled so `watermarkremover serve`
+works out of the box (pass `--no-ui` to skip it). Update with
+`dotnet tool update -g watermarkremover`; uninstall with
+`dotnet tool uninstall -g watermarkremover`.
+
 ---
 
 ## 🧠 How it works

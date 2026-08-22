@@ -20,6 +20,37 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <InformationalVersion>1.0.0</InformationalVersion>
+
+    <!--
+      NuGet packaging as a `dotnet tool` global tool (WR-P011).
+      `IsPackable=true` turns `dotnet pack` on, `PackAsTool=true`
+      plus `ToolCommandName=watermarkremover` makes the packed .nupkg
+      installable via `dotnet tool install -g watermarkremover`
+      (which lands `watermarkremover` on $PATH). `PackageOutputType=Exe`
+      is mandatory for tool packages. The shared icon and a per-tool
+      README are bundled as `<None Pack="true">` items so `dotnet pack`
+      does not error with NU5039 / NU5046. The wwwroot/ Astro UI
+      bundle is intentionally NOT packed; it is a `Content` item with
+      `CopyToOutputDirectory` only, so the NuGet tool stays small
+      (~25 MB on disk after restore) and users on headless servers do
+      not pay for assets they will not render. Users who want the UI
+      should grab a release binary, run a Docker image, or invoke
+      `dotnet run` from the source tree.
+    -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>watermarkremover</ToolCommandName>
+    <PackageId>watermarkremover</PackageId>
+    <PackageOutputType>Exe</PackageOutputType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
+    <PackageDescription>Cross-platform .NET 10 CLI / HTTP API / MCP server that strips AI-provenance watermarks from text, markdown, files (JPEG/PNG/PDF/DOCX/HTML/WebP metadata), and images (LaMa inpainting). One binary, first-class Russian support, plug-in vendor detectors (Claude / Gemini / OpenAI).</PackageDescription>
+    <PackageTags>ai;watermark;cleaning;metadata;inpainting;lama;c2pa;mcp;cli;dotnet;tool</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -48,8 +79,19 @@
   <!-- Astro web UI bundle (built by `npm run build` in /web).
        The sync script copies /web/dist → wwwroot/. The directory is left
        out of the repo by default; running `npm run build` (or just
-       `npm run sync`) is what populates it. -->
+       `npm run sync`) is what populates it. The ~29 KB bundle IS packed
+       into the `dotnet tool` package so that `watermarkremover serve`
+       finds the UI at the install location (AppContext.BaseDirectory
+       for a global tool is `~/.dotnet/tools/.store/watermarkremover/
+       <ver>/tools/net10.0/any/`, so a relative `wwwroot/` lookup
+       succeeds). Users who do not want the UI can pass the
+       `no-ui` flag to `serve`, which short-circuits the file
+       provider before the `UseStaticFiles` middleware is added. -->
   <ItemGroup>
     <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\tools\watermarkremover-nuget-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>

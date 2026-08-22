@@ -837,8 +837,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md).
 - **Russian-language synonyms** — extended built-in `SynonymDictionary`
   coverage (see `src/WatermarkRemover.Text/SynonymDictionary.cs`).
-
-### Changed
+- **`dotnet tool` packaging (WR-P011)** — the `watermarkremover` CLI is now
+  installable as a **first-class `dotnet` global tool**:
+  `dotnet tool install -g watermarkremover` lands a `watermarkremover`
+  binary on `$PATH` (`~/.dotnet/tools/` on Linux/macOS,
+  `%USERPROFILE%\.dotnet\tools\` on Windows). The
+  `WatermarkRemover.CLI` csproj is now `IsPackable=true` +
+  `PackAsTool=true` + `ToolCommandName=watermarkremover` +
+  `PackageId=watermarkremover` + `PackageOutputType=Exe`; the SDK
+  generates a `tools/net10.0/any/DotnetToolSettings.xml` that maps the
+  command to `watermarkremover.dll` with `Runner=dotnet`. The Astro
+  web UI is intentionally bundled in the package (~29 KB) so
+  `watermarkremover serve` finds `wwwroot/` at
+  `AppContext.BaseDirectory` after a global install — headless
+  deployments pass `--no-ui`. A new per-tool
+  `src/WatermarkRemover.CLI/README.md` is the landing page shown by
+  `dotnet tool list`; the shared 128×128 NuGet icon is bundled via
+  the same `<None Pack="true" PackagePath="">` shape the four library
+  packages use. The README grows a "5. As a `dotnet tool`" install
+  path under `## 📦 Installation`, parallel to pre-built binary /
+  Docker / source / library. **20 new xUnit tests** in
+  `WatermarkRemover.CLI.Tests/DotnetToolPackagingTests` guard the
+  contract: the csproj declares the right `IsPackable` /
+  `PackAsTool` / `ToolCommandName` / `PackageId` /
+  `PackageOutputType=Exe` / `net10.0` TFM /
+  `Microsoft.AspNetCore.App` framework reference, the README + icon
+  are bundled as `<None Pack="true">`, the per-tool README mentions
+  `dotnet tool install` + the `watermarkremover` command + the
+  main GitHub repo, and a fresh `dotnet pack` of the CLI project
+  (run once per test class, memoised in a `Lazy<string>`) produces
+  a `.nupkg` whose `.nuspec` declares
+  `<packageType name="DotnetTool" />` +
+  `<id>watermarkremover</id>` + the right
+  `<frameworkReference name="Microsoft.AspNetCore.App" />` +
+  `<readme>README.md</readme>` + `<icon>watermarkremover-nuget-icon.png</icon>`,
+  whose `tools/<tfm>/any/DotnetToolSettings.xml` has
+  `<Command Name="watermarkremover" EntryPoint="watermarkremover.dll" Runner="dotnet" />`,
+  and whose size stays in the [1 MB, 200 MB] sanity band. Build
+  clean (0 warnings, 0 errors), **497 xUnit tests** (81 + 35 + 26
+  + 9 + 39 + 307), all green; `dotnet pack` of the CLI project
+  produces a 113 MB `watermarkremover.1.0.0.nupkg` in
+  `out/tool-pack/` (gitignored).
 - **Central package management (NuGet CPM)** — package versions are now
   declared in one place. New `src/Directory.Packages.props` lists every
   external package (Serilog, Spectre.Console, SixLabors.ImageSharp,
