@@ -43,6 +43,7 @@ are the other two sections you'll come back to.
   - [MiniMax Code](#minimax-code)
   - [Cursor](#cursor)
   - [Continue](#continue)
+  - [npm package (`@watermarkremover/mcp`)](#npm-package-watermarkremovermcp)
   - [Docker (Streamable HTTP)](#docker-streamable-http)
   - [Verify the install](#verify-the-install)
 - [Troubleshooting](#troubleshooting)
@@ -772,6 +773,14 @@ watermarkremover serve-mcp --transport http --port 5090
 
 ### Cursor
 
+Cursor reads MCP servers from `~/.cursor/mcp.json` (a project-local
+`.cursor/mcp.json` also works and overrides the user-global one —
+useful when you want the integration in just one repo). The config
+shape is an **object** keyed by server name, with `command` + `args`
+matching the stdio MCP spec.
+
+**A. Release binary (recommended when `watermarkremover` is on `$PATH`):**
+
 Create or edit `~/.cursor/mcp.json`:
 
 ```json
@@ -785,12 +794,56 @@ Create or edit `~/.cursor/mcp.json`:
 }
 ```
 
+**B. npm wrapper (no manual install — `npx` fetches the binary):**
+
+```json
+{
+  "mcpServers": {
+    "watermarkremover": {
+      "command": "npx",
+      "args": ["-y", "@watermarkremover/mcp"]
+    }
+  }
+}
+```
+
+**C. Source mode (from a `git clone` checkout):**
+
+```json
+{
+  "mcpServers": {
+    "watermarkremover": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "/absolute/path/to/ai-watermark-remover/src/WatermarkRemover.CLI",
+        "--",
+        "serve-mcp"
+      ]
+    }
+  }
+}
+```
+
 Restart Cursor — the `WatermarkRemover` server and its eight tools
-will show up in the MCP tool picker.
+will show up in the MCP tool picker. If you see the server listed
+but no tools, check the Cursor MCP panel's stderr pane — the
+`serve-mcp` host prints every log level to stderr per the MCP stdio
+contract.
 
 ### Continue
 
-Create or edit `~/.continue/config.json` and add an `mcpServers` block:
+Continue reads MCP servers from `~/.continue/config.json` (the
+project-local `.continue/config.json` is the same shape and
+overrides the user-global one). The config shape is an **array** of
+objects, each with its own `name` field — slightly different from
+Cursor's object-keyed map.
+
+**A. Release binary (recommended when `watermarkremover` is on `$PATH`):**
+
+Create or edit `~/.continue/config.json` and add an `mcpServers`
+array:
 
 ```json
 {
@@ -803,6 +856,119 @@ Create or edit `~/.continue/config.json` and add an `mcpServers` block:
   ]
 }
 ```
+
+**B. npm wrapper (no manual install — `npx` fetches the binary):**
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "watermarkremover",
+      "command": "npx",
+      "args": ["-y", "@watermarkremover/mcp"]
+    }
+  ]
+}
+```
+
+**C. Source mode (from a `git clone` checkout):**
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "watermarkremover",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "/absolute/path/to/ai-watermark-remover/src/WatermarkRemover.CLI",
+        "--",
+        "serve-mcp"
+      ]
+    }
+  ]
+}
+```
+
+Reload the Continue window — the `watermarkremover` server should
+appear in the tool sidebar with all eight tools.
+
+### npm package (`@watermarkremover/mcp`)
+
+The project also ships a **zero-dependency npm wrapper** for hosts
+that prefer npm-based MCP registration. The package
+[`@watermarkremover/mcp`](../npm/watermarkremover-mcp/) downloads the
+platform-appropriate release artefact on `npm install` and exposes a
+`watermarkremover-mcp` shim that spawns `watermarkremover serve-mcp`
+with stdio inheritance.
+
+```bash
+# install into a project
+npm install @watermarkremover/mcp
+
+# or one-off (no install) — useful for quick smoke tests
+npx -y @watermarkremover/mcp
+```
+
+The package is **thin by design**: no `node-fetch`, no `adm-zip`, no
+runtime dependencies at all. The downloader and the in-tree ZIP
+extractor both rely on Node built-ins (`https`, `node:zlib`,
+`node:fs/promises`). The full source of truth lives at
+[`npm/watermarkremover-mcp/`](../npm/watermarkremover-mcp/); the
+package's own `README.md` documents the RID matrix, the postinstall
+contract, the env-var escape hatches, and the `WATERMARKREMOVER_BINARY`
+source-mode swap.
+
+**Wire it into any MCP host:**
+
+| Host      | Config file                       | `mcpServers` shape |
+|-----------|-----------------------------------|--------------------|
+| Cursor    | `~/.cursor/mcp.json`              | Object keyed by server name |
+| Continue  | `~/.continue/config.json`         | Array of `{name, command, args}` objects |
+| Claude Code | `claude mcp add …` (one-liner) | n/a — CLI |
+| OpenCode  | `.opencode/opencode.jsonc` → `mcp` | Object keyed by server name |
+
+The Cursor and Continue snippets are in the [Cursor](#cursor) and
+[Continue](#continue) sections above. The snippet shape is the same
+as the release-binary path with one difference — the `command` is
+`npx` and the `args` include `-y @watermarkremover/mcp`:
+
+```json
+{
+  "mcpServers": {
+    "watermarkremover": {
+      "command": "npx",
+      "args": ["-y", "@watermarkremover/mcp"]
+    }
+  }
+}
+```
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "watermarkremover",
+      "command": "npx",
+      "args": ["-y", "@watermarkremover/mcp"]
+    }
+  ]
+}
+```
+
+**Source-mode install** (skip the binary download and point at a
+local build):
+
+```bash
+export WR_SKIP_BINARY_DOWNLOAD=1
+export WATERMARKREMOVER_BINARY=/absolute/path/to/watermarkremover
+npm install @watermarkremover/mcp
+```
+
+The wrapper will prefer `$WATERMARKREMOVER_BINARY` when it resolves
+the binary to spawn, so the package installs cleanly even on a
+checkout that has never downloaded a release artefact.
 
 ### Docker (Streamable HTTP)
 
@@ -881,6 +1047,8 @@ curl -X POST http://localhost:5090/ \
 | HTTP 401 on every request | `--api-key` is set on the server, the agent does not send `X-API-Key`. | Either unset `--api-key` (localhost dev) or configure the agent to send the header. |
 | HTTP 429 after a few requests | Per-IP rate-limit is in effect. | Raise `mcp.rate_limit.permit_limit` in `config.yaml` or pass `--rate-limit N` on the CLI. |
 | `Port 5090 is already in use` | Another process is bound to the port. | Pass `--port <other>` or set `mcp.port` in `config.yaml`. |
+| `@watermarkremover/mcp: failed to locate the WatermarkRemover binary` (exit 127) | The postinstall download didn't complete, the user opted out, or the binary isn't on `$PATH`. | Re-run `npm install @watermarkremover/mcp`, set `WATERMARKREMOVER_BINARY` to a local build, or install the release binary on `$PATH`. |
+| npm postinstall prints a yellow warning | The release artefact download failed (network, GitHub rate-limit, unsupported RID). | Re-run `npm install` later, set `WR_FORCE_BINARY_DOWNLOAD=1` to retry, or `WR_SKIP_BINARY_DOWNLOAD=1` and point `WATERMARKREMOVER_BINARY` at a local build. |
 
 ---
 

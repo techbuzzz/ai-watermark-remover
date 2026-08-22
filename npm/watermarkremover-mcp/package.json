@@ -1,0 +1,56 @@
+{
+  "name": "@watermarkremover/mcp",
+  "version": "0.1.0",
+  "description": "npm wrapper for the WatermarkRemover MCP server (`watermarkremover serve-mcp`). Installs the platform-appropriate release binary and exposes it as an npm-installable MCP server for Cursor, Continue, and any other MCP host that prefers npm-based registration.",
+  "license": "MIT",
+  "author": "Viktor Buzin <me@techbuzzz.me>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/techbuzzz/ai-watermark-remover.git",
+    "directory": "npm/watermarkremover-mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/techbuzzz/ai-watermark-remover/issues"
+  },
+  "homepage": "https://github.com/techbuzzz/ai-watermark-remover#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "bin": {
+    "watermarkremover-mcp": "index.js"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "postinstall.js",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node postinstall.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "watermark",
+    "watermarkremover",
+    "ai",
+    "cursor",
+    "continue",
+    "stdio"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

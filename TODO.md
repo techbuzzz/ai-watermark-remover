@@ -485,7 +485,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   documented — research first, document any assumptions.
 - **Backlog ref:** WR-P623
 
-### WR-S18. [~] Cursor / Continue MCP config + npm package
+### WR-S18. [x] Cursor / Continue MCP config + npm package
 
 - **Why:** WR-P624, WR-P632 — prebuilt MCP configs for Cursor and
   Continue, plus an npm wrapper for easy install.
@@ -575,6 +575,69 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-S18 — Cursor / Continue MCP config + `@watermarkremover/mcp` npm
+      package** — Cursor and Continue now have **three** install paths each
+      in `docs/MCP.md` (release binary on `$PATH`, the new npm wrapper,
+      and `dotnet run` source mode), and the project ships a
+      **zero-dependency npm package** at
+      `npm/watermarkremover-mcp/`. The package contains: `package.json`
+      (name `@watermarkremover/mcp`, `bin: watermarkremover-mcp`,
+      `engines.node >= 18`, `os`/`cpu` allowlists, `repository.directory`
+      pointing at the npm subfolder, no runtime deps); `index.js` — the
+      `bin` entry, a Node shebang + `child_process.spawn` of
+      `serve-mcp` with `stdio: 'inherit'` and signal forwarding
+      (SIGINT/SIGTERM/SIGHUP); `postinstall.js` — the install hook that
+      delegates to `lib/install.js` with the package's own version as
+      the expected release tag; `lib/binary.js` — the RID table
+      (4 entries: linux-x64/arm64, darwin-x64, win-x64, locked to the
+      release workflow matrix), `detectRuntimeId()`, `releaseAssetUrl()`,
+      `installedBinaryPath()`, and `resolveBinary()` with the priority
+      order `WATERMARKREMOVER_BINARY > bin/ > $PATH > unresolved`;
+      `lib/install.js` — the in-tree HTTP downloader (uses Node's
+      built-in `http`/`https` so the package has zero deps, follows
+      GitHub's 302 → `objects.githubusercontent.com` redirects, capped
+      at 5 hops) and a hand-rolled ZIP central-directory reader that
+      handles STORED and DEFLATE entries (no `adm-zip` / `yauzl` /
+      `node-stream-zip`); `test/binary.test.js` — 13 Node `node:test`
+      cases covering RID table, platform detection, asset URL shape,
+      installed path per platform, resolution priority chain, the
+      flat-vs-nested entry matcher, and a synthetic ZIP round-trip
+      against the in-tree extractor; `README.md` (install, postinstall
+      contract, supported RIDs, env-var escape hatches,
+      `WATERMARKREMOVER_BINARY` source-mode swap) and `.gitignore`
+      (`bin/`). The postinstall is **idempotent** (re-runs are
+      no-ops when the binary is present), **soft-fails** (network
+      errors print a remediation message to stderr and exit 0 so
+      `npm install` succeeds), and **opt-out-able** via
+      `WR_SKIP_BINARY_DOWNLOAD=1`. `WR_FORCE_BINARY_DOWNLOAD=1`
+      forces a re-download. `docs/MCP.md` is rewritten: the Cursor
+      and Continue sections each expand from one snippet to three
+      (binary / npm / source), a new `### npm package (@watermarkremover/mcp)`
+      section sits between Continue and Docker with a host-by-host
+      wiring table, two full example snippets, the source-mode swap
+      recipe, and the RID matrix; the troubleshooting table gains
+      two new rows (npm wrapper exit 127, npm postinstall yellow
+      warning). README's `## 🤖 MCP server` section grows a "Cursor
+      / Continue users get an npm wrapper" callout with the snippet
+      shape; the docs-link footer adds a `📦 npm/watermarkremover-mcp/`
+      row. 28 new xUnit tests: `NpmPackageTests` (20 — directory +
+      6 file-presence theory rows, valid `package.json` JSON,
+      scoped name, SemVer, `bin: watermarkremover-mcp` →
+      `index.js`, `postinstall` script, test script, `files`
+      allowlist, `engines.node >= 18`, `repository.directory`,
+      `index.js` shebang + `serve-mcp` arg + `stdio: 'inherit'`,
+      `postinstall.js` delegation, `binary.js` advertises every
+      supported RID, `install.js` honours skip/force env vars)
+      and `CursorContinueConfigTests` (8 — doc presence, `### Cursor`
+      and `### Continue` and `### npm package` headers, the embedded
+      Cursor + Continue config JSON blocks parse + register
+      `watermarkremover` with the right shape, the dedicated
+      npm-section Cursor + Continue `npx` snippets parse + reference
+      `@watermarkremover/mcp`). Solution build clean (0 warnings,
+      0 errors), **375 tests total** (81 + 35 + 26 + 9 + 39 + 185),
+      all green; `node --test` on the npm package's own suite
+      reports 13/13 green.
 
 - [x] **WR-S17 — MiniMax Code integration (`minimax-code/` + `docs/MINIMAX-CODE.md`)** —
       the project now ships a first-class MiniMax Code integration

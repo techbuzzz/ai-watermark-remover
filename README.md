@@ -430,6 +430,15 @@ Flags: `--transport <stdio\|http>` (default `stdio`), `-H|--host`,
 [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md#mcp). The stdio
 transport routes **all** logging to stderr so the JSON-RPC stream
 on stdout stays clean, per the [MCP stdio spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio).
+
+**Cursor / Continue users get an npm wrapper.** The project ships a
+zero-dependency npm package at
+[`@watermarkremover/mcp`](./npm/watermarkremover-mcp/) that
+downloads the platform-appropriate release binary on `npm install`
+and exposes `npx -y @watermarkremover/mcp` as a drop-in `mcpServers`
+entry. No manual `dotnet` install, no PATH tweaks — just paste the
+snippet from `docs/MCP.md` into `~/.cursor/mcp.json` or
+`~/.continue/config.json`.
 ```
 
 > **Full reference:** [📘 docs/MCP.md](./docs/MCP.md) — architecture diagram, all 8
@@ -647,6 +656,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - ⚙️ [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — every `config.yaml` key explained
 - 🚀 [docs/ci-release.md](./docs/ci-release.md) — how the release pipeline works
 - 🤖 [docs/MCP.md](./docs/MCP.md) — `serve-mcp` for Claude Code, OpenCode, MiniMax Code, Cursor, Continue (MCP server architecture, tool schemas, install recipes)
+- 📦 [npm/watermarkremover-mcp/](./npm/watermarkremover-mcp/) — `@watermarkremover/mcp` zero-dependency npm wrapper for Cursor, Continue, and any other MCP host that prefers npm-based registration (downloads the platform-appropriate release binary on `npm install`)
 - 🪝 [docs/CLAUDE-CODE.md](./docs/CLAUDE-CODE.md) — Claude Code-specific install (project-local `mcp-config.json`, `~/.claude/settings.json` merge, `claude mcp add` one-liner) and the optional `UserPromptSubmit` hook for auto-cleaning pasted text
 - 🧩 [docs/MINIMAX-CODE.md](./docs/MINIMAX-CODE.md) — MiniMax Code V1 local plugin (`minimax-code/watermark-remover/`), install paths per OS, MCP transport swap, slash-command status, troubleshooting
 - 🧠 [docs/SKILLS.md](./docs/SKILLS.md) — drop-in agent skills (`skills/`) for OpenCode, Claude Code, MiniMax Code, Cursor, Continue (install, resolution rules, per-skill reference)

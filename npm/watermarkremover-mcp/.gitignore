@@ -1,0 +1,8 @@
+# Downloaded binary — populated by `npm install` / `postinstall.js`.
+# Never commit it; the source of truth is the GitHub Releases artefact
+# pinned to this package's version.
+bin/
+
+# Node test artefacts (the suite is fully in-memory; this is a safety
+# net in case a future test writes here).
+test/.tmp/
