@@ -485,7 +485,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   documented — research first, document any assumptions.
 - **Backlog ref:** WR-P623
 
-### WR-S18. [ ] Cursor / Continue MCP config + npm package
+### WR-S18. [~] Cursor / Continue MCP config + npm package
 
 - **Why:** WR-P624, WR-P632 — prebuilt MCP configs for Cursor and
   Continue, plus an npm wrapper for easy install.
