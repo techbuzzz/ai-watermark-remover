@@ -527,7 +527,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   scaffold, keep the extension thin (delegate to MCP server).
 - **Backlog ref:** WR-P625
 
-### WR-S20. [ ] MCP packaging + Docker for MCP
+### WR-S20. [~] MCP packaging + Docker for MCP
 
 - **Why:** WR-P631, WR-P633 — ensure `serve-mcp` is in release binaries
   and Docker exposes the MCP HTTP transport.
