@@ -402,11 +402,12 @@ curl -s -X POST http://localhost:5080/clean/text \
 
 `serve-mcp` exposes the full pipeline as
 [Model Context Protocol](https://modelcontextprotocol.io/) tools so any
-MCP-compatible agent (Claude Code, OpenCode, MiniMax Code, Cursor,
-Continue, …) can call `clean_text`, `clean_markdown`, `clean_file`,
-`clean_image`, `detect_text`, `detect_markdown`, `inspect_file`, and
-`detect_watermark` directly — no shell-out to the CLI. Built on the
-official [`ModelContextProtocol` C# SDK](https://github.com/modelcontextprotocol/csharp-sdk).
+MCP-compatible agent (Claude Code, OpenCode, MiniMax Code, VS Code,
+Cursor, Continue, …) can call `clean_text`, `clean_markdown`,
+`clean_file`, `clean_image`, `detect_text`, `detect_markdown`,
+`inspect_file`, and `detect_watermark` directly — no shell-out to the
+CLI. Built on the official [`ModelContextProtocol` C#
+SDK](https://github.com/modelcontextprotocol/csharp-sdk).
 
 ```bash
 # stdio (default) — local agents (Claude Code, OpenCode, MiniMax Code, Cursor, Continue)
@@ -526,6 +527,23 @@ other agents — `clean_text`, `clean_markdown`, `clean_file`,
 [`docs/MINIMAX-CODE.md`](./docs/MINIMAX-CODE.md) for the full
 plugin reference, the HTTP-transport swap, the slash-command
 status, and the troubleshooting table.
+
+**VS Code users get a first-party extension.** The project ships a
+dedicated VS Code extension at
+[`vscode/watermark-remover/`](./vscode/watermark-remover/) that
+adds three commands and two context-menu integrations: right-click a
+text selection → **WatermarkRemover: Clean AI watermarks from
+selection**; right-click a file in the Explorer → **WatermarkRemover:
+Strip metadata from selected file(s)**; command palette →
+**WatermarkRemover: Detect AI watermarks in selection**. The
+extension is a thin client over the `watermarkremover` CLI — it
+does not re-implement any cleaning logic — and ships the same
+`skills/` folder so AI agents running inside VS Code (Continue,
+Cline, …) learn the tool. Install from the Marketplace (search
+"WatermarkRemover", publisher `techbuzzz`) or via
+`code --install-extension watermark-remover.vsix`. See
+[`docs/VS-CODE.md`](./docs/VS-CODE.md) for the full reference,
+configuration knobs, and the source-mode `dotnet run` recipe.
 
 Install for your agent in one command:
 
@@ -659,6 +677,7 @@ dotnet run --project src/WatermarkRemover.CLI -- clean-text "Это значим
 - 📦 [npm/watermarkremover-mcp/](./npm/watermarkremover-mcp/) — `@watermarkremover/mcp` zero-dependency npm wrapper for Cursor, Continue, and any other MCP host that prefers npm-based registration (downloads the platform-appropriate release binary on `npm install`)
 - 🪝 [docs/CLAUDE-CODE.md](./docs/CLAUDE-CODE.md) — Claude Code-specific install (project-local `mcp-config.json`, `~/.claude/settings.json` merge, `claude mcp add` one-liner) and the optional `UserPromptSubmit` hook for auto-cleaning pasted text
 - 🧩 [docs/MINIMAX-CODE.md](./docs/MINIMAX-CODE.md) — MiniMax Code V1 local plugin (`minimax-code/watermark-remover/`), install paths per OS, MCP transport swap, slash-command status, troubleshooting
+- 🆚 [docs/VS-CODE.md](./docs/VS-CODE.md) — VS Code first-party extension (`vscode/watermark-remover/`), three commands (cleanText, cleanFile, detectText), right-click context menus, bundled skills, `dotnet run` source-mode recipe
 - 🧠 [docs/SKILLS.md](./docs/SKILLS.md) — drop-in agent skills (`skills/`) for OpenCode, Claude Code, MiniMax Code, Cursor, Continue (install, resolution rules, per-skill reference)
 - 🧭 [BACKLOG.md](./BACKLOG.md) — prioritised roadmap
 - 📝 [TODO.md](./TODO.md) — current sprint

@@ -43,6 +43,7 @@ are the other two sections you'll come back to.
   - [MiniMax Code](#minimax-code)
   - [Cursor](#cursor)
   - [Continue](#continue)
+  - [VS Code](#vs-code)
   - [npm package (`@watermarkremover/mcp`)](#npm-package-watermarkremovermcp)
   - [Docker (Streamable HTTP)](#docker-streamable-http)
   - [Verify the install](#verify-the-install)
@@ -893,6 +894,95 @@ array:
 
 Reload the Continue window — the `watermarkremover` server should
 appear in the tool sidebar with all eight tools.
+
+### VS Code
+
+VS Code (≥ 1.86) has built-in MCP support that reads server entries
+from `.vscode/mcp.json` (project-local) or the user-level **MCP:
+Manage Servers** panel. The project also ships a **first-party VS
+Code extension** at
+[`vscode/watermark-remover/`](../vscode/watermark-remover/) that adds
+three commands (right-click a selection → **Clean AI watermarks**,
+right-click a file → **Strip metadata**, command palette → **Detect
+AI watermarks**) on top of the CLI. The extension is the right
+choice for human-driven operations; the MCP registration is the
+right choice for AI agents (Continue, Cline, …) running inside
+VS Code.
+
+**A. Install the extension (recommended for human-driven use):**
+
+1. Open VS Code → **Extensions** sidebar → search for
+   **WatermarkRemover** (publisher `techbuzzz`) → **Install**.
+
+2. Make sure the `watermarkremover` binary is on `$PATH` (or set
+   `watermarkremover.binaryPath` in **Settings** to the explicit
+   path).
+
+3. Reload VS Code. Right-click any text selection → **WatermarkRemover:
+   Clean AI watermarks from selection** appears in the context menu;
+   right-click any file in the Explorer → **WatermarkRemover: Strip
+   metadata from selected file(s)**.
+
+**B. Register the MCP server (recommended for AI agents):**
+
+Create or edit `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "servers": {
+    "watermarkremover": {
+      "type": "stdio",
+      "command": "watermarkremover",
+      "args": ["serve-mcp"]
+    }
+  }
+}
+```
+
+Or for a user-global registration, open the **MCP: Manage Servers**
+panel via the command palette and add the same `command` / `args`
+pair.
+
+**C. Source mode (from a `git clone` checkout):**
+
+```json
+{
+  "servers": {
+    "watermarkremover": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "/absolute/path/to/ai-watermark-remover/src/WatermarkRemover.CLI",
+        "--",
+        "serve-mcp"
+      ]
+    }
+  }
+}
+```
+
+**D. Streamable HTTP (Docker, remote):**
+
+```json
+{
+  "servers": {
+    "watermarkremover": {
+      "type": "http",
+      "url": "http://localhost:5090"
+    }
+  }
+}
+```
+
+After any of the above, restart VS Code (or run **MCP: Restart
+Server** from the command palette). The eight tools appear in the
+agent-tool picker; the bundled extension commands are independent
+and stay available whether or not the MCP server is connected. See
+[`docs/VS-CODE.md`](../docs/VS-CODE.md) for the full extension
+reference, configuration knobs, and the source-mode
+`watermarkremover.binaryPath` recipe.
 
 ### npm package (`@watermarkremover/mcp`)
 

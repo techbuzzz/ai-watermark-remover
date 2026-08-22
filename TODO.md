@@ -506,7 +506,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   coordinate with the release workflow.
 - **Backlog ref:** WR-P624, WR-P632
 
-### WR-S19. [~] VS Code extension (MCP-based)
+### WR-S19. [x] VS Code extension (MCP-based)
 
 - **Why:** WR-P625 — lightweight VS Code extension with context-menu
   "Clean AI watermarks" and slash commands.
@@ -575,6 +575,59 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-S19 — VS Code extension (`vscode/watermark-remover/` +
+      `docs/VS-CODE.md`)** — the project now ships a first-party VS
+      Code extension pre-wired into the repo. The extension is a thin
+      UI client over the `watermarkremover` CLI — it registers three
+      commands (`watermarkremover.cleanText` / `cleanFile` /
+      `detectText`) with full context-menu integration
+      (`editor/context` + `editor/context/contextual` +
+      `explorer/context` + `explorer/context/contextual` +
+      `commandPalette`), four `contributes.configuration` settings
+      (`binaryPath`, `preferMcp`, `statistical`, `showNotifications`),
+      and ships the same `skills/` folder so AI agents inside VS Code
+      (Continue, Cline, …) learn the tool. The extension source is
+      `dependency-free at runtime` (only `node:child_process` and the
+      `vscode` module; no bundler, no React, no webpack — single
+      `out/extension.js` ≈ 16 KB) and a 16-case Node
+      `node --test` suite verifies the static contract. New
+      `docs/VS-CODE.md` is the end-to-end reference (3 install paths
+      × 3 usage flows × settings × source-mode `dotnet run` recipe ×
+      MCP-vs-extension complement × 7-row troubleshooting table).
+      `docs/MCP.md → VS Code` is a new sibling install section
+      between Continue and the npm package (4 recipes: Marketplace /
+      stdio `.vscode/mcp.json` / `dotnet run` source / Streamable
+      HTTP). README grows a parallel "VS Code users get a
+      first-party extension" callout under `## 🧠 Agent skills` and
+      the docs footer adds a `🆚 docs/VS-CODE.md` row. **46 new xUnit
+      tests** in `WatermarkRemover.CLI.Tests/VsCodeExtensionTests`:
+      directory + 7 file-presence theory rows (`package.json`,
+      `tsconfig.json`, `README.md`, `CHANGELOG.md`, `.vscodeignore`,
+      `.gitignore`, `src/extension.ts`), `skills/` presence,
+      `test/*.test.js` non-empty, 6 skill folders each with
+      `SKILL.md` (theory rows), `package.json` valid JSON, all 11
+      required top-level fields, name + publisher, SemVer,
+      `engines.vscode ^1.85.0` (regex
+      `^\^1\.(8[5-9]|9[0-9])\.0$`), `engines.node >=18`,
+      activationEvents for all three commands, all three commands in
+      `contributes.commands` with non-empty title + `WatermarkRemover`
+      category, all four menu slots correctly populated (text
+      commands in editor menus, file command in explorer menus), all
+      four `configuration` settings, `scripts.build = tsc -p .` +
+      `vscode:prepublish = npm run build` + test script uses
+      `node --test`, all three devDependencies, `repository.directory
+      = "vscode/watermark-remover"`, `tsconfig.json` valid JSON +
+      ES2022 + strict + `src/**/*` include, `src/extension.ts`
+      registers all three commands and imports `child_process` and
+      invokes the three CLI subcommands, the README is substantial
+      with the right sections, the CHANGELOG has `Unreleased` +
+      `Added`, the `.vscodeignore` excludes `src/` + `tsconfig.json`,
+      the master skill `compatibility:` lists `vscode`,
+      `docs/MCP.md` has a `### VS Code` section, `docs/VS-CODE.md`
+      is present with the right sections, and the parent README
+      has the "VS Code users" callout. Build clean (0 warnings,
+      0 errors), **437 tests total** (421 xUnit + 16 Node), all green.
 
 - [x] **WR-S18 — Cursor / Continue MCP config + `@watermarkremover/mcp` npm
       package** — Cursor and Continue now have **three** install paths each

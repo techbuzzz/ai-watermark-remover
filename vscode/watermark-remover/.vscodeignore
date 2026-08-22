@@ -1,0 +1,23 @@
+# .vscodeignore — files excluded from the .vsix package
+# See https://code.visualstudio.com/api/working-with-extensions/publishing-extension#publishing-extensions
+
+# Source TypeScript — already compiled into `out/` by `vscode:prepublish`
+src/
+tsconfig.json
+**/*.ts
+**/*.map
+
+# Local dev artifacts
+node_modules/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# The test suite ships in the package so the `npm test` step runs there too,
+# but exclude the build-time dependency cruft:
+test/fixtures/
+
+# Icon is referenced from skills/watermark-remover/icon.png — keep that.
+# Bundled skills (consumed by the agent, not the extension) — keep them.
+# extension.ts is compiled into out/ — keep `out/` in the package.

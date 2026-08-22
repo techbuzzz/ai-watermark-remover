@@ -1,0 +1,174 @@
+{
+  "name": "watermark-remover",
+  "displayName": "WatermarkRemover",
+  "description": "Strip AI-provenance watermarks (invisible characters, vendor signatures, EXIF/XMP/C2PA metadata, visual overlays) from text, files, and images. Adds a 'Clean AI watermarks' context menu on selected text, a 'Strip metadata' context menu on selected files, and three commands: cleanText, cleanFile, detectText. Delegates to the local `watermarkremover` CLI (or MCP server when registered) — no network calls, no remote services.",
+  "version": "1.0.0",
+  "publisher": "techbuzzz",
+  "license": "MIT",
+  "author": {
+    "name": "Viktor Buzin",
+    "email": "me@techbuzzz.me"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/techbuzzz/ai-watermark-remover.git",
+    "directory": "vscode/watermark-remover"
+  },
+  "bugs": {
+    "url": "https://github.com/techbuzzz/ai-watermark-remover/issues"
+  },
+  "homepage": "https://github.com/techbuzzz/ai-watermark-remover#readme",
+  "keywords": [
+    "watermark",
+    "watermarkremover",
+    "ai",
+    "clean",
+    "strip",
+    "metadata",
+    "exif",
+    "c2pa",
+    "xmp",
+    "zwsp",
+    "invisible",
+    "homoglyph",
+    "claude",
+    "gpt",
+    "gemini"
+  ],
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:watermarkremover.cleanText",
+    "onCommand:watermarkremover.cleanFile",
+    "onCommand:watermarkremover.detectText"
+  ],
+  "main": "./out/extension.js",
+  "icon": "skills/watermark-remover/icon.png",
+  "galleryBanner": {
+    "color": "#0e3057",
+    "theme": "dark"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "watermarkremover.cleanText",
+        "title": "WatermarkRemover: Clean AI watermarks from selection",
+        "shortTitle": "Clean AI watermarks",
+        "category": "WatermarkRemover",
+        "enablement": "editorHasSelection"
+      },
+      {
+        "command": "watermarkremover.cleanFile",
+        "title": "WatermarkRemover: Strip metadata from selected file(s)",
+        "shortTitle": "Strip metadata",
+        "category": "WatermarkRemover",
+        "enablement": "explorerResourceIsFile"
+      },
+      {
+        "command": "watermarkremover.detectText",
+        "title": "WatermarkRemover: Detect AI watermarks in selection",
+        "shortTitle": "Detect AI watermarks",
+        "category": "WatermarkRemover",
+        "enablement": "editorHasSelection"
+      }
+    ],
+    "menus": {
+      "editor/context/contextual": [
+        {
+          "when": "editorHasSelection && editorTextFocus",
+          "command": "watermarkremover.cleanText",
+          "group": "watermarkremover@1"
+        },
+        {
+          "when": "editorHasSelection && editorTextFocus",
+          "command": "watermarkremover.detectText",
+          "group": "watermarkremover@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "editorHasSelection && editorTextFocus",
+          "command": "watermarkremover.cleanText",
+          "group": "watermarkremover@1"
+        },
+        {
+          "when": "editorHasSelection && editorTextFocus",
+          "command": "watermarkremover.detectText",
+          "group": "watermarkremover@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "explorerResourceIsFile",
+          "command": "watermarkremover.cleanFile",
+          "group": "watermarkremover@1"
+        }
+      ],
+      "explorer/context/contextual": [
+        {
+          "when": "explorerResourceIsFile",
+          "command": "watermarkremover.cleanFile",
+          "group": "watermarkremover@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "watermarkremover.cleanText",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "watermarkremover.cleanFile",
+          "when": "explorerResourceIsFile"
+        },
+        {
+          "command": "watermarkremover.detectText",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "WatermarkRemover",
+      "properties": {
+        "watermarkremover.binaryPath": {
+          "type": "string",
+          "default": "watermarkremover",
+          "markdownDescription": "Absolute path to the `watermarkremover` binary, or just the name to pick it up from `$PATH`. The extension spawns this binary to do the actual cleaning. Default: `watermarkremover` (assumes it's on `$PATH`). For source-mode development, set this to a wrapper script that calls `dotnet run --project /path/to/src/WatermarkRemover.CLI -- serve-mcp` or use the empty string and rely on `$PATH`."
+        },
+        "watermarkremover.preferMcp": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When `true`, the extension will try to call the `watermarkremover` MCP server first (must be registered in VS Code's MCP hosts) before falling back to the CLI. The MCP path returns structured results; the CLI path pipes stdin/stdout. Default: `false` — CLI works out of the box without any extra MCP registration."
+        },
+        "watermarkremover.statistical": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When `true`, the `cleanText` command also enables Layer B statistical / synonym-aware rewriting (EN + RU) in addition to the default Layer A Unicode hygiene. Equivalent to passing `--statistical` to `watermarkremover clean-text`. Use only when the user explicitly asks to 'humanise' or 'rewrite'."
+        },
+        "watermarkremover.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When `true`, the extension shows a status-bar / information message after each clean / detect operation (with a count of removed characters, output file path, etc.). Set to `false` to silence the extension entirely."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "npm run build",
+    "lint": "tsc --noEmit -p .",
+    "test": "node --test test/*.test.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

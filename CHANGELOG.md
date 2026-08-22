@@ -18,6 +18,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **VS Code extension (`vscode/watermark-remover/` + `docs/VS-CODE.md`,
+  WR-S19 / WR-P625)** — the project now ships a first-party VS Code
+  extension pre-wired into the repo. The extension is a **thin UI
+  client** over the `watermarkremover` CLI — it does not re-implement
+  any cleaning logic; every command spawns the binary as a child
+  process and pipes data through it. New `vscode/watermark-remover/`
+  tree with: `package.json` (publisher `techbuzzz`, `engines.vscode
+  ^1.85.0`, three commands `watermarkremover.cleanText` /
+  `watermarkremover.cleanFile` / `watermarkremover.detectText` under
+  the `WatermarkRemover` category, four `contributes.menus` slots —
+  `editor/context`, `editor/context/contextual`, `explorer/context`,
+  `explorer/context/contextual` — plus the `commandPalette` slot with
+  `when` clauses, four `contributes.configuration` settings:
+  `watermarkremover.binaryPath` (default `watermarkremover`),
+  `watermarkremover.preferMcp` (reserved, default `false`),
+  `watermarkremover.statistical` (default `false`),
+  `watermarkremover.showNotifications` (default `true`),
+  `activationEvents` for the three `onCommand:` events, `scripts.build
+  = tsc -p .` and `vscode:prepublish = npm run build`, full
+  `devDependencies` for `typescript` / `@types/vscode` / `@types/node`,
+  and a marketplace `icon` pointing at the bundled 128 KB PNG);
+  `tsconfig.json` (ES2022 target, strict, `rootDir: src/`,
+  `outDir: out/`, `include: src/**/*`); `src/extension.ts` (≈ 350
+  LOC, dependency-free at runtime — only uses `node:child_process` and
+  the `vscode` module, exports `activate()` that registers the three
+  commands and `deactivate()` for symmetry; custom
+  `WatermarkRemoverNotFoundError` and `WatermarkRemoverFailedError`
+  exception types so error messages stay user-friendly; the
+  `runBinary()` wrapper handles spawn-ENOENT, exit-code mapping, and
+  a 60-second timeout; `cleanTextCommand()` replaces the editor
+  selection with the cleaned text and reports the character delta in a
+  status-bar notification; `cleanFileCommand()` walks one or more
+  URIs from `explorer/context`, treats exit-code 3 as "skipped
+  (unsupported format)" and shows a per-file success / skip / fail
+  summary; `detectTextCommand()` spawns `detect-text --stdin --json`
+  and opens the formatted result in a new editor tab beside the
+  current one); `skills/` folder with the master `watermark-remover`
+  SKILL.md (`compatibility: vscode, opencode, claude-code, minimax-code,
+  cursor, continue` so any agent that consumes SKILL.md learns the
+  extension) plus the five per-format skills re-shipped from the
+  repo-root `skills/` (`clean-text`, `clean-markdown`, `clean-file`,
+  `clean-image`, `detect` — each carries the same `SKILL.md` / `run.sh`
+  / `run.ps1` triple the repo-root `skills/` already had); bundled
+  `icon.png` (the same 128 KB PNG used by the MiniMax Code plugin,
+  re-used to keep the package small); a marketplace `README.md`
+  (features, requirements, three install paths — Marketplace / `.vsix`
+  / source — three usage flows — text selection / file in Explorer /
+  command palette — settings table, source-mode `dotnet run` recipe,
+  the dependency-free architecture diagram, known limitations);
+  `CHANGELOG.md` (Keep-a-Changelog format with an `[Unreleased]
+  → Added` section); `.vscodeignore` (excludes `src/`, `tsconfig.json`,
+  `node_modules/`, dev logs); `.gitignore`; and a Node `node --test`
+  suite under `test/extension.test.js` with **16 green tests**
+  covering top-level field presence, name + publisher, SemVer,
+  `engines.vscode ^1.85.0`, `engines.node >=18`, activationEvents for
+  all three commands, `contributes.commands` shape, every menu slot
+  for editor and explorer (with `commandPalette`), the four
+  `configuration` settings, the build + `vscode:prepublish` + test
+  scripts, the three devDependencies, `src/extension.ts` referencing
+  every command and importing `child_process`, `tsconfig.json` strict
+  with `src/**/*` include, the six skill folders, the master
+  frontmatter mentioning `vscode`, and the README having install
+  instructions. New `docs/VS-CODE.md` is the end-to-end reference:
+  why-VS-Code, what-the-extension-ships, three install paths
+  (Marketplace / `.vsix` / source), three usage flows
+  (`cleanText` selection / `cleanFile` Explorer / `detectText`
+  palette), settings table, source-mode `dotnet run` wrapper recipe,
+  bundled-skills rationale, MCP-vs-extension complement, a 7-row
+  troubleshooting table (binary not on `$PATH`, spawn ENOENT,
+  unsupported format, Remote / WSL workspaces, image-inpaint not in
+  the extension, skill not picked up by Continue / Cline), and a
+  reference list. `docs/MCP.md → VS Code` is a new sibling section
+  between Continue and the npm package: four install recipes
+  (Marketplace, stdio `.vscode/mcp.json`, `dotnet run` source mode,
+  Streamable HTTP for Docker / remote) plus a one-line "restart VS
+  Code" tip. README grows a **"VS Code users get a first-party
+  extension"** callout under `## 🧠 Agent skills` (parallel to the
+  existing OpenCode / Claude Code / MiniMax Code callouts) with the
+  three context-menu verbs spelled out, and the `## 📚 Documentation`
+  footer gains a `🆚 docs/VS-CODE.md` row. The `## 🤖 MCP server`
+  preamble also lists VS Code alongside the other supported hosts.
+  **30 new xUnit tests** in `WatermarkRemover.CLI.Tests`:
+  `VsCodeExtensionTests` — directory + 7 file-presence theory rows
+  (`package.json`, `tsconfig.json`, `README.md`, `CHANGELOG.md`,
+  `.vscodeignore`, `.gitignore`, `src/extension.ts`), `skills/`
+  presence, `test/*.test.js` non-empty, 6 skill folders each with
+  `SKILL.md` (theory rows), `package.json` valid JSON, all 11
+  required top-level fields, name + publisher, SemVer, `engines.vscode
+  ^1.85.0` (regex `^\^1\.(8[5-9]|9[0-9])\.0$`), `engines.node >=18`,
+  activationEvents for all three commands, all three commands in
+  `contributes.commands` with non-empty title + `WatermarkRemover`
+  category, the four `editor/context` / `editor/context/contextual` /
+  `commandPalette` menus include `cleanText` + `detectText`, the two
+  `explorer/context` / `explorer/context/contextual` menus include
+  `cleanFile`, all four `configuration` settings, `scripts.build =
+  tsc -p .` + `vscode:prepublish = npm run build` + test script
+  starts with `node --test `, all three devDependencies
+  (`typescript` / `@types/vscode` / `@types/node`),
+  `repository.directory = "vscode/watermark-remover"`,
+  `tsconfig.json` valid JSON + ES2022 + strict + `src/**/*` include,
+  `src/extension.ts` registers all three commands and imports
+  `child_process` and invokes the three CLI subcommands
+  (`clean-text` / `clean-file` / `detect-text`), the README is
+  substantial and has `Requirements` + `Extension settings` + `VS
+  Code` mentions, the CHANGELOG has `Unreleased` + `Added`, the
+  `.vscodeignore` excludes `src/` + `tsconfig.json`, the master skill
+  frontmatter `compatibility:` line lists `vscode`, `docs/MCP.md`
+  has a `### VS Code` header and references `vscode/watermark-remover`,
+  `docs/VS-CODE.md` is present with `Install` / `Usage` / `Extension
+  settings` / `Troubleshooting` sections, and the parent README
+  contains the "VS Code users get a first-party extension" callout
+  and links to `docs/VS-CODE.md`. Solution build clean (0 warnings,
+  0 errors), **437 tests total** (421 xUnit + 16 Node), all green.
 - **Cursor / Continue MCP config + `@watermarkremover/mcp` npm package
   (`npm/watermarkremover-mcp/` + `docs/MCP.md`, WR-S18 / WR-P624,
   WR-P632)** — the project now ships a **zero-dependency npm wrapper**
