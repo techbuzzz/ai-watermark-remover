@@ -201,7 +201,7 @@ jobs:
           echo "serve-mcp --help OK (transport + flags advertised)."
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.zip_name }}
