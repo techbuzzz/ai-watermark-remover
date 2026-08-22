@@ -29,6 +29,57 @@ for the module map and extension points.
 Items are ordered by impact. A new tick should pick **the first `[ ]` item**
 in this list.
 
+### WR-S21. [~] EPUB metadata cleaner
+
+- **Why:** BACKLOG P1 — `.epub` files (zip-of-XHTML) are not currently
+  supported; `clean-file` returns "unsupported" for them. AI-generated
+  EPUBs ship with OPF `<dc:creator>` / `<dc:contributor>` /
+  `<meta property="dcterms:modified">` and similar watermarks that
+  identify the generator. Stripping them via zip-rewrite is a small
+  well-scoped first format addition that fills the gap.
+- **Scope:** new `src/WatermarkRemover.Metadata/EpubMetadataCleaner.cs`
+- **Files to touch:**
+  - New `src/WatermarkRemover.Metadata/EpubMetadataCleaner.cs` — uses
+    `System.IO.Compression.ZipArchive` to open the input, locates
+    `META-INF/container.xml` to find the OPF path, parses the OPF as
+    XML, removes all `<dc:*>` (except `dc:identifier` kept as a
+    freshly-generated UUID so the EPUB stays structurally valid) and
+    all `<meta>` elements, then writes a new zip preserving every
+    other entry verbatim (XHTML / CSS / images). The `mimetype`
+    entry stays first, uncompressed, as the EPUB spec requires.
+  - `src/WatermarkRemover.Metadata/DependencyInjection.cs` —
+    `services.AddSingleton<IFileMetadataCleaner, EpubMetadataCleaner>();`
+  - `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` —
+    update `<PackageDescription>` and `<PackageTags>` to mention EPUB
+  - `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` —
+    `WriteEpubWithMetadata(path, ...)` helper that writes a valid
+    minimal EPUB zip with the chosen OPF metadata
+  - `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` —
+    at least 6 tests (see Acceptance)
+  - `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` —
+    add `.epub` to `IsSupported_KnownExtensions_ReturnsTrue`, a new
+    `Resolve_Epub_ReturnsEpubCleaner` fact, and include the cleaner
+    in `BuildRouter()`
+  - `README.md` — line 49 list + the metadata section + roadmap tick
+  - `BACKLOG.md` — flip `WR-P105` to `[x]`
+  - `CHANGELOG.md` — new "Added" entry under `[Unreleased]`
+- **Acceptance:**
+  - `dotnet build` clean
+  - `dotnet test` clean; at least 6 new EPUB tests covering:
+    - Inspect finds `dc:creator` and `dc:title` from a fixture
+    - Clean removes all `<dc:*>` elements except `dc:identifier`
+      (kept as a freshly-generated UUID so the EPUB stays valid)
+    - Clean removes all `<meta>` elements
+    - The output is a valid ZIP (re-opens with `ZipArchive`)
+    - The `mimetype` entry remains first and uncompressed
+    - The `META-INF/container.xml` is preserved unchanged
+    - Corrupt / non-EPUB input throws `MetadataStripException`
+    - `CanHandle(".epub")` true, `CanHandle(".EPUB")` true
+  - File-routing tests pass
+- **Risks:** None — pure managed code, `System.IO.Compression.ZipArchive`
+  is part of the .NET runtime. `System.Xml.Linq` is also in the BCL.
+- **Backlog ref:** WR-P105
+
 ### WR-S3. [x] `clean-all` auto-routing command
 
 - **Why:** BACKLOG P2 — let users point one command at a mixed directory
