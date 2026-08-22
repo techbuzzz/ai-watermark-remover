@@ -506,7 +506,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
   coordinate with the release workflow.
 - **Backlog ref:** WR-P624, WR-P632
 
-### WR-S19. [ ] VS Code extension (MCP-based)
+### WR-S19. [~] VS Code extension (MCP-based)
 
 - **Why:** WR-P625 — lightweight VS Code extension with context-menu
   "Clean AI watermarks" and slash commands.
