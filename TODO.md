@@ -712,7 +712,60 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 ## In progress
 
-*(empty — no tick is currently assigned)*
+### WR-S23. [~] RTF metadata cleaner (backlog tick — first `[ ]` by priority)
+
+- **Why:** WR-P107 (P1) — `.rtf` files (Rich Text Format) are not currently
+  supported by `clean-file`. AI-generated RTF documents ship with
+  authorship metadata that the existing pipeline doesn't yet strip.
+  Adds the format to the metadata-strip pipeline alongside JPEG / PNG /
+  WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB.
+- **Scope:** new `src/WatermarkRemover.Metadata/RtfMetadataCleaner.cs`
+- **Files to touch:**
+  - New `src/WatermarkRemover.Metadata/RtfMetadataCleaner.cs` — pure
+    managed, no third-party deps. Reads the file as text, validates
+    the `{\rtf` magic, walks the file as a streaming parser
+    (character-by-character), tracks brace depth, and strips metadata
+    control words and their values. The metadata control words are
+    the canonical `\info`-group entries: `\title`, `\subject`,
+    `\author`, `\manager`, `\company`, `\category`, `\keywords`,
+    `\comment`, `\doccomm`, `\hlinkbase`, `\generator`, `\operator`,
+    `\version`, `\edmins`, `\nofpages`, `\nofwords`, `\nofchars`,
+    `\nofcharsws`, `\id`, plus the compound time-table entries
+    `\creatim`, `\revtbl`, `\printim`, `\buptim` (each followed by
+    sub-control words like `\yr\mo\dy\hr\min\sec`). The RTF body,
+    font table, color table, stylesheet, headers / footers, and
+    content are all preserved byte-for-byte.
+  - `src/WatermarkRemover.Metadata/DependencyInjection.cs` —
+    `services.AddSingleton<IFileMetadataCleaner, RtfMetadataCleaner>();`
+  - `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` —
+    update `<PackageDescription>` and `<PackageTags>` to mention RTF
+  - `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` —
+    `WriteRtfWithMetadata(path, ...)` helper that writes a minimal
+    but valid RTF file with the chosen metadata
+  - `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` —
+    ≥ 6 new tests (see Acceptance)
+  - `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` —
+    add `.rtf` / `.RTF` to `IsSupported_KnownExtensions_ReturnsTrue`,
+    add `Resolve_Rtf_ReturnsRtfCleaner` fact, and include the cleaner
+    in `BuildRouter()`
+  - `README.md` — line 49 list + metadata section + project tree + P1
+    roadmap one-liner
+  - `BACKLOG.md` — flip `WR-P107` to `[x]`
+  - `CHANGELOG.md` — new "Added" entry under `[Unreleased]`
+- **Acceptance:**
+  - `dotnet build` clean (0 warnings, 0 errors)
+  - `dotnet test` clean; at least 6 new RTF tests covering:
+    - Inspect finds `\author` and `\generator` from a fixture
+    - Clean removes `\author`, `\generator`, `\doccomm` from the file
+    - Clean removes compound metadata control words like `\creatim`
+    - Output starts with `{\rtf` (still a valid RTF container)
+    - Document body (text content) is preserved verbatim
+    - Corrupt / non-RTF input throws `MetadataStripException`
+    - `CanHandle(".rtf")` true, `CanHandle(".RTF")` true
+  - File-routing tests pass
+- **Risks:** None — pure managed code, no new deps. RTF is plain text
+  and only requires `System.Text.StringBuilder` from the BCL.
+- **Backlog ref:** WR-P107
 
 ---
 
