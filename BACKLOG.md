@@ -60,7 +60,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [x] WR-P105 — **EPUB** metadata cleaner — strip OPF metadata (creator, contributor, dc:identifier, etc.) via zip-rewrite
 - [x] WR-P106 — **PPTX/XLSX** metadata cleaners — extend OpenXML approach beyond DOCX
 - [x] WR-P107 — **RTF** metadata cleaner — strip `\author`, `\generator`, `\doccomm` control words
-- [~] WR-P108 — **MP4/MOV** metadata cleaner — strip `moov/udta/©xyz` atom (GPS), `udta/meta/keys/ilst` (title/author)
+- [x] WR-P108 — **MP4/MOV** metadata cleaner — strip `moov/udta/©xyz` atom (GPS), `udta/meta/keys/ilst` (title/author)
 
 ### Text layer enhancements
 - [ ] WR-P111 — **DeepSeek / Grok / Mistral** vendor detectors — heuristic patterns for these providers' text watermarks

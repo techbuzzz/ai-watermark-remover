@@ -727,6 +727,38 @@ Pick in order — MCP server must land before skills and plugins can use it.
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
+- [x] **WR-P108 — MP4 / MOV / M4V / M4A / M4B / M4P / 3GP / 3G2 metadata cleaner
+      (`src/WatermarkRemover.Metadata/Mp4MetadataCleaner.cs` +
+      `src/WatermarkRemover.Metadata/IsoBoxReader.cs` +
+      `src/WatermarkRemover.Metadata/DependencyInjection.cs` +
+      `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` +
+      `src/tests/WatermarkRemover.Metadata.Tests/TestFixtures.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/MetadataCleanerTests.cs` +
+      `src/tests/WatermarkRemover.Metadata.Tests/FileCleanerRouterTests.cs` +
+      `README.md` + `BACKLOG.md` + `CHANGELOG.md`)** — `.mp4` /
+      `.mov` / `.m4v` / `.m4a` / `.m4b` / `.m4p` / `.3gp` / `.3g2`
+      files now flow through the same metadata-strip pipeline as
+      JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX /
+      XLSX / HTML / EPUB / RTF. The cleaner is a pure-managed
+      ISOBMFF box walker built on a new internal `IsoBoxReader`
+      helper (shared 4CC box-header decoder that honours the 8-byte
+      `largesize` extension). It validates the `<ftyp>` brand
+      against the MP4 / MOV / 3GP / iTunes / QuickTime
+      compatible-brands list and walks the top-level boxes:
+      `ftyp` / `mdat` / `free` / `skip` are streamed through
+      bit-for-bit (the `mdat` bitstream is never materialised, so
+      multi-GB videos are safe); `moov` is rewritten so `mvhd` /
+      `trak` / `edts` / `mvex` are preserved but `udta` (the
+      `©xyz` GPS atom, `©mak` / `©mod` / `©swr` device make /
+      model / software, `©day` / `©nam` / `©ART` / `©cmt`
+      authorship) is stripped wholesale; any `meta` FullBox has its
+      QuickTime `keys` key-namespace index and `ilst` data list
+      stripped, plus the same EXIF / XMP / ICC policy as the AVIF
+      cleaner. **15 new xUnit tests** in
+      `WatermarkRemover.Metadata.Tests` (14 MP4 cleaner tests + 1
+      router fact). Build clean (0 warnings, 0 errors), **626
+      xUnit tests total** (81 + 35 + 9 + 155 + 39 + 307), all
+      green.
 - [x] **WR-P107 — RTF metadata cleaner
       (`src/WatermarkRemover.Metadata/RtfMetadataCleaner.cs` +
       `src/WatermarkRemover.Metadata/DependencyInjection.cs` +

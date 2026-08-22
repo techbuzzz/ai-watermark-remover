@@ -1161,6 +1161,301 @@ public class MetadataCleanerTests : IDisposable
         cleaner.SupportedExtensions.Should().BeEquivalentTo([".avif"]);
     }
 
+    // ---------------------------------------------------------------------
+    // MP4 / MOV / 3GP metadata cleaner (WR-P108)
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void Mp4_Inspect_FindsUdtaChildrenAndMetaKeysIlst()
+    {
+        // Default fixture has moov.udta (with ©xyz + ©mak + …) and
+        // moov.meta (with keys + ilst + Exif + XMP uuid). Inspect
+        // should report every metadata carrier.
+        string path = Path.Combine(_dir, "in.mp4");
+        TestFixtures.WriteMp4WithMetadata(path);
+
+        var cleaner = new Mp4MetadataCleaner();
+        IReadOnlyList<MetadataEntry> entries = cleaner.Inspect(path);
+
+        // udta children show up as USER_DATA entries (one per fourcc).
+        entries.Where(e => e.Container == "USER_DATA")
+            .Select(e => e.Key)
+            .Should()
+            .Contain(["©xyz", "©day", "©mak", "©mod", "©swr", "©nam"]);
+
+        // moov.meta children show up under their respective containers.
+        entries.Select(e => e.Container).Should().Contain("QUICKTIME_META");
+        entries.Should().Contain(e => e.Container == "QUICKTIME_META" && e.Key == "keys");
+        entries.Should().Contain(e => e.Container == "QUICKTIME_META" && e.Key == "ilst");
+
+        // EXIF + XMP under meta.
+        entries.Should().Contain(e => e.Container == "EXIF" && e.Key == "Exif");
+        entries.Should().Contain(e => e.Container == "XMP" && e.Key == "uuid/XMP");
+    }
+
+    [Fact]
+    public void Mp4_Clean_StripsUdtaAndMetaKeysIlst_PreservesMvhdTrakMdat()
+    {
+        // Default fixture — clean should strip the entire moov.udta
+        // and the keys + ilst from moov.meta, while keeping mvhd / trak
+        // and the mdat bitstream intact.
+        string input = Path.Combine(_dir, "in.mp4");
+        string output = Path.Combine(_dir, "out.mp4");
+        TestFixtures.WriteMp4WithMetadata(input);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        // The cleaner removed every udta child + the keys/ilst from meta.
+        result.RemovedEntries.Should().Contain(e => e.Container == "USER_DATA" && e.Key == "©xyz");
+        result.RemovedEntries.Should().Contain(e => e.Container == "USER_DATA" && e.Key == "©mak");
+        result.RemovedEntries.Should().Contain(e => e.Container == "QUICKTIME_META" && e.Key == "keys");
+        result.RemovedEntries.Should().Contain(e => e.Container == "QUICKTIME_META" && e.Key == "ilst");
+
+        // Output is still a valid MP4 container with ftyp + moov + mdat.
+        byte[] outputBytes = File.ReadAllBytes(output);
+        Encoding.ASCII.GetString(outputBytes, 4, 4).Should().Be("ftyp");
+        Encoding.ASCII.GetString(outputBytes, 8, 4).Should().Be("mp42");
+
+        // The moov box must still contain mvhd and trak (structural,
+        // preserved by the cleaner) but no udta and no keys/ilst.
+        MoovStructure moov = ExtractMoovStructure(outputBytes);
+        moov.Children.Should().Contain("mvhd");
+        moov.Children.Should().Contain("trak");
+        moov.Children.Should().NotContain("udta");
+        moov.MetaChildren.Should().NotContain("keys");
+        moov.MetaChildren.Should().NotContain("ilst");
+
+        // mdat bitstream preserved byte-for-byte.
+        byte[] inputBytes = File.ReadAllBytes(input);
+        ExtractMdatPayload(outputBytes).Should().Equal(ExtractMdatPayload(inputBytes));
+    }
+
+    [Fact]
+    public void Mp4_Clean_NoMoov_OnlyFtypAndMdat_Succeeds()
+    {
+        // A minimal MP4 with no moov at all (just ftyp + mdat) must be
+        // accepted and copied verbatim — the cleaner should never require
+        // a moov box to be present.
+        string input = Path.Combine(_dir, "no-moov.mp4");
+        string output = Path.Combine(_dir, "no-moov-out.mp4");
+        TestFixtures.WriteMp4WithMetadata(
+            input,
+            includeMoov: false,
+            includeMvhd: false,
+            includeTrak: false,
+            includeUdta: false,
+            includeMeta: false);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty();
+        byte[] inputBytes = File.ReadAllBytes(input);
+        byte[] outputBytes = File.ReadAllBytes(output);
+        ExtractMdatPayload(outputBytes).Should().Equal(ExtractMdatPayload(inputBytes));
+    }
+
+    [Fact]
+    public void Mp4_Clean_OnlyMvhdTrak_PreservesStructuralBoxes()
+    {
+        // moov with only mvhd + trak (no udta, no meta) — must be
+        // copied verbatim. The cleaner must not invent a meta or udta.
+        string input = Path.Combine(_dir, "structural.mp4");
+        string output = Path.Combine(_dir, "structural-out.mp4");
+        TestFixtures.WriteMp4WithMetadata(
+            input,
+            includeUdta: false,
+            includeMeta: false);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().BeEmpty();
+        MoovStructure moov = ExtractMoovStructure(File.ReadAllBytes(output));
+        moov.Children.Should().Contain(["mvhd", "trak"]);
+        moov.Children.Should().NotContain("udta");
+        moov.Children.Should().NotContain("meta");
+    }
+
+    [Fact]
+    public void Mp4_Clean_DefaultOptions_StripsXmpAndExifFromMeta()
+    {
+        // The default options (StripExif = StripXmp = true) must
+        // remove the Exif 4CC and the XMP uuid from moov.meta.
+        string input = Path.Combine(_dir, "xmp-exif.mp4");
+        string output = Path.Combine(_dir, "xmp-exif-out.mp4");
+        TestFixtures.WriteMp4WithMetadata(
+            input,
+            includeUdta: false,
+            includeMetaKeys: false,
+            includeMetaIlst: false,
+            includeMetaExif: true,
+            includeMetaXmpUuid: true);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().Contain(e => e.Container == "EXIF" && e.Key == "Exif");
+        result.RemovedEntries.Should().Contain(e => e.Container == "XMP" && e.Key == "uuid/XMP");
+
+        // Meta should now have only hdlr left.
+        MoovStructure moov = ExtractMoovStructure(File.ReadAllBytes(output));
+        moov.MetaChildren.Should().BeEquivalentTo(["hdlr"]);
+    }
+
+    [Fact]
+    public void Mp4_Clean_Reclean_Empty()
+    {
+        // Two passes with the same options — the second pass must find
+        // nothing to strip (proves idempotence).
+        string input = Path.Combine(_dir, "reclean-in.mp4");
+        string pass1 = Path.Combine(_dir, "reclean-1.mp4");
+        string pass2 = Path.Combine(_dir, "reclean-2.mp4");
+        TestFixtures.WriteMp4WithMetadata(input);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult first = cleaner.Clean(input, pass1, new MetadataCleanOptions());
+        FileCleanResult second = cleaner.Clean(pass1, pass2, new MetadataCleanOptions());
+
+        first.RemovedEntries.Should().NotBeEmpty();
+        second.RemovedEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Mp4_Clean_LargeSizeMdat_Supported()
+    {
+        // mdat is wrapped in a largesize box (size == 1 + 8-byte BE u64).
+        // The walker must honour the 16-byte header so the bitstream
+        // is preserved bit-for-bit.
+        string input = Path.Combine(_dir, "large-in.mp4");
+        string output = Path.Combine(_dir, "large-out.mp4");
+        TestFixtures.WriteMp4WithMetadata(input, useLargeSize: true);
+
+        var cleaner = new Mp4MetadataCleaner();
+        FileCleanResult result = cleaner.Clean(input, output, new MetadataCleanOptions());
+
+        result.RemovedEntries.Should().NotBeEmpty();
+        byte[] inputBytes = File.ReadAllBytes(input);
+        byte[] outputBytes = File.ReadAllBytes(output);
+        ExtractMdatPayload(outputBytes).Should().Equal(ExtractMdatPayload(inputBytes));
+    }
+
+    [Fact]
+    public void Mp4_Brand_Mp42IsomQtMov3gp_AllAccepted()
+    {
+        // Every well-known MP4 / MOV / 3GP brand should be accepted by
+        // header validation. The cleaner must not reject any of these
+        // on the basis of ftyp brand alone.
+        foreach (string brand in new[] { "mp42", "isom", "qt  ", "3gp4", "M4V " })
+        {
+            string path = Path.Combine(_dir, $"brand-{brand.Trim()}.mp4");
+            TestFixtures.WriteMp4WithMetadata(path, brand: brand);
+            var cleaner = new Mp4MetadataCleaner();
+            Action act = () => cleaner.Inspect(path);
+            act.Should().NotThrow($"brand '{brand}' should be accepted as MP4-compatible");
+        }
+    }
+
+    [Fact]
+    public void Mp4_Header_NotMp4_Throws()
+    {
+        // ftyp lists a brand the MP4 / MOV / 3GP cleaner does not
+        // understand. The cleaner should refuse rather than guess.
+        string path = Path.Combine(_dir, "not-mp4.mp4");
+        using (var fs = File.Create(path))
+        {
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("qtif"u8); // unsupported brand
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("qtif"u8);
+            fs.Write(new byte[8]); // mdat stub
+        }
+
+        var cleaner = new Mp4MetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Mp4_Header_NotIsoBmff_Throws()
+    {
+        // The first box is not ftyp — the file is not an ISOBMFF
+        // container at all. Cleaner must throw.
+        string path = Path.Combine(_dir, "junk.mp4");
+        File.WriteAllBytes(path, [0x00, 0x00, 0x00, 0x10, (byte)'N', (byte)'U', (byte)'L', (byte)'L', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+        var cleaner = new Mp4MetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Mp4_Header_TruncatedFtyp_Throws()
+    {
+        // ftyp is too short to contain major_brand + minor_version.
+        string path = Path.Combine(_dir, "truncated.mp4");
+        File.WriteAllBytes(path, [0x00, 0x00, 0x00, 0x0C, (byte)'f', (byte)'t', (byte)'y', (byte)'p', (byte)'m', (byte)'p', (byte)'4', (byte)'2']);
+
+        var cleaner = new Mp4MetadataCleaner();
+        Action act = () => cleaner.Inspect(path);
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Mp4_CorruptMoovTruncated_Throws()
+    {
+        // ftyp is valid but the moov header claims more bytes than
+        // the file actually contains. Cleaner must surface a
+        // MetadataStripException instead of crashing.
+        string path = Path.Combine(_dir, "corrupt-moov.mp4");
+        using (var fs = File.Create(path))
+        {
+            // ftyp
+            Span<byte> hdr = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 20u);
+            fs.Write(hdr);
+            fs.Write("ftyp"u8);
+            fs.Write("mp42"u8);
+            fs.Write([0x00, 0x00, 0x00, 0x00]);
+            fs.Write("isom"u8);
+
+            // moov — claims 1 KiB of payload but the file ends here.
+            BinaryPrimitives.WriteUInt32BigEndian(hdr, 0x400u);
+            fs.Write(hdr);
+            fs.Write("moov"u8);
+        }
+
+        var cleaner = new Mp4MetadataCleaner();
+        Action act = () => cleaner.Clean(path, Path.Combine(_dir, "corrupt-moov-out.mp4"), new MetadataCleanOptions());
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Mp4_Cleaner_MissingFile_Throws()
+    {
+        var cleaner = new Mp4MetadataCleaner();
+        Action act = () => cleaner.Inspect(Path.Combine(_dir, "does-not-exist.mp4"));
+        act.Should().Throw<MetadataStripException>();
+    }
+
+    [Fact]
+    public void Mp4_CanHandle_RecognisesExtensions()
+    {
+        var cleaner = new Mp4MetadataCleaner();
+        cleaner.CanHandle(".mp4").Should().BeTrue();
+        cleaner.CanHandle(".MP4").Should().BeTrue();
+        cleaner.CanHandle(".mov").Should().BeTrue();
+        cleaner.CanHandle(".m4v").Should().BeTrue();
+        cleaner.CanHandle(".m4a").Should().BeTrue();
+        cleaner.CanHandle(".3gp").Should().BeTrue();
+        cleaner.CanHandle(".png").Should().BeFalse();
+        cleaner.SupportedExtensions.Should().BeEquivalentTo([".mp4", ".mov", ".m4v", ".m4a", ".m4b", ".m4p", ".3gp", ".3g2"]);
+    }
+
     private static byte[] ExtractMdatPayload(byte[] data)
     {
         int pos = 0;
@@ -1235,6 +1530,102 @@ public class MetadataCleanerTests : IDisposable
         stream.Write(hdr);
         stream.Write("uuid"u8);
         stream.Write(uuidPlusPayload, 0, uuidPlusPayload.Length);
+    }
+
+    /// <summary>Decoded view of an MP4 <c>moov</c> box for tests.</summary>
+    private sealed record MoovStructure(IReadOnlyList<string> Children, IReadOnlyList<string> MetaChildren);
+
+    /// <summary>
+    /// Locates the first <c>moov</c> box in <paramref name="data"/> and
+    /// returns the list of direct child fourccs plus, when a <c>meta</c>
+    /// child is present, the list of <c>meta</c>'s direct child fourccs
+    /// (skipping the 4-byte version+flags of the FullBox).
+    /// </summary>
+    private static MoovStructure ExtractMoovStructure(byte[] data)
+    {
+        int pos = 0;
+        while (pos + 8 <= data.Length)
+        {
+            uint size32 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pos, 4));
+            string type = Encoding.ASCII.GetString(data, pos + 4, 4);
+            int headerSize;
+            int boxSize;
+            if (size32 == 1)
+            {
+                long large = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan(pos + 8, 8));
+                headerSize = 16;
+                boxSize = (int)large;
+            }
+            else
+            {
+                headerSize = 8;
+                boxSize = (int)size32;
+            }
+
+            if (type == "moov")
+            {
+                int payloadStart = pos + headerSize;
+                int payloadEnd = pos + boxSize;
+                var children = new List<string>();
+                var metaChildren = new List<string>();
+                int childPos = payloadStart;
+                while (childPos + 8 <= payloadEnd)
+                {
+                    uint cSize = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(childPos, 4));
+                    string cType = Encoding.ASCII.GetString(data, childPos + 4, 4);
+                    int cBoxSize = (int)cSize;
+                    int cHeaderSize = 8;
+                    if (cSize == 1)
+                    {
+                        long cl = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan(childPos + 8, 8));
+                        cBoxSize = (int)cl;
+                        cHeaderSize = 16;
+                    }
+
+                    if (cBoxSize < cHeaderSize)
+                    {
+                        break;
+                    }
+
+                    children.Add(cType);
+
+                    if (cType == "meta")
+                    {
+                        // meta is a FullBox: children start 4 bytes into the payload.
+                        int mcStart = childPos + cHeaderSize + 4;
+                        int mcEnd = childPos + cBoxSize;
+                        int mcPos = mcStart;
+                        while (mcPos + 8 <= mcEnd)
+                        {
+                            uint mSize = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(mcPos, 4));
+                            string mType = Encoding.ASCII.GetString(data, mcPos + 4, 4);
+                            int mBoxSize = (int)mSize;
+                            if (mSize == 1)
+                            {
+                                long ml = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan(mcPos + 8, 8));
+                                mBoxSize = (int)ml;
+                            }
+
+                            if (mBoxSize < 8)
+                            {
+                                break;
+                            }
+
+                            metaChildren.Add(mType);
+                            mcPos += mBoxSize;
+                        }
+                    }
+
+                    childPos += cBoxSize;
+                }
+
+                return new MoovStructure(children, metaChildren);
+            }
+
+            pos += boxSize;
+        }
+
+        return new MoovStructure([], []);
     }
 
     /// <summary>Locates the first data byte of the named RIFF chunk, or -1 if not present.</summary>

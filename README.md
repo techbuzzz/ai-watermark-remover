@@ -46,7 +46,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 - 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
 - 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
-- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF — pixel-preserving, byte-level
+- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / MP4 / MOV / 3GP / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF — pixel-preserving, byte-level
 - 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
 - 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
 - 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
@@ -302,6 +302,7 @@ Byte-level, pixel-preserving cleaners:
 - **HTML** — `<meta name="generator|author">` + `<!-- comments -->` + tracking scripts
 - **EPUB** — OCF zip-rewrite; strips OPF `<dc:*>` (except `dc:identifier` kept as a fresh UUID) and `<meta>` entries; preserves every other entry byte-for-byte (XHTML / CSS / images / NCX)
 - **RTF** — character-stream parser; strips `\author` / `\company` / `\manager` / `\generator` / `\doccomm` / `\title` / `\subject` / `\keywords` / `\category` / `\comment` / `\hlinkbase` / `\operator` / `\version` / `\edmins` / `\nofpages` / `\nofwords` / `\nofchars` / `\nofcharsws` / `\id` plus compound time-table entries `\creatim` / `\revtbl` / `\printim` / `\buptim` (each followed by sub-control words like `\yr\mo\dy\hr\min\sec`); preserves font table, colour table, stylesheet, headers / footers, and body text byte-for-byte
+- **MP4 / MOV / M4V / M4A / 3GP** — ISOBMFF box walker; strips `moov.udta` (the `©xyz` GPS atom, `©mak` / `©mod` / `©swr` device make / model / software, `©day` / `©nam` / `©ART` / `©cmt` authorship) and the QuickTime `meta` keys / ilst (title / author / album / genre); also strips EXIF / XMP / ICC from any `meta`; preserves `mvhd` / `trak` / `edts` / `mvex` and the `mdat` bitstream byte-for-byte (with `largesize` honour)
 
 ### Image
 

@@ -22,6 +22,7 @@ public class FileCleanerRouterTests
         new HtmlMetadataCleaner(),
         new EpubMetadataCleaner(),
         new RtfMetadataCleaner(),
+        new Mp4MetadataCleaner(),
     ]);
 
     [Theory]
@@ -41,6 +42,9 @@ public class FileCleanerRouterTests
     [InlineData("a.html")]
     [InlineData("a.epub")]
     [InlineData("a.rtf")]
+    [InlineData("a.mp4")]
+    [InlineData("a.mov")]
+    [InlineData("a.m4v")]
     [InlineData("A.PNG")]
     [InlineData("A.TIF")]
     [InlineData("A.HEIC")]
@@ -49,6 +53,8 @@ public class FileCleanerRouterTests
     [InlineData("A.PPTX")]
     [InlineData("A.XLSX")]
     [InlineData("A.RTF")]
+    [InlineData("A.MP4")]
+    [InlineData("A.MOV")]
     public void IsSupported_KnownExtensions_ReturnsTrue(string path)
     {
         BuildRouter().IsSupported(path).Should().BeTrue();
@@ -126,8 +132,17 @@ public class FileCleanerRouterTests
     }
 
     [Fact]
+    public void Resolve_Mp4_ReturnsMp4Cleaner()
+    {
+        BuildRouter().Resolve("clip.mp4").Should().BeOfType<Mp4MetadataCleaner>();
+        BuildRouter().Resolve("clip.MP4").Should().BeOfType<Mp4MetadataCleaner>();
+        BuildRouter().Resolve("clip.mov").Should().BeOfType<Mp4MetadataCleaner>();
+        BuildRouter().Resolve("clip.MOV").Should().BeOfType<Mp4MetadataCleaner>();
+    }
+
+    [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub", ".rtf"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub", ".rtf", ".mp4", ".mov", ".m4v"]);
     }
 }

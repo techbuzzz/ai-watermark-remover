@@ -1012,6 +1012,286 @@ internal static class TestFixtures
     }
 
     /// <summary>
+    /// Writes a minimal but structurally valid MP4 file (ISOBMFF) with the
+    /// requested metadata children inside <c>moov.udta</c> and
+    /// <c>moov.meta</c>. The file is "playable" in the sense that
+    /// <see cref="Mp4MetadataCleaner"/> will accept it and find the metadata
+    /// boxes; the actual audio / video bitstream in <c>mdat</c> is just a
+    /// stub byte sequence — the tests don't decode media.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="brand">The major_brand for the ftyp box
+    /// (e.g. <c>"mp42"</c>, <c>"isom"</c>, <c>"qt  "</c>).</param>
+    /// <param name="includeMoov">When true, emit a <c>moov</c> box
+    /// (with mvhd + trak by default; <c>udta</c> and <c>meta</c> children
+    /// controlled by the other parameters).</param>
+    /// <param name="includeMvhd">When true, emit an <c>mvhd</c> child
+    /// of <c>moov</c> (preserved verbatim by the cleaner).</param>
+    /// <param name="includeTrak">When true, emit a <c>trak</c> child
+    /// of <c>moov</c> (preserved verbatim by the cleaner).</param>
+    /// <param name="includeUdta">When true, emit a <c>udta</c> child
+    /// of <c>moov</c> with the fourcc children listed in
+    /// <paramref name="udtaFourccs"/>.</param>
+    /// <param name="udtaFourccs">List of 4-character child fourccs
+    /// to emit inside <c>udta</c>. Use the 4 raw bytes; pass
+    /// <c>"©xyz"</c> encoded as a Latin-1 string of length 4
+    /// (high byte 0xA9). Each child carries a small stub payload.</param>
+    /// <param name="includeMeta">When true, emit a <c>meta</c> child
+    /// of <c>moov</c> with hdlr + the requested content.</param>
+    /// <param name="includeMetaKeys">When true, emit a <c>keys</c>
+    /// child of <c>meta</c> (QuickTime key namespace index).</param>
+    /// <param name="includeMetaIlst">When true, emit an <c>ilst</c>
+    /// child of <c>meta</c> (QuickTime title / author data list).</param>
+    /// <param name="includeMetaExif">When true, emit an <c>Exif</c>
+    /// child of <c>meta</c>.</param>
+    /// <param name="includeMetaXmpUuid">When true, emit a
+    /// <c>uuid</c> child of <c>meta</c> carrying the XMP UUID.</param>
+    /// <param name="includeMdat">When true, emit an <c>mdat</c> box
+    /// with a small stub payload (preserved bit-for-bit by the cleaner).</param>
+    /// <param name="useLargeSize">When true, wrap the <c>mdat</c> box
+    /// in an 8-byte <c>largesize</c> extension (size == 1).</param>
+    public static void WriteMp4WithMetadata(
+        string path,
+        string brand = "mp42",
+        bool includeMoov = true,
+        bool includeMvhd = true,
+        bool includeTrak = true,
+        bool includeUdta = true,
+        IReadOnlyList<string>? udtaFourccs = null,
+        bool includeMeta = true,
+        bool includeMetaKeys = true,
+        bool includeMetaIlst = true,
+        bool includeMetaExif = true,
+        bool includeMetaXmpUuid = true,
+        bool includeMdat = true,
+        bool useLargeSize = false)
+    {
+        // Default to the well-known authorship / GPS / device fourccs.
+        string[] defaultFourccs = ["©xyz", "©day", "©mak", "©mod", "©swr", "©nam"];
+        IReadOnlyList<string> fourccsToEmit = udtaFourccs ?? defaultFourccs;
+
+        using var fs = File.Create(path);
+
+        // ftyp box: size(4) + "ftyp" + major_brand(4) + minor_version(4) + compatible_brands(4)
+        Span<byte> ftypSize = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(ftypSize, 20u);
+        fs.Write(ftypSize);
+        fs.Write("ftyp"u8);
+        fs.Write(Encoding.ASCII.GetBytes(brand));
+        fs.Write([0x00, 0x00, 0x00, 0x00]); // minor_version
+        fs.Write("isom"u8); // compatible_brand (MP4 always lists isom as a fallback)
+
+        if (includeMoov)
+        {
+            // Build moov children into a buffer so we can patch the moov size.
+            using var moovChildren = new MemoryStream();
+
+            if (includeMvhd)
+            {
+                WriteMp4PlainBox(moovChildren, "mvhd", BuildStubPayload(100));
+            }
+
+            if (includeTrak)
+            {
+                // trak is a container — emit just a tkhd child as a structural marker.
+                using var trakChildren = new MemoryStream();
+                WriteMp4PlainBox(trakChildren, "tkhd", BuildStubPayload(80));
+                byte[] trakChildrenBytes = trakChildren.ToArray();
+                int trakTotal = 8 + trakChildrenBytes.Length;
+                WriteMp4RawBox(moovChildren, trakTotal, "trak", trakChildrenBytes);
+            }
+
+            if (includeUdta)
+            {
+                using var udtaChildren = new MemoryStream();
+                foreach (string fourcc in fourccsToEmit)
+                {
+                    byte[] fourccBytes = Encoding.Latin1.GetBytes(fourcc);
+                    if (fourccBytes.Length != 4)
+                    {
+                        throw new ArgumentException(
+                            $"udta fourcc must be 4 Latin-1 bytes; got '{fourcc}' ({fourccBytes.Length} bytes).",
+                            nameof(udtaFourccs));
+                    }
+
+                    WriteMp4PlainBox(udtaChildren, fourcc, BuildStubPayload(8));
+                }
+
+                byte[] udtaBytes = udtaChildren.ToArray();
+                int udtaTotal = 8 + udtaBytes.Length;
+                WriteMp4RawBox(moovChildren, udtaTotal, "udta", udtaBytes);
+            }
+
+            if (includeMeta)
+            {
+                // meta is a FullBox: 8 header + 4 version+flags + children
+                using var metaChildren = new MemoryStream();
+                // hdlr first (mandatory; preserved by the cleaner)
+                WriteMp4Hdlr(metaChildren);
+
+                if (includeMetaKeys)
+                {
+                    // Stub keys box — small fixed payload.
+                    WriteMp4PlainBox(metaChildren, "keys", new byte[16]);
+                }
+
+                if (includeMetaIlst)
+                {
+                    // Stub ilst box — a data child carrying a small payload.
+                    using var ilstChildren = new MemoryStream();
+                    using (var dataItem = new MemoryStream())
+                    {
+                        // data FullBox: 8 header + 4 version+flags + 4 type + 4 locale + payload
+                        byte[] dataPayload = new byte[4 + 4 + 8];
+                        dataPayload[0] = 0x01; // data type = UTF-8 text
+                        WriteMp4RawBox(ilstChildren, 8 + dataPayload.Length, "data", dataPayload);
+                    }
+
+                    byte[] ilstBytes = ilstChildren.ToArray();
+                    int ilstTotal = 8 + ilstBytes.Length;
+                    WriteMp4RawBox(metaChildren, ilstTotal, "ilst", ilstBytes);
+                }
+
+                if (includeMetaExif)
+                {
+                    WriteMp4PlainBox(metaChildren, "Exif", [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0x00, 0x00]);
+                }
+
+                if (includeMetaXmpUuid)
+                {
+                    byte[] uuidPayload = new byte[16 + 8];
+                    byte[] xmpUuid =
+                    [
+                        0xBE, 0x7A, 0xCF, 0xCB, 0x97, 0xA9, 0x42, 0xE8,
+                        0x9C, 0x71, 0x99, 0x94, 0x91, 0xE3, 0xAF, 0xAC,
+                    ];
+                    Array.Copy(xmpUuid, uuidPayload, 16);
+                    byte[] xmpStub = "<?xpkt?>"u8.ToArray();
+                    Array.Copy(xmpStub, 0, uuidPayload, 16, xmpStub.Length);
+                    WriteMp4PlainBox(metaChildren, "uuid", uuidPayload);
+                }
+
+                byte[] metaChildrenBytes = metaChildren.ToArray();
+                int metaTotal = 8 + 4 + metaChildrenBytes.Length;
+                WriteMp4RawBox(moovChildren, metaTotal, "meta", metaChildrenBytes, versionAndFlags: [0, 0, 0, 0]);
+            }
+
+            byte[] moovChildrenBytes = moovChildren.ToArray();
+            int moovTotal = 8 + moovChildrenBytes.Length;
+            Span<byte> moovSizeBytes = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(moovSizeBytes, (uint)moovTotal);
+            fs.Write(moovSizeBytes);
+            fs.Write("moov"u8);
+            fs.Write(moovChildrenBytes, 0, moovChildrenBytes.Length);
+        }
+
+        if (includeMdat)
+        {
+            byte[] mdatPayload = [0x00, 0x00, 0x00, 0x24, (byte)'m', (byte)'p', (byte)'4', (byte)'2']; // pretend mp4 frame
+            if (useLargeSize)
+            {
+                long mdatTotal = 16L + mdatPayload.Length;
+                Span<byte> hdr = stackalloc byte[4];
+                BinaryPrimitives.WriteUInt32BigEndian(hdr, 1u); // size == 1 signals largesize
+                fs.Write(hdr);
+                fs.Write("mdat"u8);
+                Span<byte> large = stackalloc byte[8];
+                BinaryPrimitives.WriteInt64BigEndian(large, mdatTotal);
+                fs.Write(large);
+                fs.Write(mdatPayload, 0, mdatPayload.Length);
+            }
+            else
+            {
+                WriteMp4PlainBox(fs, "mdat", mdatPayload);
+            }
+        }
+    }
+
+    private static void WriteMp4PlainBox(Stream stream, string fourcc, byte[] payload)
+    {
+        if (Encoding.Latin1.GetByteCount(fourcc) != 4)
+        {
+            throw new ArgumentException($"4CC must be exactly 4 Latin-1 bytes; got '{fourcc}'.", nameof(fourcc));
+        }
+
+        int total = 8 + payload.Length;
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)total);
+        stream.Write(hdr);
+        stream.Write(Encoding.Latin1.GetBytes(fourcc));
+        stream.Write(payload, 0, payload.Length);
+    }
+
+    private static void WriteMp4RawBox(Stream stream, int totalSize, string fourcc, ReadOnlySpan<byte> payload)
+    {
+        if (totalSize != 8 + payload.Length)
+        {
+            throw new ArgumentException("totalSize must equal 8 + payload.Length for raw box writer.");
+        }
+
+        if (Encoding.Latin1.GetByteCount(fourcc) != 4)
+        {
+            throw new ArgumentException($"4CC must be exactly 4 Latin-1 bytes; got '{fourcc}'.", nameof(fourcc));
+        }
+
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)totalSize);
+        stream.Write(hdr);
+        stream.Write(Encoding.Latin1.GetBytes(fourcc));
+        stream.Write(payload);
+    }
+
+    /// <summary>Like <see cref="WriteMp4RawBox"/> but inserts 4 bytes of
+    /// version+flags after the type 4CC (FullBox layout). Used for
+    /// <c>meta</c>.</summary>
+    private static void WriteMp4RawBox(
+        Stream stream,
+        int totalSize,
+        string fourcc,
+        ReadOnlySpan<byte> payload,
+        ReadOnlySpan<byte> versionAndFlags)
+    {
+        if (versionAndFlags.Length != 4)
+        {
+            throw new ArgumentException("versionAndFlags must be exactly 4 bytes.");
+        }
+
+        if (totalSize != 8 + 4 + payload.Length)
+        {
+            throw new ArgumentException("totalSize must equal 12 + payload.Length for FullBox raw writer.");
+        }
+
+        if (Encoding.Latin1.GetByteCount(fourcc) != 4)
+        {
+            throw new ArgumentException($"4CC must be exactly 4 Latin-1 bytes; got '{fourcc}'.", nameof(fourcc));
+        }
+
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)totalSize);
+        stream.Write(hdr);
+        stream.Write(Encoding.Latin1.GetBytes(fourcc));
+        stream.Write(versionAndFlags);
+        stream.Write(payload);
+    }
+
+    private static void WriteMp4Hdlr(Stream stream)
+    {
+        // hdlr FullBox: 8 header + 4 version+flags + 4 pre_defined + 4 handler_type + 12 reserved + 1 name nul
+        const int hdlrSize = 8 + 4 + 4 + 4 + 12 + 1;
+        Span<byte> hdr = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(hdr, (uint)hdlrSize);
+        stream.Write(hdr);
+        stream.Write("hdlr"u8);
+        stream.Write([0x00, 0x00, 0x00, 0x00]); // version + flags
+        stream.Write([0x00, 0x00, 0x00, 0x00]); // pre_defined
+        stream.Write("mdta"u8); // QuickTime metadata handler
+        stream.Write(new byte[12]);
+        stream.WriteByte(0x00);
+    }
+
+    private static byte[] BuildStubPayload(int length) => new byte[length];
+
+    /// <summary>
     /// Writes a minimal but valid XLSX file with the requested core metadata.
     /// Uses the Open XML SDK
     /// <see cref="DocumentFormat.OpenXml.Packaging.SpreadsheetDocument"/> API

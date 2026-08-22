@@ -24,6 +24,7 @@ public static class MetadataServiceCollectionExtensions
         services.AddSingleton<IFileMetadataCleaner, HtmlMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, EpubMetadataCleaner>();
         services.AddSingleton<IFileMetadataCleaner, RtfMetadataCleaner>();
+        services.AddSingleton<IFileMetadataCleaner, Mp4MetadataCleaner>();
         services.AddSingleton<IFileCleanerRouter, FileCleanerRouter>();
         return services;
     }

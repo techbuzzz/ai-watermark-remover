@@ -18,6 +18,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MP4 / MOV / M4V / M4A / M4B / M4P / 3GP / 3G2 metadata cleaner
+  (`Mp4MetadataCleaner`, WR-P108)** — `.mp4` / `.mov` / `.m4v` / `.m4a`
+  / `.m4b` / `.m4p` / `.3gp` / `.3g2` files now flow through the same
+  metadata-strip pipeline as JPEG / PNG / WebP / TIFF / HEIF / AVIF /
+  PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF. The cleaner is a
+  pure-managed ISOBMFF box walker built on a new internal
+  `IsoBoxReader` helper (shared box-header decoder that honours the
+  8-byte `largesize` extension). It validates the `<ftyp>` box brand
+  against the MP4 / MOV / 3GP / iTunes / QuickTime compatible-brands
+  list (`isom`, `mp41`, `mp42`, `mp71`, `qt  `, `M4V `, `M4A `, `M4B `,
+  `M4P `, `3gp4`..`3gp6`, `3g2a`, `avc1`) and walks the top-level
+  boxes: `ftyp` / `mdat` / `free` / `skip` are streamed through
+  bit-for-bit (the `mdat` bitstream is never materialised in memory,
+  so a multi-GB video is safe); `moov` is rewritten so its `mvhd` /
+  `trak` / `edts` / `mvex` structural children are preserved but the
+  `udta` children (the `©xyz` GPS atom, `©mak` / `©mod` / `©swr`
+  device make / model / software, `©day` / `©nam` / `©ART` / `©cmt`
+  authorship) are stripped wholesale; any `meta` FullBox (top-level
+  or inside `moov`) has its QuickTime `keys` key-namespace index and
+  `ilst` data list stripped, plus the same EXIF / XMP / ICC policy as
+  the AVIF cleaner (4CC `Exif`, the Apple EXIF UUID, the XMP UUID,
+  the `mime` XMP carrier, `colr` with `rICC` / `prof` colour type).
+  Top-level `udta` and EXIF / XMP `uuid` boxes are stripped too.
+  Brand validation surfaces `MetadataStripException` for corrupt /
+  non-MP4 inputs. The router is updated: `AddWatermarkRemoverMetadata`
+  registers the new cleaner; `FileCleanerRouter` resolves
+  `.mp4` / `.mov` / `.m4v` / `.m4a` / `.m4b` / `.m4p` / `.3gp` /
+  `.3g2` (case-insensitive) to it. The package description and tags
+  on `WatermarkRemover.Metadata.csproj` now list MP4 / MOV / 3GP /
+  QuickTime. README adds MP4 / MOV to the supported-format list and
+  the metadata section. **15 new xUnit tests** in
+  `WatermarkRemover.Metadata.Tests` (14 MP4 cleaner tests covering
+  Inspect / Clean / moov-udta stripping / meta-keys-ilst stripping /
+  EXIF + XMP / no-moov / structural preservation / reclean /
+  largesize mdat / brand matrix / 4 corrupt-input flavours / missing
+  file / `CanHandle`; plus 1 router fact for `.mp4` / `.mov` / `.MOV`).
+  Build clean (0 warnings, 0 errors), **626 xUnit tests total**
+  (81 + 35 + 9 + 155 + 39 + 307), all green.
 - **RTF metadata cleaner (`RtfMetadataCleaner`, WR-P107)** — `.rtf`
   files now flow through the same metadata-strip pipeline as JPEG /
   PNG / WebP / TIFF / HEIF / AVIF / PDF / DOCX / PPTX / XLSX / HTML /
