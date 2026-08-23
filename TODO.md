@@ -955,6 +955,34 @@ the bottom of the sprint list or the top of the backlog.)*
 
 ## Recently done
 
+- [x] **WR-S24 — ImageSharp → SkiaSharp migration (commits 1 + 2 of 2, WR-P131)**
+      — production code rewrite + test rewrite, TIFF retirement.
+      The `WatermarkRemover.Image` project no longer depends on
+      `SixLabors.ImageSharp`; the four production files
+      (`MaskGenerator`, `ImageCleaningPipeline`, `IInpaintRunner`,
+      `LamaInpaintingService`) are now built on `SkiaSharp 3.119.0`
+      with the three platform-specific `SkiaSharp.NativeAssets.*`
+      packages for cross-platform native binaries. The
+      `IInpaintRunner` contract keeps its shape (RGB image + grayscale
+      mask → RGB output) but switches the parameter types from
+      `Image<Rgb24>` / `Image<L8>` to `SKBitmap`. Pixel access uses
+      `MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan())` for
+      `Rgba8888` bitmaps. The Mcp `CleanImageTool` was rewritten
+      on top of SkiaSharp's PNG encoder. TIFF support is retired:
+      `TiffMetadataCleaner.cs` is deleted, the
+      `AddWatermarkRemoverMetadata` line that registered it is
+      gone, the 11 TIFF-specific tests (8 cleaner + 3 router)
+      come out, and the README / `BACKLOG.md` / package metadata
+      reflect the retirement. The
+      `DotnetToolPackagingTests.Pack_ManifestSize_IsReasonable_ForATool`
+      threshold is bumped from 200 MB to 250 MB to accommodate the
+      three `SkiaSharp.NativeAssets.*` binaries. **636 xUnit tests**
+      total (81 + 56 + 9 + 144 + 39 + 307), all green. Build
+      clean (0 warnings, 0 errors). The 1 pre-existing Metadata
+      TIFF failure and the 8 pre-existing CLI `dotnet pack`
+      failures from the ImageSharp 4.x upgrade are both fixed
+      by this tick.
+
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
 
