@@ -88,7 +88,7 @@ public sealed class McpDockerPackagingTests
         // greedily swallow newlines and break the `$` anchor).
         MatchCollection matches = Regex.Matches(
             raw,
-            @"^[ \t]*EXPOSE[ \t]+(?<ports>[0-9 /]+)[ \t]*$",
+            @"^[ \t]*EXPOSE[ \t]+(?<ports>[0-9 /]+)[ \t]*\r?$",
             RegexOptions.Multiline);
 
         bool exposes = matches
@@ -126,7 +126,7 @@ public sealed class McpDockerPackagingTests
 
         MatchCollection matches = Regex.Matches(
             raw,
-            @"^[ \t]*EXPOSE[ \t]+(?<ports>[0-9 /]+)[ \t]*$",
+            @"^[ \t]*EXPOSE[ \t]+(?<ports>[0-9 /]+)[ \t]*\r?$",
             RegexOptions.Multiline);
 
         bool exposes = matches
