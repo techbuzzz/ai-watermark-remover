@@ -842,7 +842,12 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 ## In progress
 
-### WR-S24. [~] ImageSharp → SkiaSharp migration (Layer Image + drop TIFF)
+*(empty — no tick is currently in progress; pick the next item from
+the bottom of the sprint list or the top of the backlog.)*
+
+---
+
+### WR-S24. [x] ImageSharp → SkiaSharp migration (Layer Image + drop TIFF)
 
 - **Why:** The 4.x bump of `SixLabors.ImageSharp` in commit a858589
   introduced two regressions that the cleanup of the previous tick
