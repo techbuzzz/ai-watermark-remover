@@ -840,6 +840,114 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 ---
 
+## In progress
+
+### WR-S24. [~] ImageSharp → SkiaSharp migration (Layer Image + drop TIFF)
+
+- **Why:** The 4.x bump of `SixLabors.ImageSharp` in commit a858589
+  introduced two regressions that the cleanup of the previous tick
+  couldn't address without a real rewrite: (a) the
+  `Tiff_Clean_RemovesExifProfile_OutputIsValidTiff` test now fails
+  because the v4 encoder reconstructs an `ExifIFD` even when the
+  profile was nulled; (b) the eight `DotnetToolPackagingTests.Pack_*`
+  tests fail because `dotnet pack` does a fresh build that hits the
+  same code path with a stricter compiler setting. Both come from the
+  same root cause: `ImageSharp 4.x` changed decode-and-re-encode
+  semantics for TIFF, and the project is paying for staying on it.
+  SkiaSharp (managed bindings over Google's Skia) handles the same
+  use case without the TIFF-specific surprise — at the cost of TIFF
+  support, which SkiaSharp doesn't have a codec for. The user
+  explicitly chose "drop TIFF support" over keeping a parallel
+  ImageSharp-for-TIFF-only path or pulling in Magick.NET.
+- **Scope:** `src/WatermarkRemover.Image/`,
+  `src/WatermarkRemover.Metadata/`,
+  `src/WatermarkRemover.Mcp/Tools/CleanImageTool.cs`,
+  `src/Directory.Packages.props`,
+  plus all four image / metadata / Mcp test projects (commit 2)
+- **Files to touch (commit 1 — API):**
+  - `src/Directory.Packages.props` — drop `SixLabors.ImageSharp 4.1.1`,
+    add `SkiaSharp 3.119.0` + `SkiaSharp.NativeAssets.Win32/Linux/macOS`
+    for the cross-platform native binaries.
+  - `src/WatermarkRemover.Image/WatermarkRemover.Image.csproj` — replace
+    the `SixLabors.ImageSharp` reference with the three SkiaSharp
+    native-asset packages (the managed `SkiaSharp` package comes
+    transitively as a dependency of those).
+  - `src/WatermarkRemover.Metadata/WatermarkRemover.Metadata.csproj` —
+    drop the `SixLabors.ImageSharp` reference (the TIFF cleaner is
+    retired in this tick); update the `<PackageDescription>` and
+    `<PackageTags>` to drop the TIFF mention.
+  - `src/WatermarkRemover.Image/IInpaintRunner.cs` — change
+    `Image<Rgb24> Inpaint(Image<Rgb24>, Image<L8>)` →
+    `SKBitmap Inpaint(SKBitmap, SKBitmap)`. Document the colour-type
+    expectations in the XML doc (RGB or RGBA for the image, Gray8
+    for the mask).
+  - `src/WatermarkRemover.Image/MaskGenerator.cs` — rewrite the
+    `Detect` / `BuildMask` / `BuildMaskWithRegions` /
+    `ColorFrequencyPass` / `ExtractRegions` chain on top of
+    `SKBitmap` (`Rgba8888`) and `ReadOnlySpan<SKColor>` via
+    `MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan())`.
+  - `src/WatermarkRemover.Image/ImageCleaningPipeline.cs` —
+    rewrite the full pipeline (load → mask → resize → infer → blend
+    → save) on top of SkiaSharp. Use `SKBitmap.Resize(info,
+    SKSamplingOptions.Default)` (the `SKFilterQuality` overload is
+    obsolete in 3.x), `SKImageFilter.CreateBlur(2f, 2f)` for the
+    blend-mask soft edges, and `SKImage.FromBitmap(...).Encode(format,
+    quality)` for the save step.
+  - `src/WatermarkRemover.Image/LamaInpaintingService.cs` — switch
+    the `Inpaint` body to iterate `SKBitmap` pixel spans (separate
+    branches for `Rgb888x` and `Rgba8888` input colour types; the
+    mask is required to be `Gray8`). The ONNX tensor marshalling
+    logic and the NHWC/NCHW output detection are unchanged.
+  - `src/WatermarkRemover.Mcp/Tools/CleanImageTool.cs` — replace
+    the `Image<Rgba32> LoadAsync(...)` + `SaveAsync(..., new
+    PngEncoder(), ...)` re-encode with `SKBitmap.Decode(path)` +
+    `SKImage.FromBitmap(...).Encode(SKEncodedImageFormat.Png, 100)`.
+  - `src/WatermarkRemover.Metadata/DependencyInjection.cs` — drop
+    the `TiffMetadataCleaner` registration.
+  - `src/WatermarkRemover.Metadata/TiffMetadataCleaner.cs` — delete
+    the file.
+  - `README.md` — drop TIFF from the supported-format list, the
+    metadata section, and the P1 roadmap one-liner; mention the
+    SkiaSharp move in a short note.
+  - `BACKLOG.md` — mark WR-P131 `[x]` (this task); add a strikethrough
+    note on the WR-P101 line that TIFF was retired here.
+  - `CHANGELOG.md` — new "Changed" + "Removed" entry under
+    `[Unreleased]`.
+  - `TODO.md` — mark this section `[x]`; add a "Recently done"
+    entry; mark the WR-S23 entry as the previous item in
+    "Recently done".
+- **Files to touch (commit 2 — tests):** every test project that
+  uses `SixLabors.ImageSharp` (`Rgba32`, `L8`, `Rgb24`,
+  `IPixel<>`, `Image<>`, `ExifProfile`, `PngEncoder`, the
+  `TIFFMetadataCleaner` test class, the hand-crafted TIFF fixture,
+  any other test that depends on the TIFF cleaner). Test counts
+  before: 647 (81 + 56 + 9 + 155 + 39 + 307). Expected after:
+  ~620 (TIFF cleaner suite removed, image-tests rewritten to
+  use `SKBitmap` fixtures, Mcp tests updated to the new
+  `IInpaintRunner` signature).
+- **Acceptance:**
+  - `dotnet build` clean (0 warnings, 0 errors) once commit 2 lands.
+  - `dotnet test` clean; total test count drops only by the number of
+    TIFF-specific tests we retire (the 14 TIFF facts + 3 router
+    rows for `.tif`/`.tiff`/`.TIF`); every other test continues to
+    pass on SkiaSharp.
+  - `MaskGenerator` and `ImageCleaningPipeline` still produce
+    pixel-identical (or visually equivalent) output to the ImageSharp
+    baseline on the same fixture.
+  - `IInpaintRunner.Inpaint(SKBitmap, SKBitmap)` is the new
+    contract; the LaMa runner still degrades gracefully when the
+    model file is missing.
+- **Risks:** SkiaSharp's `GetPixelSpan` returns `Span<byte>`; the
+  per-pixel accessors (`SKColor.Red` / `.Green` / `.Blue` / `.Alpha`)
+  are simple byte fields, so the byte cast is sound. Resampling uses
+  the new `SKSamplingOptions` API (the `SKFilterQuality` overload is
+  obsolete in 3.x); we're not chasing pixel-perfect ImageSharp
+  resampling, just visually close. The TIFF retirement is the
+  largest user-facing change — anyone with `.tif`/`.tiff` files
+  hitting `clean-file` will get an "unsupported format" error.
+  This is the explicitly-chosen trade-off.
+- **Backlog ref:** WR-P131
+
 ## Recently done
 
 These were completed in the most recent sprint; they live here for context

@@ -1,7 +1,7 @@
+using System.Runtime.InteropServices;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Interfaces;
 
 namespace WatermarkRemover.Image;
@@ -67,16 +67,12 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
     }
 
     /// <inheritdoc />
-    public Image<Rgb24> Inpaint(Image<Rgb24> image, Image<L8> mask)
+    public SKBitmap Inpaint(SKBitmap image, SKBitmap mask)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(mask);
 
-        // Touch the Lazy once and capture the session; IsAvailable may have
-        // already initialised it, but accessing _session.Value a second time
-        // here would repeat the lazy-init branch even though the value is
-        // already created.
-        InferenceSession? session = _session.IsValueCreated ? _session.Value : _session.Value;
+        InferenceSession? session = _session.Value;
         if (session is null)
         {
             throw new InvalidOperationException("ONNX inpainting model is not available.");
@@ -85,36 +81,52 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
         int h = image.Height;
         int w = image.Width;
 
-        // image tensor: [1,3,H,W] float32 in [0,1]
+        // image tensor: [1,3,H,W] float32 in [0,1]. Rgb888x is byte-aligned
+        // 4 bytes/pixel with RGB at offsets 0,1,2 and alpha at 3 — we read
+        // offsets 0..2 and discard the alpha byte. Rgba8888 is byte-aligned
+        // 4 bytes/pixel with alpha first; we read the SKColor values
+        // directly via the GetPixelSpan<T>() overload.
         var imageTensor = new DenseTensor<float>([1, 3, h, w]);
-        image.ProcessPixelRows(accessor =>
+        if (image.ColorType == SKColorType.Rgb888x)
         {
-            for (int y = 0; y < h; y++)
+            ReadOnlySpan<byte> imgBytes = image.GetPixelSpan();
+            for (int i = 0; i < imgBytes.Length; i += 4)
             {
-                Span<Rgb24> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < w; x++)
-                {
-                    Rgb24 p = row[x];
-                    imageTensor[0, 0, y, x] = p.R / 255f;
-                    imageTensor[0, 1, y, x] = p.G / 255f;
-                    imageTensor[0, 2, y, x] = p.B / 255f;
-                }
+                int p = i / 4;
+                int x = p % w;
+                int y = p / w;
+                imageTensor[0, 0, y, x] = imgBytes[i] / 255f;
+                imageTensor[0, 1, y, x] = imgBytes[i + 1] / 255f;
+                imageTensor[0, 2, y, x] = imgBytes[i + 2] / 255f;
             }
-        });
+        }
+        else
+        {
+            ReadOnlySpan<SKColor> imgColors = MemoryMarshal.Cast<byte, SKColor>(image.GetPixelSpan());
+            for (int i = 0; i < imgColors.Length; i++)
+            {
+                int x = i % w;
+                int y = i / w;
+                SKColor c = imgColors[i];
+                imageTensor[0, 0, y, x] = c.Red / 255f;
+                imageTensor[0, 1, y, x] = c.Green / 255f;
+                imageTensor[0, 2, y, x] = c.Blue / 255f;
+            }
+        }
 
-        // mask tensor: [1,1,H,W] float32 (1 = inpaint)
-        var maskTensor = new DenseTensor<float>([1, 1, h, w]);
-        mask.ProcessPixelRows(accessor =>
+        // mask tensor: [1,1,H,W] float32 (1 = inpaint). We require the mask
+        // to be Gray8 — anything else is the caller's bug and we surface it
+        // loudly rather than silently producing garbage.
+        if (mask.ColorType != SKColorType.Gray8)
         {
-            for (int y = 0; y < h; y++)
-            {
-                Span<L8> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < w; x++)
-                {
-                    maskTensor[0, 0, y, x] = row[x].PackedValue > 127 ? 1f : 0f;
-                }
-            }
-        });
+            throw new ArgumentException("Inpaint mask must be a Gray8 SKBitmap.", nameof(mask));
+        }
+        var maskTensor = new DenseTensor<float>([1, 1, h, w]);
+        ReadOnlySpan<byte> maskBytes = mask.GetPixelSpan();
+        for (int i = 0; i < maskBytes.Length; i++)
+        {
+            maskTensor[0, 0, 0, i] = maskBytes[i] > 127 ? 1f : 0f;
+        }
 
         string imageInputName = session.InputNames.Count > 0 ? session.InputNames[0] : "image";
         string maskInputName = session.InputNames.Count > 1 ? session.InputNames[1] : "mask";
@@ -128,45 +140,47 @@ public sealed class LamaInpaintingService : IInpaintRunner, IInpaintingService, 
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
         Tensor<float> output = results.First().AsTensor<float>();
 
-        return TensorToImage(output, w, h);
+        return TensorToBitmap(output, w, h);
     }
 
-    /// <summary>Convert the model output (NHWC, values in [0,255] or [0,1]) back to an image.</summary>
-    private static Image<Rgb24> TensorToImage(Tensor<float> output, int w, int h)
+    /// <summary>Convert the model output (NCHW or NHWC, values in [0,255] or [0,1]) back to a bitmap.</summary>
+    private static SKBitmap TensorToBitmap(Tensor<float> output, int w, int h)
     {
         int[] dims = [.. output.Dimensions];
         bool nhwc = dims.Length == 4 && dims[3] == 3;
-        var result = new Image<Rgb24>(w, h);
+        var result = new SKBitmap(w, h, SKColorType.Rgb888x, SKAlphaType.Opaque);
+        Span<byte> resultBytes = result.GetPixelSpan();
 
         // Detect value range by sampling the first element.
         float sample = output.GetValue(0);
         float scale = sample > 1.5f ? 1f : 255f;
 
-        result.ProcessPixelRows(accessor =>
+        for (int y = 0; y < h; y++)
         {
-            for (int y = 0; y < h; y++)
+            int rowOffset = y * w;
+            for (int x = 0; x < w; x++)
             {
-                Span<Rgb24> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < w; x++)
+                float r, g, b;
+                if (nhwc)
                 {
-                    float r, g, b;
-                    if (nhwc)
-                    {
-                        r = output[0, y, x, 0];
-                        g = output[0, y, x, 1];
-                        b = output[0, y, x, 2];
-                    }
-                    else
-                    {
-                        r = output[0, 0, y, x];
-                        g = output[0, 1, y, x];
-                        b = output[0, 2, y, x];
-                    }
-
-                    row[x] = new Rgb24(ClampByte(r * scale), ClampByte(g * scale), ClampByte(b * scale));
+                    r = output[0, y, x, 0];
+                    g = output[0, y, x, 1];
+                    b = output[0, y, x, 2];
                 }
+                else
+                {
+                    r = output[0, 0, y, x];
+                    g = output[0, 1, y, x];
+                    b = output[0, 2, y, x];
+                }
+
+                int o = (rowOffset + x) * 4;
+                resultBytes[o] = ClampByte(r * scale);
+                resultBytes[o + 1] = ClampByte(g * scale);
+                resultBytes[o + 2] = ClampByte(b * scale);
+                resultBytes[o + 3] = 0;
             }
-        });
+        }
 
         return result;
     }

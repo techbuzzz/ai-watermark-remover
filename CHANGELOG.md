@@ -17,6 +17,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **ImageSharp → SkiaSharp migration (commit 1 of 2, WR-S24 / WR-P131)**
+  — the `WatermarkRemover.Image` project no longer depends on
+  `SixLabors.ImageSharp`. The four production files that used to
+  consume ImageSharp (`MaskGenerator`, `ImageCleaningPipeline`,
+  `IInpaintRunner`, `LamaInpaintingService`) are now built on
+  `SkiaSharp 3.119.0` with `SkiaSharp.NativeAssets.Win32` /
+  `Linux` / `macOS` for cross-platform native binaries. The
+  `IInpaintRunner` contract keeps its shape (RGB image + grayscale
+  mask → RGB output) but switches the parameter types from
+  `Image<Rgb24>` / `Image<L8>` to `SKBitmap`. Pixel access uses
+  `MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan())` for
+  `Rgba8888` bitmaps (SkiaSharp's `GetPixelSpan` returns raw bytes).
+  The ImageSharp 4.x regressions that the previous tick had to
+  paper over — the
+  `Tiff_Clean_RemovesExifProfile_OutputIsValidTiff` failure and the
+  eight `DotnetToolPackagingTests.Pack_*` failures that came from
+  `dotnet pack` doing a fresh build — are addressed here. The
+  Mcp `CleanImageTool` was rewritten on top of SkiaSharp's PNG
+  encoder so the `clean_image` MCP tool keeps producing a single
+  predictable MIME type for the agent. Test files still reference
+  `Image<Rgba32>` / `Image<Rgb24>` / `Image<L8>` and will be
+  updated in the follow-up commit 2 of this tick.
+
+### Removed
+- **TIFF metadata cleaner retired (commit 1 of 2)** — `TiffMetadataCleaner`,
+  the `AddWatermarkRemoverMetadata` line that registered it, the
+  14 TIFF-specific tests, and the hand-crafted TIFF fixtures are all
+  gone. `SixLabors.ImageSharp` had been the only TIFF codec in the
+  project; SkiaSharp 3.x has no TIFF codec, and the explicit
+  trade-off chosen for this tick is to drop TIFF support rather
+  than pull in Magick.NET or keep a parallel ImageSharp-for-TIFF
+  dependency. The README, the P1 roadmap, the `BACKLOG.md` WR-P101
+  entry, and the package description / tags on
+  `WatermarkRemover.Metadata.csproj` all reflect the retirement.
+  Users with `.tif` / `.tiff` files hitting `clean-file` will get
+  an "unsupported format" error.
+
 ### Added
 - **DeepSeek / Grok / Mistral vendor detectors (Layer C, WR-P111)**
   — the `IAiTextWatermarkDetector` registry now ships six

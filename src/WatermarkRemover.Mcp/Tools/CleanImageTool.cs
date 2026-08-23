@@ -4,9 +4,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
@@ -60,7 +58,7 @@ public static class CleanImageTool
 
         // The cleaned image is delivered as PNG regardless of the
         // input format so the agent receives a single, predictable
-        // MIME type. We re-encode via ImageSharp to avoid leaking the
+        // MIME type. We re-encode via SkiaSharp to avoid leaking the
         // original's metadata and to keep the byte layout consistent.
         byte[] cleanedPng = await EncodePngAsync(result.OutputPath, cancellationToken).ConfigureAwait(false);
 
@@ -103,13 +101,19 @@ public static class CleanImageTool
 
     private static async Task<byte[]> EncodePngAsync(string path, CancellationToken cancellationToken)
     {
-        // Use the global:: qualifier to disambiguate from the
-        // WatermarkRemover.Image namespace exposed by the same project
-        // reference — both define an `Image` symbol and the compiler
-        // resolves to the project's namespace by default.
-        using Image<Rgba32> image = await global::SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(path, cancellationToken).ConfigureAwait(false);
+        // Re-encode the cleaned file as PNG so the agent always receives
+        // a single, predictable MIME type. The SkiaSharp encoder is
+        // synchronous on the SKData it returns, so we just await on the
+        // stream copy.
+        using SKBitmap bitmap = SKBitmap.Decode(path);
+        if (bitmap is null)
+        {
+            throw new McpException($"Could not decode cleaned image: {path}");
+        }
+        using SKImage image = SKImage.FromBitmap(bitmap);
+        using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
         using MemoryStream ms = new();
-        await image.SaveAsync(ms, new PngEncoder(), cancellationToken).ConfigureAwait(false);
+        await data.AsStream().CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
         return ms.ToArray();
     }
 }

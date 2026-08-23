@@ -46,7 +46,7 @@ you want to clean your own output, normalize a corpus, or run forensic analysis.
 
 - 🧽 **Cleans text** through three complementary layers (Unicode hygiene → statistical rewrite → vendor heuristics)
 - 📝 **Cleans markdown** while preserving fenced code blocks and configurable structure
-- 🗂️ **Strips metadata** from JPEG / PNG / WebP / TIFF / HEIF / AVIF / MP4 / MOV / 3GP / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF — pixel-preserving, byte-level
+- 🗂️ **Strips metadata** from JPEG / PNG / WebP / HEIF / AVIF / MP4 / MOV / 3GP / PDF / DOCX / PPTX / XLSX / HTML / EPUB / RTF — pixel-preserving, byte-level. *(TIFF support was retired in the SkiaSharp migration — SkiaSharp has no TIFF codec.)*
 - 🖼️ **Inpaints visual watermarks** with the LaMa ONNX model
 - 🌐 **Speaks Russian natively** — synonym dictionary, homoglyph-safe Unicode normalisation
 - 🚀 **Runs everywhere** — Windows / Linux / macOS / x64 / ARM64
@@ -738,7 +738,7 @@ The active roadmap lives in [BACKLOG.md](./BACKLOG.md). Highlights:
 - [x] Issue / PR templates, CODEOWNERS, CODE_OF_CONDUCT, SECURITY, CHANGELOG
 
 **P1 — Core features (v1.0)**
-- [ ] More metadata formats (MP4) — WebP, TIFF, HEIF, AVIF, EPUB, RTF landed
+- [ ] More metadata formats (MP4) — WebP, HEIF, AVIF, EPUB, RTF landed (TIFF retired with the SkiaSharp migration)
 - [x] DeepSeek / Grok / Mistral vendor detectors
 - [ ] Synonym dictionary: EN → 400+, RU → 200+
 - [ ] Image batch processing + GPU inference

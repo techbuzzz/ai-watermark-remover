@@ -1,5 +1,5 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using System.Runtime.InteropServices;
+using SkiaSharp;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
 
@@ -21,19 +21,15 @@ public sealed class MaskGenerator : IMaskGenerator
             throw new FileNotFoundException("Image not found", imagePath);
         }
 
-        using Image<Rgba32> image = SixLabors.ImageSharp.Image.Load<Rgba32>(imagePath);
+        using SKBitmap image = LoadRgba(imagePath);
         (_, _, IReadOnlyList<DetectedRegion> regions) = BuildMaskWithRegions(image, threshold);
         return regions;
     }
 
     /// <summary>Build a boolean watermark mask for an already-loaded image.</summary>
-    public static (bool[,] Mask, int Count) BuildMask(Image<Rgba32> image)
+    public static (bool[,] Mask, int Count) BuildMask(SKBitmap image)
     {
-        (_, int count, _) = BuildMaskWithRegions(image, threshold: 0.0);
-        // Return the mask + count only; the threshold 0.0 suppresses region
-        // extraction so this overload stays allocation-light for callers
-        // that only want the boolean mask (e.g. the unit test).
-        (bool[,] mask, _, _) = BuildMaskWithRegions(image, threshold: 0.0);
+        (bool[,] mask, int count, _) = BuildMaskWithRegions(image, threshold: 0.0);
         return (mask, count);
     }
 
@@ -45,29 +41,32 @@ public sealed class MaskGenerator : IMaskGenerator
     /// duplicating the work <see cref="ExtractRegions"/> already did here.
     /// </summary>
     /// <param name="threshold">Confidence threshold; pass 0.0 to skip region extraction.</param>
-    public static (bool[,] Mask, int Count, IReadOnlyList<DetectedRegion> Regions) BuildMaskWithRegions(Image<Rgba32> image, double threshold)
+    public static (bool[,] Mask, int Count, IReadOnlyList<DetectedRegion> Regions) BuildMaskWithRegions(SKBitmap image, double threshold)
     {
         int width = image.Width;
         int height = image.Height;
         var mask = new bool[height, width];
         int count = 0;
 
-        // Pass 1 — alpha channel: semi-transparent pixels.
-        image.ProcessPixelRows(accessor =>
+        // Pass 1 — alpha channel: semi-transparent pixels. SKColor.Alpha is
+        // 0..255; the range (0, 250) catches the typical "watermark overlay"
+        // alpha values (anything > 0 but < fully-opaque) without tripping on
+        // accidentally-rounded-up solid pixels. Rgba8888 is 4 bytes per pixel
+        // and SKColor is a 4-byte struct, so the byte span reinterprets
+        // cleanly.
+        ReadOnlySpan<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(image.GetPixelSpan());
+        for (int y = 0; y < height; y++)
         {
-            for (int y = 0; y < accessor.Height; y++)
+            int rowOffset = y * width;
+            for (int x = 0; x < width; x++)
             {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
+                byte a = pixels[rowOffset + x].Alpha;
+                if (a is > 0 and < 250)
                 {
-                    byte a = row[x].A;
-                    if (a is > 0 and < 250)
-                    {
-                        mask[y, x] = true;
-                    }
+                    mask[y, x] = true;
                 }
             }
-        });
+        }
 
         count = CountMask(mask, width, height);
 
@@ -75,7 +74,7 @@ public sealed class MaskGenerator : IMaskGenerator
         if (count < width * height * 0.001)
         {
             Array.Clear(mask);
-            ColorFrequencyPass(image, mask);
+            ColorFrequencyPass(pixels, width, height, mask);
             count = CountMask(mask, width, height);
         }
 
@@ -88,10 +87,8 @@ public sealed class MaskGenerator : IMaskGenerator
         return (mask, count, regions);
     }
 
-    private static void ColorFrequencyPass(Image<Rgba32> image, bool[,] mask)
+    private static void ColorFrequencyPass(ReadOnlySpan<SKColor> pixels, int width, int height, bool[,] mask)
     {
-        int width = image.Width;
-        int height = image.Height;
         var histogram = new Dictionary<int, int>();
 
         // Track the dominant colour while building the histogram in a single
@@ -100,30 +97,23 @@ public sealed class MaskGenerator : IMaskGenerator
         int backgroundCount = -1;
 
         // Quantize to 5-bit per channel to make the histogram robust.
-        image.ProcessPixelRows(accessor =>
+        for (int i = 0; i < pixels.Length; i++)
         {
-            for (int y = 0; y < accessor.Height; y++)
+            SKColor p = pixels[i];
+            if (p.Alpha < 10)
             {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Rgba32 p = row[x];
-                    if (p.A < 10)
-                    {
-                        continue;
-                    }
-
-                    int key = ((p.R >> 3) << 10) | ((p.G >> 3) << 5) | (p.B >> 3);
-                    int newCount = histogram.GetValueOrDefault(key) + 1;
-                    histogram[key] = newCount;
-                    if (newCount > backgroundCount)
-                    {
-                        backgroundCount = newCount;
-                        backgroundKey = key;
-                    }
-                }
+                continue;
             }
-        });
+
+            int key = ((p.Red >> 3) << 10) | ((p.Green >> 3) << 5) | (p.Blue >> 3);
+            int newCount = histogram.GetValueOrDefault(key) + 1;
+            histogram[key] = newCount;
+            if (newCount > backgroundCount)
+            {
+                backgroundCount = newCount;
+                backgroundKey = key;
+            }
+        }
 
         if (histogram.Count == 0)
         {
@@ -152,22 +142,19 @@ public sealed class MaskGenerator : IMaskGenerator
             return;
         }
 
-        image.ProcessPixelRows(accessor =>
+        for (int y = 0; y < height; y++)
         {
-            for (int y = 0; y < accessor.Height; y++)
+            int rowOffset = y * width;
+            for (int x = 0; x < width; x++)
             {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
+                SKColor p = pixels[rowOffset + x];
+                int key = ((p.Red >> 3) << 10) | ((p.Green >> 3) << 5) | (p.Blue >> 3);
+                if (candidates.Contains(key))
                 {
-                    Rgba32 p = row[x];
-                    int key = ((p.R >> 3) << 10) | ((p.G >> 3) << 5) | (p.B >> 3);
-                    if (candidates.Contains(key))
-                    {
-                        mask[y, x] = true;
-                    }
+                    mask[y, x] = true;
                 }
             }
-        });
+        }
     }
 
     private static int CountMask(bool[,] mask, int width, int height)
@@ -245,5 +232,21 @@ public sealed class MaskGenerator : IMaskGenerator
         }
 
         return regions.OrderByDescending(r => r.Width * r.Height).ToList();
+    }
+
+    /// <summary>Decode an image from <paramref name="path"/> and return it as an
+    /// RGBA-8888 <see cref="SKBitmap"/>. The caller owns the returned bitmap.</summary>
+    private static SKBitmap LoadRgba(string path)
+    {
+        SKBitmap raw = SKBitmap.Decode(path);
+        if (raw.ColorType == SKColorType.Rgba8888)
+        {
+            return raw;
+        }
+
+        // Re-decode into the colour type our pixel iteration assumes.
+        SKBitmap converted = raw.Copy(SKColorType.Rgba8888);
+        raw.Dispose();
+        return converted;
     }
 }

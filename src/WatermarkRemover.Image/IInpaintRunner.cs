@@ -1,5 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace WatermarkRemover.Image;
 
@@ -16,9 +15,10 @@ public interface IInpaintRunner
     bool IsAvailable { get; }
 
     /// <summary>
-    /// Inpaint the masked region. <paramref name="image"/> is RGB, <paramref name="mask"/> is
-    /// grayscale where non-zero marks pixels to reconstruct. Both are the model resolution.
-    /// Returns a new inpainted RGB image at the same resolution.
+    /// Inpaint the masked region. <paramref name="image"/> carries RGB(A) pixels,
+    /// <paramref name="mask"/> is a single-channel grayscale bitmap where non-zero
+    /// marks pixels to reconstruct. Both are at the model resolution. Returns a
+    /// new <see cref="SKBitmap"/> of the same size with RGB(A) pixels.
     /// </summary>
-    Image<Rgb24> Inpaint(Image<Rgb24> image, Image<L8> mask);
+    SKBitmap Inpaint(SKBitmap image, SKBitmap mask);
 }
