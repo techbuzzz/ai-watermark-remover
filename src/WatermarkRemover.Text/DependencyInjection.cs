@@ -22,6 +22,9 @@ public static class TextServiceCollectionExtensions
         services.AddSingleton<IAiTextWatermarkDetector, ClaudeWatermarkDetector>();
         services.AddSingleton<IAiTextWatermarkDetector, GeminiWatermarkDetector>();
         services.AddSingleton<IAiTextWatermarkDetector, OpenAiWatermarkDetector>();
+        services.AddSingleton<IAiTextWatermarkDetector, DeepSeekWatermarkDetector>();
+        services.AddSingleton<IAiTextWatermarkDetector, GrokWatermarkDetector>();
+        services.AddSingleton<IAiTextWatermarkDetector, MistralWatermarkDetector>();
 
         services.AddSingleton<ITextCleaningPipeline, TextCleaningPipeline>();
         services.AddSingleton<IMarkdownCleaner, MarkdownCleaner>();

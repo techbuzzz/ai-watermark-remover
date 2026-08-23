@@ -17,6 +17,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **DeepSeek / Grok / Mistral vendor detectors (Layer C, WR-P111)**
+  — the `IAiTextWatermarkDetector` registry now ships six
+  vendors instead of three. The new detectors are pure-managed
+  heuristics, one file per vendor in `WatermarkRemover.Text/Vendors/`,
+  matching the existing `ClaudeWatermarkDetector` /
+  `GeminiWatermarkDetector` / `OpenAiWatermarkDetector` posture
+  (high-precision, low-recall — they flag what's certainly
+  vendor-typical, but they don't try to invert the per-token
+  statistical watermark, which needs the secret key):
+
+    - `DeepSeekWatermarkDetector` — two pattern families. The
+      `<think>` / `</think>` reasoning-block leak that DeepSeek-R1
+      ships before its answer (case-insensitive, optional
+      trailing `>`, confidence 0.95). And the fullwidth-ASCII
+      fingerprint `U+FF01..U+FF5E` (a `，`, `。`, `？`, `！`, or
+      `～` sitting between two ASCII Latin letters is suspicious;
+      in genuine CJK prose the neighbours are also CJK, so the
+      boundary gate keeps us out of false positives on Chinese
+      text — confidence 0.7). `Remove` strips the tags verbatim
+      and folds each fullwidth code point to its ASCII twin.
+    - `GrokWatermarkDetector` — two pattern families. The
+      `emoji-burst` (3+ consecutive emoji code points, covering
+      the BMP misc-symbols blocks plus the full supplementary
+      plane via UTF-16 surrogate detection, with ZWJ-tolerant
+      run boundaries — confidence 0.6). And the `em-dash-cluster`
+      (3+ consecutive `U+2014` em-dashes — confidence 0.7). `Remove`
+      collapses each run to a single emoji / em-dash, matching the
+      "soft normalisation" posture used by the MarkdownCleaner's
+      emoji-sign-off toggle.
+    - `MistralWatermarkDetector` — one pattern family. The
+      Mistral chat-template marker leak: six literal tokens
+      (`[INST]`, `[/INST]`, `<<SYS>>`, `<</SYS>>`, `<s>`, `</s>`,
+      all case-sensitive, each a 100% sure signal because the
+      sequences are never natural prose — confidence 0.99). `Remove`
+      drops the markers, splicing a single space between adjacent
+      non-whitespace characters so the cleaned sentence keeps a
+      word boundary.
+
+  All three are registered alongside the existing three in
+  `AddWatermarkRemoverText`, so a `clean-text` run on a fixture
+  containing `<think>` / `[INST]` / an emoji burst now returns
+  cleaned text with those markers gone. The package description
+  and tags on `WatermarkRemover.Text.csproj` now list DeepSeek +
+  Grok + Mistral. **21 new xUnit tests** in
+  `WatermarkRemover.Text.Tests` (6 per new detector covering
+  positive detection + removal + negative / "clean text" + at
+  least one boundary case; the existing `Detect_CleanText_ReturnsFalse`
+  theory now expands automatically to cover the 6 detectors
+  instead of 3, contributing the additional 3 invocations). Build
+  clean (0 warnings, 0 errors), **647 xUnit tests** in total
+  (81 + 56 + 9 + 155 + 39 + 307) — the 1 Metadata failure
+  (`Tiff_Clean_RemovesExifProfile_OutputIsValidTiff`) and the 8
+  CLI failures (`DotnetToolPackagingTests.Pack_*`) are pre-existing
+  ImageSharp 4.x upgrade regressions that will be addressed in
+  the upcoming ImageSharp → SkiaSharp migration tick.
+
 ### Changed
 - **Dependency refresh (chore-deps)** — bumped all central package
   versions to current stable releases: `DocumentFormat.OpenXml`

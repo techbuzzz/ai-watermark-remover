@@ -712,7 +712,7 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 ## In progress
 
-### WR-S23. [~] DeepSeek / Grok / Mistral vendor detectors (Layer C)
+### WR-S23. [x] DeepSeek / Grok / Mistral vendor detectors (Layer C)
 
 - **Why:** BACKLOG P1 — the `IAiTextWatermarkDetector` registry currently
   ships three vendors (Claude, Gemini, OpenAI). DeepSeek, Grok, and
@@ -844,6 +844,51 @@ Pick in order — MCP server must land before skills and plugins can use it.
 
 These were completed in the most recent sprint; they live here for context
 but have already been moved to BACKLOG.md `[x]` and CHANGELOG.md `[Unreleased]`.
+
+- [x] **WR-P111 — DeepSeek / Grok / Mistral vendor detectors (Layer C)
+      (`src/WatermarkRemover.Text/Vendors/DeepSeekWatermarkDetector.cs` +
+      `src/WatermarkRemover.Text/Vendors/GrokWatermarkDetector.cs` +
+      `src/WatermarkRemover.Text/Vendors/MistralWatermarkDetector.cs` +
+      `src/WatermarkRemover.Text/DependencyInjection.cs` +
+      `src/WatermarkRemover.Text/WatermarkRemover.Text.csproj` +
+      `src/tests/WatermarkRemover.Text.Tests/VendorDetectorTests.cs` +
+      `README.md` + `BACKLOG.md` + `CHANGELOG.md` + `TODO.md`)** —
+      `IAiTextWatermarkDetector` registry now ships six vendors
+      instead of three. Three pure-managed detector files in
+      `WatermarkRemover.Text/Vendors/`, registered in DI alongside
+      the existing Claude / Gemini / OpenAI detectors. Each
+      detector is *high-precision, low-recall* (it flags what's
+      certainly vendor-typical, doesn't try to invert the
+      per-token statistical watermark, which needs the secret
+      key): `DeepSeekWatermarkDetector` flags the `<think>` /
+      `</think>` reasoning-block leak (case-insensitive, optional
+      trailing `>`, conf 0.95) and the fullwidth-ASCII CJK
+      fingerprint `U+FF01..U+FF5E` sitting between two ASCII
+      Latin letters (conf 0.7); `GrokWatermarkDetector` flags
+      3+ emoji bursts (BMP misc-symbols blocks + supplementary
+      plane via UTF-16 surrogate detection, ZWJ-tolerant run
+      boundaries, conf 0.6) and 3+ em-dash clusters (conf 0.7);
+      `MistralWatermarkDetector` flags the six literal chat-
+      template markers (`[INST]`, `[/INST]`, `<<SYS>>`, `<</SYS>>`,
+      `<s>`, `</s>`, all case-sensitive, each a 100% sure
+      signal, conf 0.99). `Remove` semantics: DeepSeek strips
+      the tags verbatim and folds each fullwidth code point to
+      its ASCII twin; Grok collapses each run to a single emoji
+      / em-dash (soft normalisation, matches the MarkdownCleaner's
+      emoji-sign-off posture); Mistral drops the markers, splicing
+      a single space between adjacent non-whitespace characters.
+      **21 new xUnit tests** in `WatermarkRemover.Text.Tests`
+      (6 per detector: positive detection + removal + clean-text
+      negative + boundary case). Build clean (0 warnings, 0
+      errors), **647 xUnit tests** total (81 + 56 + 9 + 155 + 39
+      + 307). The 1 remaining Metadata failure
+      (`Tiff_Clean_RemovesExifProfile_OutputIsValidTiff`) and the
+      8 CLI failures (`DotnetToolPackagingTests.Pack_*`) are
+      pre-existing ImageSharp 4.x upgrade regressions — the
+      ImageSharp decode-and-re-encode path that the TIFF cleaner
+      relies on changed semantics, and `dotnet pack` is doing a
+      fresh build that hits the same path. Both will be addressed
+      by the upcoming ImageSharp → SkiaSharp migration tick.
 
 - [x] **WR-P108 — MP4 / MOV / M4V / M4A / M4B / M4P / 3GP / 3G2 metadata cleaner
       (`src/WatermarkRemover.Metadata/Mp4MetadataCleaner.cs` +

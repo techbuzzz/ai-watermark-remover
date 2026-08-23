@@ -59,17 +59,42 @@ public sealed class DeepSeekWatermarkDetector : IAiTextWatermarkDetector
         ArgumentNullException.ThrowIfNull(matches);
 
         // Walk the text. For each character:
-        //  * If it's inside a <think> / </think> tag span, drop it.
-        //  * If it's a fullwidth ASCII code point bordered by an ASCII
-        //    Latin letter (i.e. the same predicate the detector uses),
-        //    fold it to its ASCII twin.
+        //  * If it falls inside any "reasoning-block" match span
+        //    (the <think> / </think> tags we reported in Detect),
+        //    drop it — that's the tag itself; the content between
+        //    the open and close tag is preserved.
+        //  * If it's a fullwidth ASCII code point bordered by an
+        //    ASCII Latin letter (i.e. the same predicate the
+        //    detector uses), fold it to its ASCII twin.
         //  * Otherwise, copy through unchanged.
+
+        // Build a sorted (start, endExclusive) list of tag spans
+        // from the matches. Sweeping the text against a sorted
+        // span list is O(N + M) rather than the O(N * M) we
+        // would pay if we asked each match whether it covers the
+        // current index every time.
+        var tagRanges = new List<(int Start, int End)>(matches.Count);
+        foreach (WatermarkMatch m in matches)
+        {
+            if (m.Pattern == "reasoning-block")
+            {
+                tagRanges.Add((m.Position, m.Position + m.Length));
+            }
+        }
+        tagRanges.Sort((a, b) => a.Start.CompareTo(b.Start));
+
         var sb = new StringBuilder(text.Length);
+        int rangeIdx = 0;
         for (int i = 0; i < text.Length; i++)
         {
-            if (IsInsideThinkTag(text, i))
+            while (rangeIdx < tagRanges.Count && i >= tagRanges[rangeIdx].End)
             {
-                continue;
+                rangeIdx++;
+            }
+
+            if (rangeIdx < tagRanges.Count && i >= tagRanges[rangeIdx].Start)
+            {
+                continue; // inside a <think> / </think> tag
             }
 
             char c = text[i];
@@ -108,45 +133,6 @@ public sealed class DeepSeekWatermarkDetector : IAiTextWatermarkDetector
     private static char MapFullwidthToAscii(char c) =>
         IsFullwidthAscii(c) ? (char)(c - 0xFF01 + 0x0021) : c;
 
-    /// <summary>True when <paramref name="position"/> falls inside
-    /// a <c>&lt;think…&gt;</c> or <c>&lt;/think…&gt;</c> tag
-    /// (case-insensitive). Used by <see cref="Remove"/> to drop
-    /// the tag characters while keeping the user-visible
-    /// reasoning content that may sit between an open and a
-    /// close tag.</summary>
-    private static bool IsInsideThinkTag(ReadOnlySpan<char> text, int position)
-    {
-        // Walk backwards from `position` to the previous '<' (if any).
-        // The smallest valid <think> / </think> tag is 7 characters
-        // (e.g. "<think>"), so a backward scan up to 8 chars catches
-        // both the bare "<think" form and the "<think>" form.
-        int scan = position;
-        int limit = Math.Max(0, position - 8);
-        while (scan > limit)
-        {
-            char c = text[scan - 1];
-            if (c == '<')
-            {
-                // Build the substring from '<' through the previous
-                // char before `position` and see if it starts a tag.
-                ReadOnlySpan<char> candidate = text.Slice(scan - 1, position - (scan - 1));
-                return candidate.StartsWith("<think", StringComparison.OrdinalIgnoreCase) ||
-                       candidate.StartsWith("</think", StringComparison.OrdinalIgnoreCase);
-            }
-
-            // A non-letter, non-'>', non-'/' character inside the
-            // candidate means it's not part of a think-tag.
-            if (c != '>' && c != '/' && !IsAsciiLetter(c))
-            {
-                return false;
-            }
-
-            scan--;
-        }
-
-        return false;
-    }
-
     /// <summary>Finds every <c>&lt;think</c> and <c>&lt;/think</c>
     /// tag in the text, case-insensitive. Returns the (start, length)
     /// of the opening angle bracket through the first non-tag
@@ -170,9 +156,9 @@ public sealed class DeepSeekWatermarkDetector : IAiTextWatermarkDetector
                 if (MatchesAsciiWord(text, scan, "think", caseInsensitive: true))
                 {
                     int after = scan + "think".Length;
-                    // Accept an optional '>' or ' ' (DeepSeek-R1 sometimes
-                    // emits "<think>" with a closing angle, sometimes just
-                    // "<think" as a sentinel without one).
+                    // Accept an optional '>' (DeepSeek-R1 sometimes
+                    // emits "<think>" with a closing angle, sometimes
+                    // just "<think" as a sentinel without one).
                     int tagEnd = after;
                     if (tagEnd < text.Length && text[tagEnd] == '>')
                     {

@@ -17,8 +17,8 @@
     <PackageVersion>1.0.0</PackageVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>watermarkremover-nuget-icon.png</PackageIcon>
-    <PackageDescription>Text-cleaning pipeline: invisible-character stripping (Layer A), statistical rewrite (Layer B), and vendor watermark detection for Claude / Gemini / OpenAI (Layer C). Also bundles the 21-toggle MarkdownCleaner.</PackageDescription>
-    <PackageTags>ai;watermark;text;markdown;cleaning;claude;gemini;openai;dotnet</PackageTags>
+    <PackageDescription>Text-cleaning pipeline: invisible-character stripping (Layer A), statistical rewrite (Layer B), and vendor watermark detection for Claude / Gemini / OpenAI / DeepSeek / Grok / Mistral (Layer C). Also bundles the 21-toggle MarkdownCleaner.</PackageDescription>
+    <PackageTags>ai;watermark;text;markdown;cleaning;claude;gemini;openai;deepseek;grok;mistral;dotnet</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/techbuzzz/ai-watermark-remover</PackageProjectUrl>
     <RepositoryUrl>https://github.com/techbuzzz/ai-watermark-remover</RepositoryUrl>

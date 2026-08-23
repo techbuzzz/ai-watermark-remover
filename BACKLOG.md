@@ -63,7 +63,7 @@ the cross-reference is in the `Backlog ref:` line of each TODO entry.
 - [x] WR-P108 — **MP4/MOV** metadata cleaner — strip `moov/udta/©xyz` atom (GPS), `udta/meta/keys/ilst` (title/author)
 
 ### Text layer enhancements
-- [~] WR-P111 — **DeepSeek / Grok / Mistral** vendor detectors — heuristic patterns for these providers' text watermarks
+- [x] WR-P111 — **DeepSeek / Grok / Mistral** vendor detectors — heuristic patterns for these providers' text watermarks
 - [ ] WR-P112 — **Expand synonym dictionary** — increase EN coverage from ~140 → 400+ headwords; RU from ~50 → 200+
 - [ ] WR-P113 — **Configurable synonym dictionary** — load custom synonyms from `config.yaml` or an external JSON file
 - [ ] WR-P114 — **Additional language synonym sets** — German, French, Spanish, Chinese, Japanese

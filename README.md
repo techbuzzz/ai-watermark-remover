@@ -281,8 +281,10 @@ The text pipeline runs three independent layers in order. Each can be toggled vi
 - **Layer B · Statistical rewrite** — swaps "green-list" tokens for synonyms using built-in
   English **and** Russian dictionaries, or back-translates through an Ollama-compatible
   LLM endpoint for higher-quality rewrites.
-- **Layer C · Vendor detectors** — best-effort heuristics for Claude, Gemini/SynthID and
-  OpenAI invisible-carrier patterns. These are **heuristic** because the underlying
+- **Layer C · Vendor detectors** — best-effort heuristics for Claude, Gemini/SynthID,
+  OpenAI, **DeepSeek** (<think> tag leak + fullwidth-ASCII CJK fingerprint), **Grok**
+  (emoji burst + em-dash cluster), and **Mistral** (chat-template marker leak)
+  invisible-carrier patterns. These are **heuristic** because the underlying
   schemes are key-based and not publicly verifiable.
 
 ### Markdown
@@ -737,7 +739,7 @@ The active roadmap lives in [BACKLOG.md](./BACKLOG.md). Highlights:
 
 **P1 — Core features (v1.0)**
 - [ ] More metadata formats (MP4) — WebP, TIFF, HEIF, AVIF, EPUB, RTF landed
-- [ ] DeepSeek / Grok / Mistral vendor detectors
+- [x] DeepSeek / Grok / Mistral vendor detectors
 - [ ] Synonym dictionary: EN → 400+, RU → 200+
 - [ ] Image batch processing + GPU inference
 - [ ] OpenAPI / Swagger UI for the HTTP API
