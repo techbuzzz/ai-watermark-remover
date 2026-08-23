@@ -1,5 +1,5 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using System.Runtime.InteropServices;
+using SkiaSharp;
 using WatermarkRemover.Image;
 
 namespace WatermarkRemover.Image.Tests;
@@ -8,9 +8,9 @@ namespace WatermarkRemover.Image.Tests;
 /// Test double for <see cref="IInpaintRunner"/> — no ONNX model needed. It paints every masked
 /// pixel a fixed colour so tests can assert that inpainting actually ran on the masked region.
 /// </summary>
-internal sealed class FakeInpaintRunner(bool available = true, Rgb24? fill = null) : IInpaintRunner
+internal sealed class FakeInpaintRunner(bool available = true, SKColor? fill = null) : IInpaintRunner
 {
-    private readonly Rgb24 _fill = fill ?? new Rgb24(255, 0, 0);
+    private readonly SKColor _fill = fill ?? new SKColor(255, 0, 0);
 
     public string ModelName => "fake";
 
@@ -18,28 +18,24 @@ internal sealed class FakeInpaintRunner(bool available = true, Rgb24? fill = nul
 
     public int InpaintCallCount { get; private set; }
 
-    public Image<Rgb24> Inpaint(Image<Rgb24> image, Image<L8> mask)
+    public SKBitmap Inpaint(SKBitmap image, SKBitmap mask)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(mask);
         InpaintCallCount++;
 
-        Image<Rgb24> output = image.Clone();
-        output.ProcessPixelRows(mask, (imgAccessor, maskAccessor) =>
+        // The pipeline hands us an Rgb888x (3-channel) image and a Gray8
+        // mask. We mirror the input colour type so the test's expectations
+        // about per-pixel accessors (Rgb24 / Rgb888x) keep working.
+        SKBitmap output = new(image.Width, image.Height, image.ColorType, SKAlphaType.Opaque);
+        ReadOnlySpan<SKColor> inputPixels = MemoryMarshal.Cast<byte, SKColor>(image.GetPixelSpan());
+        ReadOnlySpan<byte> maskPixels = mask.GetPixelSpan();
+        Span<SKColor> outPixels = MemoryMarshal.Cast<byte, SKColor>(output.GetPixelSpan());
+
+        for (int i = 0; i < inputPixels.Length; i++)
         {
-            for (int y = 0; y < imgAccessor.Height; y++)
-            {
-                Span<Rgb24> imgRow = imgAccessor.GetRowSpan(y);
-                Span<L8> maskRow = maskAccessor.GetRowSpan(y);
-                for (int x = 0; x < imgRow.Length; x++)
-                {
-                    if (maskRow[x].PackedValue > 127)
-                    {
-                        imgRow[x] = _fill;
-                    }
-                }
-            }
-        });
+            outPixels[i] = maskPixels[i] > 127 ? _fill : inputPixels[i];
+        }
 
         return output;
     }

@@ -1,11 +1,10 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Mcp.Tools;
@@ -104,22 +103,16 @@ public sealed class InspectFileToolTests : IDisposable
 
     private static void WritePngWithTextChunk(string path, string keyword, string value)
     {
-        using Image<Rgba32> image = new(8, 8);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = new Rgba32(255, 0, 0, 255);
-                }
-            }
-        });
+        using var bitmap = new SKBitmap(8, 8, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(new SKColor(255, 0, 0, 255));
 
-        PngEncoder encoder = new() { TextCompressionThreshold = 0 };
-        using MemoryStream ms = new();
-        image.Save(ms, encoder);
+        using var ms = new MemoryStream();
+        using (var image = SKImage.FromBitmap(bitmap))
+        using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+        {
+            data.AsStream().CopyTo(ms);
+        }
         byte[] original = ms.ToArray();
 
         byte[] keywordBytes = Encoding.ASCII.GetBytes(keyword);

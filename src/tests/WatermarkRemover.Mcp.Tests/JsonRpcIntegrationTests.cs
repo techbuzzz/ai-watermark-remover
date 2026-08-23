@@ -1,4 +1,5 @@
 using System.IO.Pipelines;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,8 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Image;
@@ -285,7 +285,7 @@ public sealed class JsonRpcIntegrationTests : IClassFixture<McpJsonRpcHost>
         // straightforward thing to feed it. The fake inpaint runner
         // paints nothing (NoOp mask) so this is a pass-through
         // encode.
-        string inputPath = WriteSolidPng(32, 32, new Rgba32(255, 0, 0, 255));
+        string inputPath = WriteSolidPng(32, 32, new SKColor(255, 0, 0, 255));
 
         CallToolResult result = await _host.Client.CallToolAsync(
             "clean_image",
@@ -358,22 +358,16 @@ public sealed class JsonRpcIntegrationTests : IClassFixture<McpJsonRpcHost>
     private string TempPath(string name) =>
         Path.Combine(_host.TempDir, $"{Guid.NewGuid():N}-{name}");
 
-    private string WriteSolidPng(int width, int height, Rgba32 color)
+    private string WriteSolidPng(int width, int height, SKColor color)
     {
         string path = TempPath("solid.png");
-        using Image<Rgba32> image = new(width, height);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = color;
-                }
-            }
-        });
-        image.Save(path);
+        using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
         return path;
     }
 
@@ -384,28 +378,21 @@ public sealed class JsonRpcIntegrationTests : IClassFixture<McpJsonRpcHost>
         // real MaskGenerator is tuned to catch (alpha-channel
         // analysis).
         string path = TempPath("alpha.png");
-        using Image<Rgba32> image = new(width, height);
-        image.ProcessPixelRows(accessor =>
+        using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        for (int y = 0; y < height; y++)
         {
-            for (int y = 0; y < accessor.Height; y++)
+            for (int x = 0; x < width; x++)
             {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    if (x < 8 && y < 8)
-                    {
-                        // Semi-transparent pixel — the alpha-channel
-                        // detector will flag this.
-                        row[x] = new Rgba32(200, 200, 200, 80);
-                    }
-                    else
-                    {
-                        row[x] = new Rgba32(0, 0, 0, 255);
-                    }
-                }
+                pixels[(y * width) + x] = x < 8 && y < 8
+                    ? new SKColor(200, 200, 200, 80)   // Semi-transparent pixel — the alpha-channel detector will flag this.
+                    : new SKColor(0, 0, 0, 255);
             }
-        });
-        image.Save(path);
+        }
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
         return path;
     }
 
@@ -415,21 +402,16 @@ public sealed class JsonRpcIntegrationTests : IClassFixture<McpJsonRpcHost>
         // PngMetadataCleaner has something to strip. Same shape
         // as the fixture used in CleanFileToolTests.
         string path = TempPath("text.png");
-        using Image<Rgba32> image = new(8, 8);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = new Rgba32(255, 0, 0, 255);
-                }
-            }
-        });
+        using var bitmap = new SKBitmap(8, 8, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(new SKColor(255, 0, 0, 255));
 
-        using MemoryStream ms = new();
-        image.SaveAsPng(ms);
+        using var ms = new MemoryStream();
+        using (var image = SKImage.FromBitmap(bitmap))
+        using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+        {
+            data.AsStream().CopyTo(ms);
+        }
         byte[] original = ms.ToArray();
 
         byte[] keywordBytes = System.Text.Encoding.ASCII.GetBytes(keyword);
@@ -598,28 +580,21 @@ public sealed class McpJsonRpcHost : IAsyncLifetime
         public bool IsAvailable => true;
         public int InpaintCallCount { get; private set; }
 
-        public Image<Rgb24> Inpaint(Image<Rgb24> image, Image<L8> mask)
+        public SKBitmap Inpaint(SKBitmap image, SKBitmap mask)
         {
             ArgumentNullException.ThrowIfNull(image);
             ArgumentNullException.ThrowIfNull(mask);
             InpaintCallCount++;
 
-            Image<Rgb24> output = image.Clone();
-            output.ProcessPixelRows(mask, (imgAccessor, maskAccessor) =>
+            SKBitmap output = new(image.Width, image.Height, image.ColorType, SKAlphaType.Opaque);
+            ReadOnlySpan<SKColor> inputPixels = MemoryMarshal.Cast<byte, SKColor>(image.GetPixelSpan());
+            ReadOnlySpan<byte> maskPixels = mask.GetPixelSpan();
+            Span<SKColor> outPixels = MemoryMarshal.Cast<byte, SKColor>(output.GetPixelSpan());
+            SKColor fill = new(0, 255, 0);
+            for (int i = 0; i < inputPixels.Length; i++)
             {
-                for (int y = 0; y < imgAccessor.Height; y++)
-                {
-                    Span<Rgb24> imgRow = imgAccessor.GetRowSpan(y);
-                    Span<L8> maskRow = maskAccessor.GetRowSpan(y);
-                    for (int x = 0; x < imgRow.Length; x++)
-                    {
-                        if (maskRow[x].PackedValue > 127)
-                        {
-                            imgRow[x] = new Rgb24(0, 255, 0);
-                        }
-                    }
-                }
-            });
+                outPixels[i] = maskPixels[i] > 127 ? fill : inputPixels[i];
+            }
             return output;
         }
     }

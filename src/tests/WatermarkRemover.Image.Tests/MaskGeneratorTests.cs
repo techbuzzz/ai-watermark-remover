@@ -1,6 +1,6 @@
+using System.Runtime.InteropServices;
 using FluentAssertions;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Models;
 using WatermarkRemover.Image;
 using Xunit;
@@ -28,14 +28,30 @@ public class MaskGeneratorTests : IDisposable
         }
     }
 
+    private static SKBitmap MakeRgba(int w, int h, byte r, byte g, byte b, byte a = 255)
+    {
+        var bitmap = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        SKColor color = new(r, g, b, a);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(color);
+        return bitmap;
+    }
+
+    private string SaveBitmap(SKBitmap bitmap, string name)
+    {
+        string path = Path.Combine(_dir, name);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
+        return path;
+    }
+
     [Fact]
     public void Detect_SolidImage_ReturnsNoRegions()
     {
-        string path = Path.Combine(_dir, "solid.png");
-        using (var image = new Image<Rgba32>(48, 48, new Rgba32(120, 120, 120)))
-        {
-            image.Save(path);
-        }
+        using var bitmap = MakeRgba(48, 48, 120, 120, 120);
+        string path = SaveBitmap(bitmap, "solid.png");
 
         var generator = new MaskGenerator();
         IReadOnlyList<DetectedRegion> regions = generator.Detect(path, 0.4);
@@ -46,20 +62,17 @@ public class MaskGeneratorTests : IDisposable
     [Fact]
     public void Detect_ImageWithTransparentRegion_IsDetected()
     {
-        string path = Path.Combine(_dir, "alpha.png");
-        using (var image = new Image<Rgba32>(48, 48, new Rgba32(200, 200, 200, 255)))
+        using var bitmap = MakeRgba(48, 48, 200, 200, 200);
+        // Punch a semi-transparent block (classic watermark overlay signature).
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        for (int y = 10; y < 30; y++)
         {
-            // Punch a semi-transparent block (classic watermark overlay signature).
-            for (int y = 10; y < 30; y++)
+            for (int x = 10; x < 30; x++)
             {
-                for (int x = 10; x < 30; x++)
-                {
-                    image[x, y] = new Rgba32(255, 255, 255, 90);
-                }
+                pixels[(y * 48) + x] = new SKColor(255, 255, 255, 90);
             }
-
-            image.Save(path);
         }
+        string path = SaveBitmap(bitmap, "alpha.png");
 
         var generator = new MaskGenerator();
         IReadOnlyList<DetectedRegion> regions = generator.Detect(path, 0.3);
@@ -70,7 +83,7 @@ public class MaskGeneratorTests : IDisposable
     [Fact]
     public void BuildMask_SolidImage_ReturnsZeroCount()
     {
-        using var image = new Image<Rgba32>(16, 16, new Rgba32(50, 50, 50));
+        using var image = MakeRgba(16, 16, 50, 50, 50);
         (bool[,] _, int count) = MaskGenerator.BuildMask(image);
 
         count.Should().Be(0);

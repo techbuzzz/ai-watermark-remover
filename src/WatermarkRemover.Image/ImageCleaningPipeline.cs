@@ -75,7 +75,10 @@ public sealed class ImageCleaningPipeline(
         using SKBitmap rgb = ToRgb(original);
         using SKBitmap rgbResized = Resize(rgb, res, res);
         using SKBitmap maskResized = Resize(maskFull, res, res);
-        maskFull.Dispose();
+        // maskFull stays alive until the blend step — BuildBlendMask
+        // operates on the full-resolution mask, not the model-resolution
+        // one (the latter was a porting mistake that produced almost-zero
+        // blend weights when the source image was tiny).
 
         // 4. Inference.
         using SKBitmap inpainted = _inpaintRunner.Inpaint(rgbResized, maskResized);
@@ -84,8 +87,9 @@ public sealed class ImageCleaningPipeline(
         using SKBitmap inpaintedFull = Resize(inpainted, inW, inH);
 
         // 6. Blend (soft edges optional).
-        using SKBitmap blendMask = BuildBlendMask(maskResized, options.BlendEdges, inW, inH);
+        using SKBitmap blendMask = BuildBlendMask(maskFull, options.BlendEdges, inW, inH);
         using SKBitmap result = Blend(original, inpaintedFull, blendMask);
+        maskFull.Dispose();
 
         // 7. Save.
         await SaveAsync(result, finalOut, cancellationToken).ConfigureAwait(false);
@@ -139,17 +143,20 @@ public sealed class ImageCleaningPipeline(
 
     private static SKBitmap BuildBlendMask(SKBitmap mask, bool softEdges, int targetW, int targetH)
     {
-        // Resize the model-resolution mask back up to the original image
-        // resolution first, then optionally blur. We always resize because
-        // the mask we have at this point is at model resolution (res x res),
-        // and the blend happens on full-resolution pixels.
-        SKBitmap fullSize = Resize(mask, targetW, targetH);
+        // The mask passed in is already at the full image resolution;
+        // when softEdges is false we just hand the caller a fresh copy
+        // they can dispose independently. When softEdges is true we
+        // apply a small Gaussian blur to feather the mask boundary.
         if (!softEdges)
         {
-            return fullSize;
+            // Same-dimension copy: avoids SkiaSharp's Resize path
+            // attenuating high-contrast values (the bilinear / bicubic
+            // samplers can pull a 255 mask pixel down to 0 when
+            // src == dst, depending on rounding).
+            return mask.Copy(mask.ColorType);
         }
 
-        using var blurred = new SKBitmap(targetW, targetH, SKColorType.Gray8, SKAlphaType.Opaque);
+        var blurred = new SKBitmap(targetW, targetH, mask.ColorType, mask.AlphaType);
         using (var canvas = new SKCanvas(blurred))
         {
             using var paint = new SKPaint
@@ -157,10 +164,9 @@ public sealed class ImageCleaningPipeline(
                 IsAntialias = true,
                 ImageFilter = SKImageFilter.CreateBlur(2f, 2f),
             };
-            canvas.DrawBitmap(fullSize, 0, 0, paint);
+            canvas.DrawBitmap(mask, 0, 0, paint);
         }
 
-        fullSize.Dispose();
         return blurred;
     }
 
@@ -289,9 +295,19 @@ public sealed class ImageCleaningPipeline(
         return rgb;
     }
 
-    /// <summary>Resize a bitmap, preserving its colour type. Returns a new bitmap the caller must dispose.</summary>
+    /// <summary>Resize a bitmap, preserving its colour type. Returns a new bitmap the caller must dispose.
+    /// When the requested dimensions match the source we <see cref="SKBitmap.Copy"/> instead of
+    /// going through <see cref="SKBitmap.Resize"/>: SkiaSharp's Resize is not guaranteed to
+    /// preserve every pixel when the source and target dimensions are identical (the bilinear /
+    /// bicubic samplers can attenuate high-contrast values), and the pipeline relies on the
+    /// mask passing through unchanged at the model resolution when the source is already at the
+    /// model resolution.</summary>
     private static SKBitmap Resize(SKBitmap source, int width, int height)
     {
+        if (source.Width == width && source.Height == height)
+        {
+            return source.Copy(source.ColorType);
+        }
         var info = new SKImageInfo(width, height, source.ColorType, source.AlphaType);
         return source.Resize(info, SKSamplingOptions.Default);
     }

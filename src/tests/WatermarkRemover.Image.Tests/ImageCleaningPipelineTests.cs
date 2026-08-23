@@ -1,7 +1,6 @@
+using System.Runtime.InteropServices;
 using FluentAssertions;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using WatermarkRemover.Core.Models;
 using WatermarkRemover.Image;
 using Xunit;
@@ -32,16 +31,26 @@ public class ImageCleaningPipelineTests : IDisposable
     private string CreateSolidImage(string name, int w = 32, int h = 32)
     {
         string path = Path.Combine(_dir, name);
-        using var image = new Image<Rgba32>(w, h, new Rgba32(10, 20, 30));
-        image.Save(path);
+        using var bitmap = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        SKColor color = new(10, 20, 30);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
         return path;
     }
 
     private string CreateWhiteMask(string name, int w = 32, int h = 32)
     {
         string path = Path.Combine(_dir, name);
-        using var mask = new Image<L8>(w, h, new L8(255));
-        mask.Save(path);
+        using var mask = new SKBitmap(w, h, SKColorType.Gray8, SKAlphaType.Opaque);
+        mask.GetPixelSpan().Fill((byte)255);
+        using var image = SKImage.FromBitmap(mask);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
         return path;
     }
 
@@ -52,7 +61,7 @@ public class ImageCleaningPipelineTests : IDisposable
         string mask = CreateWhiteMask("mask.png");
         string output = Path.Combine(_dir, "out.png");
 
-        var runner = new FakeInpaintRunner(available: true, fill: new Rgb24(255, 0, 0));
+        var runner = new FakeInpaintRunner(available: true, fill: new SKColor(255, 0, 0));
         var pipeline = new ImageCleaningPipeline(new MaskGenerator(), runner);
 
         ImageCleanResult result = await pipeline.CleanAsync(
@@ -62,10 +71,19 @@ public class ImageCleaningPipelineTests : IDisposable
         result.ModelUsed.Should().Be("fake");
         File.Exists(output).Should().BeTrue();
 
-        using var outImage = SixLabors.ImageSharp.Image.Load<Rgba32>(output);
-        outImage.Width.Should().Be(32);
+        using var outBitmap = SKBitmap.Decode(output);
+        outBitmap.Width.Should().Be(32);
         // Masked (entire) image should now be dominated by the inpaint fill colour.
-        outImage[16, 16].R.Should().BeGreaterThan(200);
+        // SkiaSharp decodes the PNG as BGRA-8888 (its default byte order
+        // on Windows). To avoid the BGRA/RGBA byte-swap ambiguity when
+        // reading the pixel value, we force the decoded bitmap into the
+        // RGBA-8888 colour type the SKColor struct's byte layout assumes.
+        using var rgba = outBitmap.ColorType == SKColorType.Rgba8888
+            ? outBitmap
+            : outBitmap.Copy(SKColorType.Rgba8888);
+        ReadOnlySpan<SKColor> outPixels = MemoryMarshal.Cast<byte, SKColor>(rgba.GetPixelSpan());
+        SKColor center = outPixels[(16 * 32) + 16];
+        center.Red.Should().BeGreaterThan((byte)200);
     }
 
     [Fact]

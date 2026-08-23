@@ -40,20 +40,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictable MIME type for the agent. Test files still reference
   `Image<Rgba32>` / `Image<Rgb24>` / `Image<L8>` and will be
   updated in the follow-up commit 2 of this tick.
+- **ImageSharp → SkiaSharp migration (commit 2 of 2, WR-S24 / WR-P131)**
+  — the test side of the SkiaSharp migration lands. All
+  `Image<Rgba32>` / `Image<Rgb24>` / `Image<L8>` usages in
+  `WatermarkRemover.Image.Tests` (FakeInpaintRunner,
+  MaskGeneratorTests, ImageCleaningPipelineTests) and
+  `WatermarkRemover.Mcp.Tests` (CleanImageToolTests,
+  DetectWatermarkToolTests, InspectFileToolTests, CleanFileToolTests,
+  JsonRpcIntegrationTests) are rewritten on top of `SKBitmap` /
+  `SKColor`, with pixel access through `MemoryMarshal.Cast<byte,
+  SKColor>(bitmap.GetPixelSpan())` and per-pixel writes through
+  `SKBitmap.GetPixelSpan()` / `SKImage.FromBitmap(...).Encode(...,
+  ...)` for save. The TIFF-specific test class
+  (`Tiff_Inspect_*` / `Tiff_Clean_*` / `Tiff_CorruptFile_*` /
+  `Tiff_Header_*` / `Tiff_Cleaner_MissingFile_Throws` /
+  `Tiff_CanHandle_RecognisesExtensions`) plus the
+  `WriteTiffWithExif` / `WriteBareTiff` /
+  `BuildHandCraftedTiffWithExif` / `WriteIfdEntry` fixture
+  helpers are removed along with the cleaner itself. The
+  `FileCleanerRouter` tests drop the `.tif` / `.tiff` / `.TIF`
+  rows from the `IsSupported_KnownExtensions_ReturnsTrue`
+  theory, drop the `Resolve_Tiff_ReturnsTiffCleaner` fact, and
+  re-assert the `SupportedExtensions_AggregatesAllCleaners` and
+  `IsSupported_UnknownExtensions_ReturnsFalse` cases without
+  TIFF. The `DotnetToolPackagingTests.Pack_ManifestSize_IsReasonable_ForATool`
+  threshold is bumped from 200 MB to 250 MB to accommodate the
+  three SkiaSharp.NativeAssets.* binaries that the .nupkg now
+  carries (Windows + Linux + macOS). Build clean (0 warnings,
+  0 errors), **636 xUnit tests** total (81 + 56 + 9 + 144 + 39
+  + 307). All green.
 
 ### Removed
-- **TIFF metadata cleaner retired (commit 1 of 2)** — `TiffMetadataCleaner`,
+- **TIFF metadata cleaner retired (commits 1 + 2)** — `TiffMetadataCleaner`,
   the `AddWatermarkRemoverMetadata` line that registered it, the
-  14 TIFF-specific tests, and the hand-crafted TIFF fixtures are all
-  gone. `SixLabors.ImageSharp` had been the only TIFF codec in the
-  project; SkiaSharp 3.x has no TIFF codec, and the explicit
-  trade-off chosen for this tick is to drop TIFF support rather
-  than pull in Magick.NET or keep a parallel ImageSharp-for-TIFF
-  dependency. The README, the P1 roadmap, the `BACKLOG.md` WR-P101
-  entry, and the package description / tags on
-  `WatermarkRemover.Metadata.csproj` all reflect the retirement.
-  Users with `.tif` / `.tiff` files hitting `clean-file` will get
-  an "unsupported format" error.
+  11 TIFF-specific tests (8 cleaner tests + 3 router rows for
+  `.tif` / `.tiff` / `.TIF`), the hand-crafted TIFF fixture
+  helpers, and the `SixLabors.ImageSharp` package reference are
+  all gone. `SixLabors.ImageSharp` had been the only TIFF codec
+  in the project; SkiaSharp 3.x has no TIFF codec, and the
+  explicit trade-off chosen for this tick is to drop TIFF
+  support rather than pull in Magick.NET or keep a parallel
+  ImageSharp-for-TIFF dependency. The README, the P1 roadmap,
+  the `BACKLOG.md` WR-P101 entry, and the package description /
+  tags on `WatermarkRemover.Metadata.csproj` all reflect the
+  retirement. Users with `.tif` / `.tiff` files hitting
+  `clean-file` will get an "unsupported format" error.
 
 ### Added
 - **DeepSeek / Grok / Mistral vendor detectors (Layer C, WR-P111)**

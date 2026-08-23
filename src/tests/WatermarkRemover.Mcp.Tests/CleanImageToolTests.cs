@@ -1,10 +1,10 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol.Protocol;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
@@ -42,7 +42,7 @@ public sealed class CleanImageToolTests : IDisposable
     {
         // Arrange — write a 32x32 red PNG as input.
         string inputPath = Path.Combine(_tempDir, "fixture.png");
-        WriteSolidPng(inputPath, 32, 32, new Rgba32(255, 0, 0, 255));
+        WriteSolidPng(inputPath, 32, 32, new SKColor(255, 0, 0, 255));
 
         ServiceProvider sp = BuildImageHost(out IImageCleaningPipeline pipeline);
         AppConfig config = AppConfig.Default;
@@ -99,7 +99,7 @@ public sealed class CleanImageToolTests : IDisposable
         // Local fake runner — same shape as WatermarkRemover.Image.Tests.FakeInpaintRunner
         // but duplicated here to avoid making the test project reach
         // into another test assembly's internal types.
-        var runner = new FakeInpaintRunner(available: true, fill: new SixLabors.ImageSharp.PixelFormats.Rgb24(0, 255, 0));
+        var runner = new FakeInpaintRunner(available: true, fill: new SKColor(0, 255, 0));
         IMaskGenerator mask = new NoOpMaskGenerator();
         pipeline = new ImageCleaningPipeline(mask, runner, logger: null);
 
@@ -109,21 +109,15 @@ public sealed class CleanImageToolTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    private static void WriteSolidPng(string path, int width, int height, Rgba32 color)
+    private static void WriteSolidPng(string path, int width, int height, SKColor color)
     {
-        using Image<Rgba32> image = new(width, height);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = color;
-                }
-            }
-        });
-        image.Save(path);
+        using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
     }
 
     /// <summary>Mask generator that reports no regions — keeps the inpaint step a no-op.</summary>
@@ -133,38 +127,27 @@ public sealed class CleanImageToolTests : IDisposable
     }
 
     /// <summary>In-process IInpaintRunner that paints every masked pixel a fixed color.</summary>
-    private sealed class FakeInpaintRunner : IInpaintRunner
+    private sealed class FakeInpaintRunner(bool available, SKColor fill) : IInpaintRunner
     {
-        private readonly SixLabors.ImageSharp.PixelFormats.Rgb24 _fill;
-        public FakeInpaintRunner(bool available, SixLabors.ImageSharp.PixelFormats.Rgb24 fill)
-        {
-            IsAvailable = available;
-            _fill = fill;
-        }
         public string ModelName => "fake";
-        public bool IsAvailable { get; }
+        public bool IsAvailable { get; } = available;
         public int InpaintCallCount { get; private set; }
-        public Image<SixLabors.ImageSharp.PixelFormats.Rgb24> Inpaint(Image<SixLabors.ImageSharp.PixelFormats.Rgb24> image, Image<SixLabors.ImageSharp.PixelFormats.L8> mask)
+
+        public SKBitmap Inpaint(SKBitmap image, SKBitmap mask)
         {
             ArgumentNullException.ThrowIfNull(image);
             ArgumentNullException.ThrowIfNull(mask);
             InpaintCallCount++;
-            Image<SixLabors.ImageSharp.PixelFormats.Rgb24> output = image.Clone();
-            output.ProcessPixelRows(mask, (imgAccessor, maskAccessor) =>
+
+            SKBitmap output = new(image.Width, image.Height, image.ColorType, SKAlphaType.Opaque);
+            ReadOnlySpan<SKColor> inputPixels = MemoryMarshal.Cast<byte, SKColor>(image.GetPixelSpan());
+            ReadOnlySpan<byte> maskPixels = mask.GetPixelSpan();
+            Span<SKColor> outPixels = MemoryMarshal.Cast<byte, SKColor>(output.GetPixelSpan());
+
+            for (int i = 0; i < inputPixels.Length; i++)
             {
-                for (int y = 0; y < imgAccessor.Height; y++)
-                {
-                    Span<SixLabors.ImageSharp.PixelFormats.Rgb24> imgRow = imgAccessor.GetRowSpan(y);
-                    Span<SixLabors.ImageSharp.PixelFormats.L8> maskRow = maskAccessor.GetRowSpan(y);
-                    for (int x = 0; x < imgRow.Length; x++)
-                    {
-                        if (maskRow[x].PackedValue > 127)
-                        {
-                            imgRow[x] = _fill;
-                        }
-                    }
-                }
-            });
+                outPixels[i] = maskPixels[i] > 127 ? fill : inputPixels[i];
+            }
             return output;
         }
     }

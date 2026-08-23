@@ -423,15 +423,17 @@ public sealed class DotnetToolPackagingTests
     {
         // Sanity check: a tool package that bundles the ONNX runtime
         // for every supported RID is naturally large (~110 MB
-        // uncompressed), but the .nupkg itself should still be under
-        // 200 MB after `Deflate` compression. The threshold is loose
-        // on purpose; tightening it would flake on minor ONNX updates.
+        // uncompressed), and the SkiaSharp native binaries for
+        // Windows / Linux / macOS add another ~25 MB. The .nupkg
+        // itself should still be under 250 MB after `Deflate`
+        // compression. The threshold is loose on purpose; tightening
+        // it would flake on minor ONNX / SkiaSharp updates.
         PackFixture fixture = new();
         long size = new FileInfo(fixture.PackArtifactPath).Length;
         size.Should().BeGreaterThan(1_000_000,
             "a tool that bundles the ONNX runtime for every supported RID must be > 1 MB");
-        size.Should().BeLessThan(200_000_000,
-            "the .nupkg must stay under 200 MB — a future refactor that accidentally bundles the " +
+        size.Should().BeLessThan(250_000_000,
+            "the .nupkg must stay under 250 MB — a future refactor that accidentally bundles the " +
             "Astro UI source maps or a debug `wwwroot` would blow this up");
     }
 }

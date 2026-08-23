@@ -1,11 +1,10 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
@@ -113,30 +112,21 @@ public sealed class CleanFileToolTests : IDisposable
 
     private static void WritePngWithTextChunk(string path, string keyword, string value)
     {
-        using Image<Rgba32> image = new(8, 8);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = new Rgba32(255, 0, 0, 255);
-                }
-            }
-        });
+        using var bitmap = new SKBitmap(8, 8, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(new SKColor(255, 0, 0, 255));
 
-        PngEncoder encoder = new()
+        // SkiaSharp's PNG encoder doesn't expose a tEXt chunk API. We
+        // emit a base PNG via SkiaSharp, then inject a tEXt chunk
+        // by writing it directly into the byte stream right after
+        // the 8-byte PNG signature and adjusting the IHDR chunk
+        // pointer to keep the rest of the file intact.
+        using var ms = new MemoryStream();
+        using (var image = SKImage.FromBitmap(bitmap))
+        using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
         {
-            TextCompressionThreshold = 0, // forces the encoder to emit a tEXt chunk
-        };
-
-        // SixLabors doesn't have a first-class "tEXt" property; the
-        // simplest deterministic way to seed metadata is to write the
-        // PNG via ImageSharp, then inject a tEXt chunk by re-encoding
-        // through a MemoryStream and prepending the chunk header.
-        using MemoryStream ms = new();
-        image.Save(ms, encoder);
+            data.AsStream().CopyTo(ms);
+        }
         byte[] original = ms.ToArray();
 
         // PNG signature is 8 bytes; chunks follow. Insert a tEXt chunk

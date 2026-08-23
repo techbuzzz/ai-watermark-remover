@@ -1,9 +1,9 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using WatermarkRemover.Core.Configuration;
 using WatermarkRemover.Core.Interfaces;
 using WatermarkRemover.Core.Models;
@@ -40,7 +40,7 @@ public sealed class DetectWatermarkToolTests : IDisposable
     public void DetectWatermark_NoRegions_ReturnsEmptyJsonArray()
     {
         string path = Path.Combine(_tempDir, "clean.png");
-        WriteSolidPng(path, 16, 16, new Rgba32(0, 0, 0, 255));
+        WriteSolidPng(path, 16, 16, new SKColor(0, 0, 0, 255));
 
         ServiceProvider sp = BuildImageHost(out IImageCleaningPipeline pipeline);
         TextContentBlock result = DetectWatermarkTool.DetectWatermark(pipeline, AppConfig.Default, path);
@@ -86,21 +86,15 @@ public sealed class DetectWatermarkToolTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    private static void WriteSolidPng(string path, int width, int height, Rgba32 color)
+    private static void WriteSolidPng(string path, int width, int height, SKColor color)
     {
-        using Image<Rgba32> image = new(width, height);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Rgba32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    row[x] = color;
-                }
-            }
-        });
-        image.Save(path);
+        using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Span<SKColor> pixels = MemoryMarshal.Cast<byte, SKColor>(bitmap.GetPixelSpan());
+        pixels.Fill(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.AsStream().CopyTo(stream);
     }
 
     private sealed class EmptyMaskGenerator : IMaskGenerator
@@ -112,6 +106,13 @@ public sealed class DetectWatermarkToolTests : IDisposable
     {
         public string ModelName => "noop";
         public bool IsAvailable => true;
-        public Image<SixLabors.ImageSharp.PixelFormats.Rgb24> Inpaint(Image<SixLabors.ImageSharp.PixelFormats.Rgb24> image, Image<SixLabors.ImageSharp.PixelFormats.L8> mask) => image.Clone();
+
+        public SKBitmap Inpaint(SKBitmap image, SKBitmap mask)
+        {
+            // In a no-op runner we still need to honour the contract
+            // and return a brand-new bitmap the caller can dispose.
+            // A Copy preserves the colour type the pipeline handed us.
+            return image.Copy(image.ColorType);
+        }
     }
 }

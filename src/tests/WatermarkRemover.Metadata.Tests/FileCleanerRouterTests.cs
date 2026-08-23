@@ -12,7 +12,6 @@ public class FileCleanerRouterTests
         new JpegMetadataCleaner(),
         new PngMetadataCleaner(),
         new WebPMetadataCleaner(),
-        new TiffMetadataCleaner(),
         new HeifMetadataCleaner(),
         new AvifMetadataCleaner(),
         new PdfMetadataCleaner(),
@@ -30,8 +29,6 @@ public class FileCleanerRouterTests
     [InlineData("a.jpg")]
     [InlineData("a.jpeg")]
     [InlineData("a.webp")]
-    [InlineData("a.tif")]
-    [InlineData("a.tiff")]
     [InlineData("a.heic")]
     [InlineData("a.heif")]
     [InlineData("a.avif")]
@@ -46,7 +43,6 @@ public class FileCleanerRouterTests
     [InlineData("a.mov")]
     [InlineData("a.m4v")]
     [InlineData("A.PNG")]
-    [InlineData("A.TIF")]
     [InlineData("A.HEIC")]
     [InlineData("A.AVIF")]
     [InlineData("A.EPUB")]
@@ -64,6 +60,9 @@ public class FileCleanerRouterTests
     [InlineData("a.txt")]
     [InlineData("a.exe")]
     [InlineData("a")]
+    [InlineData("a.tif")]
+    [InlineData("a.tiff")]
+    [InlineData("A.TIF")]
     public void IsSupported_UnknownExtensions_ReturnsFalse(string path)
     {
         BuildRouter().IsSupported(path).Should().BeFalse();
@@ -81,13 +80,6 @@ public class FileCleanerRouterTests
     {
         IFileMetadataCleaner? cleaner = BuildRouter().Resolve("photo.webp");
         cleaner.Should().BeOfType<WebPMetadataCleaner>();
-    }
-
-    [Fact]
-    public void Resolve_Tiff_ReturnsTiffCleaner()
-    {
-        BuildRouter().Resolve("photo.tif").Should().BeOfType<TiffMetadataCleaner>();
-        BuildRouter().Resolve("photo.tiff").Should().BeOfType<TiffMetadataCleaner>();
     }
 
     [Fact]
@@ -143,6 +135,6 @@ public class FileCleanerRouterTests
     [Fact]
     public void SupportedExtensions_AggregatesAllCleaners()
     {
-        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub", ".rtf", ".mp4", ".mov", ".m4v"]);
+        BuildRouter().SupportedExtensions.Should().Contain([".png", ".jpg", ".webp", ".heic", ".heif", ".avif", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".epub", ".rtf", ".mp4", ".mov", ".m4v"]);
     }
 }
