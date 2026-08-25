@@ -44,7 +44,7 @@
 # ----------------------------------------------------------------------------
 # Stage 0 — build the Astro web UI
 # ----------------------------------------------------------------------------
-FROM node:22-alpine AS webbuild
+FROM node:26-alpine AS webbuild
 WORKDIR /web
 
 # Copy lockfile + manifest first so the npm ci layer caches across
