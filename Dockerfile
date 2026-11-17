@@ -107,7 +107,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 # ----------------------------------------------------------------------------
 # Stage 2 — runtime
 # ----------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine AS runtime
 
 # curl is required for the HEALTHCHECK; everything else we need ships
 # with the base image. We also provision a dedicated non-root user that
