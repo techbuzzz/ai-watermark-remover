@@ -66,7 +66,7 @@ RUN --mount=type=cache,target=/root/.npm \
 # ----------------------------------------------------------------------------
 # Stage 1 — restore + publish
 # ----------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 # Copy only the files that affect restore first so the NuGet layer can be
